@@ -1,0 +1,27 @@
+{#
+  Layout: Minimal
+  Clean, compact banner — no title bar, just the message and
+  two side-by-side buttons (Accept / Reject). Customize link below.
+  Good for sites that want an unobtrusive consent notice.
+#}
+{% extends "gdpr/base.html.twig" %}
+
+{% block banner_header %}{% endblock %}
+
+{% block banner_body %}
+<div class="content-wrap">
+  <div class="msg-wrap" style="color:{{ colors.notice_description }}">
+    {% if iab|default(false) %}[conzent_iab_notice_description]{% else %}[conzent_cookie_notice_message]{% endif %}
+    {{ privacy_policy_link|raw }}
+  </div>
+  <div class="btn-wrap" style="flex-direction:row;gap:8px;">
+    {{ buttons_html|raw }}
+  </div>
+</div>
+{% endblock %}
+
+{% block banner_footer %}
+<div class="conzent-branding" style="display:flex;justify-content:flex-end;padding:6px 0 0;font-size:11px;opacity:0.7;">
+  {{ branding_html|raw }}
+</div>
+{% endblock %}

@@ -1,0 +1,327 @@
+{% extends 'layouts/base.html.twig' %}
+{% import 'components/macros.html.twig' as ui %}
+
+{% set active_page = 'scans' %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div x-data="scansPage()">
+
+    <nav class="breadcrumb mb-3" aria-label="breadcrumbs">
+        <ul>
+            <li><a href="/">Dashboard</a></li>
+            <li class="is-active"><a href="#" aria-current="page">Cookie Scans</a></li>
+        </ul>
+    </nav>
+
+    {# ── Header ────────────────────────────────────────── #}
+    <div class="level mb-4">
+        <div class="level-left">
+            <div class="level-item">
+                <h1 class="title is-4 mb-0">Cookie Scans</h1>
+            </div>
+            <div class="level-item">
+                {{ ui.siteSelector(sites, siteId, '/scans') }}
+            </div>
+        </div>
+        <div class="level-right">
+            <div class="level-item">
+                <button class="button is-primary"
+                        @click="startScanModal = true"
+                        :disabled="hasActiveScans">
+                    <span class="icon"><i class="fas fa-search"></i></span>
+                    <span>Scan Now</span>
+                </button>
+            </div>
+            <div class="level-item">
+                <button class="button is-outlined"
+                        @click="scheduleModal = true">
+                    <span class="icon"><i class="fas fa-clock"></i></span>
+                    <span>Schedule</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    {# ── Summary Cards ─────────────────────────────────── #}
+    <div class="columns mb-5">
+        <div class="column is-4">
+            <div class="box has-background-light p-4">
+                <p class="heading has-text-grey">Last Scan</p>
+                {% if lastScan %}
+                    <p class="title is-5 mb-1">
+                        {{ lastScan.completed_at ? lastScan.completed_at|date('M j, Y H:i') : 'In progress' }}
+                    </p>
+                    <p class="subtitle is-7 has-text-grey">
+                        {{ lastScan.total_cookies }} cookies &middot;
+                        {{ lastScan.total_scripts }} beacons &middot;
+                        {{ lastScan.total_pages }} pages
+                    </p>
+                {% else %}
+                    <p class="title is-5 mb-1 has-text-grey-light">No scans yet</p>
+                    <p class="subtitle is-7 has-text-grey">Run your first scan to detect cookies</p>
+                {% endif %}
+            </div>
+        </div>
+        <div class="column is-4">
+            <div class="box has-background-light p-4">
+                <p class="heading has-text-grey">Next Scheduled</p>
+                {% if nextScheduled %}
+                    <p class="title is-5 mb-1">
+                        {{ nextScheduled.schedule_date|date('M j, Y') }}
+                        {{ nextScheduled.schedule_time|date('H:i') }}
+                    </p>
+                    <p class="subtitle is-7 has-text-grey">
+                        {{ nextScheduled.frequency|capitalize }} scan
+                    </p>
+                {% else %}
+                    <p class="title is-5 mb-1 has-text-grey-light">None</p>
+                    <p class="subtitle is-7 has-text-grey">Set up automatic scanning</p>
+                {% endif %}
+            </div>
+        </div>
+        <div class="column is-4">
+            <div class="box has-background-light p-4">
+                <p class="heading has-text-grey">Scan Servers</p>
+                <p class="title is-5 mb-1">{{ servers|length }}</p>
+                <p class="subtitle is-7 has-text-grey">
+                    {{ servers|filter(s => s.is_active)|length }} active
+                </p>
+            </div>
+        </div>
+    </div>
+
+    {# ── Active Scan Progress ──────────────────────────── #}
+    {% if hasActiveScans %}
+    <div class="notification is-info is-light mb-4" id="active-scan-notice"
+         hx-get="/scans?site_id={{ siteId }}"
+         hx-trigger="every 10s"
+         hx-target="#scan-table-container"
+         hx-select="#scan-table-container"
+         hx-swap="outerHTML">
+        <span class="icon"><i class="fas fa-spinner fa-spin"></i></span>
+        <strong>Scan in progress</strong> — results will appear automatically.
+    </div>
+    {% endif %}
+
+    {# ── Scan History Table ────────────────────────────── #}
+    <div id="scan-table-container">
+        {% include 'pages/scans/_scan_table.html.twig' %}
+    </div>
+
+    {# ── Start Scan Modal ──────────────────────────────── #}
+    <div class="modal" :class="{ 'is-active': startScanModal }">
+        <div class="modal-background" @click="startScanModal = false"></div>
+        <div class="modal-card">
+            <header class="modal-card-head">
+                <p class="modal-card-title">Start Cookie Scan</p>
+                <button class="delete" @click="startScanModal = false"></button>
+            </header>
+            <section class="modal-card-body">
+                <div class="field">
+                    <label class="label">Scan Type</label>
+                    <div class="control">
+                        <label class="radio">
+                            <input type="radio" name="scan_type" value="full" x-model="scanType"> Full Site Scan
+                        </label>
+                        <label class="radio ml-4">
+                            <input type="radio" name="scan_type" value="custom" x-model="scanType"> Custom URLs
+                        </label>
+                    </div>
+                </div>
+
+                <div class="field" x-show="scanType === 'custom'" x-transition>
+                    <label class="label">URLs to Scan</label>
+                    <div class="control">
+                        <textarea class="textarea" x-model="customUrls"
+                                  placeholder="https://example.com/page1&#10;https://example.com/page2"
+                                  rows="5"></textarea>
+                    </div>
+                    <p class="help">One URL per line</p>
+                </div>
+
+                <div class="notification is-warning is-light" x-show="scanError" x-text="scanError"></div>
+            </section>
+            <footer class="modal-card-foot">
+                <button class="button is-primary" @click="startScan()"
+                        :class="{ 'is-loading': scanStarting }">
+                    <span class="icon"><i class="fas fa-search"></i></span>
+                    <span>Start Scan</span>
+                </button>
+                <button class="button" @click="startScanModal = false">Cancel</button>
+            </footer>
+        </div>
+    </div>
+
+    {# ── Schedule Modal ────────────────────────────────── #}
+    <div class="modal" :class="{ 'is-active': scheduleModal }">
+        <div class="modal-background" @click="scheduleModal = false"></div>
+        <div class="modal-card">
+            <header class="modal-card-head">
+                <p class="modal-card-title">Schedule Scan</p>
+                <button class="delete" @click="scheduleModal = false"></button>
+            </header>
+            <section class="modal-card-body">
+                <div class="field">
+                    <label class="label">Frequency</label>
+                    <div class="control">
+                        <div class="select is-fullwidth">
+                            <select x-model="scheduleFrequency">
+                                <option value="once">One-time</option>
+                                <option value="monthly">Monthly</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="field">
+                    <label class="label" x-text="scheduleFrequency === 'monthly' ? 'Start Date' : 'Scan Date'">Scan Date</label>
+                    <div class="control">
+                        <input class="input" type="date" x-model="scheduleDate">
+                    </div>
+                </div>
+                <div class="field">
+                    <label class="label">Time</label>
+                    <div class="control">
+                        <input class="input" type="time" x-model="scheduleTime" value="03:00">
+                    </div>
+                </div>
+
+                <div class="notification is-warning is-light" x-show="scheduleError" x-text="scheduleError"></div>
+            </section>
+            <footer class="modal-card-foot">
+                <button class="button is-primary" @click="scheduleScan()"
+                        :class="{ 'is-loading': scheduleSubmitting }">
+                    <span class="icon"><i class="fas fa-clock"></i></span>
+                    <span>Schedule</span>
+                </button>
+                <button class="button" @click="scheduleModal = false">Cancel</button>
+            </footer>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+      integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA=="
+      crossorigin="anonymous" referrerpolicy="no-referrer" />
+{% endblock %}
+
+{% block scripts %}
+<script>
+function scansPage() {
+    return {
+        hasActiveScans: {{ hasActiveScans ? 'true' : 'false' }},
+        siteId: {{ siteId }},
+
+        // Start Scan Modal
+        startScanModal: false,
+        scanType: 'full',
+        customUrls: '',
+        scanStarting: false,
+        scanError: '',
+
+        // Schedule Modal
+        scheduleModal: false,
+        scheduleFrequency: 'once',
+        scheduleDate: '',
+        scheduleTime: '03:00',
+        scheduleSubmitting: false,
+        scheduleError: '',
+
+        async startScan() {
+            this.scanError = '';
+            this.scanStarting = true;
+
+            const body = {
+                site_id: this.siteId,
+                scan_type: this.scanType,
+            };
+
+            if (this.scanType === 'custom') {
+                const urls = this.customUrls.split('\n').map(u => u.trim()).filter(u => u);
+                if (urls.length === 0) {
+                    this.scanError = 'Please enter at least one URL';
+                    this.scanStarting = false;
+                    return;
+                }
+                body.urls = urls;
+            }
+
+            try {
+                const res = await fetch('/app/scans/start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body),
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    this.startScanModal = false;
+                    window.location.reload();
+                } else {
+                    this.scanError = data.error?.message || 'Failed to start scan';
+                }
+            } catch {
+                this.scanError = 'Network error';
+            }
+
+            this.scanStarting = false;
+        },
+
+        async scheduleScan() {
+            this.scheduleError = '';
+            this.scheduleSubmitting = true;
+
+            if (!this.scheduleDate) {
+                this.scheduleError = 'Please select a date';
+                this.scheduleSubmitting = false;
+                return;
+            }
+
+            try {
+                const res = await fetch('/app/scans/schedule', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        site_id: this.siteId,
+                        frequency: this.scheduleFrequency,
+                        date: this.scheduleDate,
+                        time: this.scheduleTime,
+                    }),
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    this.scheduleModal = false;
+                    window.location.reload();
+                } else {
+                    this.scheduleError = data.error?.message || 'Failed to schedule scan';
+                }
+            } catch {
+                this.scheduleError = 'Network error';
+            }
+
+            this.scheduleSubmitting = false;
+        },
+
+        async cancelScan(scanId) {
+            if (!confirm('Cancel this scan?')) return;
+
+            try {
+                const res = await fetch(`/app/scans/${scanId}/cancel`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                });
+                const data = await res.json();
+                if (data.success) {
+                    window.location.reload();
+                }
+            } catch { /* ignore */ }
+        },
+    };
+}
+</script>
+{% endblock %}

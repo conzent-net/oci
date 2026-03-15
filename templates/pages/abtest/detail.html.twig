@@ -1,0 +1,828 @@
+{% extends 'layouts/base.html.twig' %}
+
+{% set active_page = 'ab-tests' %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/apexcharts@3.52.0"></script>
+<style>
+    .variant-card { border-left: 4px solid var(--oci-border); transition: border-color 0.2s; }
+    .variant-card.is-control { border-left-color: var(--oci-primary); }
+    .variant-card.is-winner { border-left-color: var(--oci-success); background: rgba(22,163,74,0.05); }
+    .stat-label { font-size: 0.75rem; color: var(--oci-text-light); text-transform: uppercase; letter-spacing: 0.05em; }
+    .stat-value { font-size: 1.5rem; font-weight: 700; }
+    .lift-badge { font-size: 0.8rem; padding: 2px 8px; border-radius: 12px; }
+    .lift-positive { background: rgba(22,163,74,0.1); color: var(--oci-success); }
+    .lift-negative { background: rgba(220,38,38,0.1); color: var(--oci-danger); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div x-data="experimentDetail()">
+
+    <nav class="breadcrumb mb-3" aria-label="breadcrumbs">
+        <ul>
+            <li><a href="/">Dashboard</a></li>
+            <li><a href="/ab-tests">A/B Tests</a></li>
+            <li class="is-active"><a href="#" aria-current="page">{{ experiment.experiment_name }}</a></li>
+        </ul>
+    </nav>
+
+    {# -- Header ------------------------------------------------- #}
+    <div class="level mb-4">
+        <div class="level-left">
+            <div class="level-item">
+                <h1 class="title is-4 mb-0">{{ experiment.experiment_name }}</h1>
+            </div>
+            <div class="level-item">
+                {% if experiment.status == 'running' %}
+                    <span class="tag is-success"><i class="fas fa-circle fa-xs mr-1"></i> Running</span>
+                {% elseif experiment.status == 'draft' %}
+                    <span class="tag is-light">Draft</span>
+                {% elseif experiment.status == 'paused' %}
+                    <span class="tag is-warning">Paused</span>
+                {% elseif experiment.status == 'completed' %}
+                    <span class="tag is-info">Completed</span>
+                {% endif %}
+            </div>
+            <div class="level-item">
+                <button class="button is-small is-ghost" title="Edit experiment name"
+                        @click="openEditExperiment()">
+                    <span class="icon"><i class="fas fa-pencil-alt"></i></span>
+                </button>
+            </div>
+        </div>
+        <div class="level-right">
+            {% if experiment.status == 'draft' or experiment.status == 'paused' %}
+            <div class="level-item">
+                <button class="button is-success is-small" @click="confirmStart.open = true"
+                        :class="{ 'is-loading': acting }">
+                    <span class="icon"><i class="fas fa-play"></i></span>
+                    <span>Start</span>
+                </button>
+            </div>
+            {% endif %}
+            {% if experiment.status == 'running' %}
+            <div class="level-item">
+                <button class="button is-warning is-small" @click="doAction('pause')"
+                        :class="{ 'is-loading': acting }">
+                    <span class="icon"><i class="fas fa-pause"></i></span>
+                    <span>Pause</span>
+                </button>
+            </div>
+            {% endif %}
+            {% if experiment.status != 'completed' %}
+            <div class="level-item">
+                <button class="button is-primary is-small is-outlined" @click="openAddVariant()">
+                    <span class="icon"><i class="fas fa-plus"></i></span>
+                    <span>Add Variant</span>
+                </button>
+            </div>
+            {% endif %}
+            {% if experiment.status != 'running' %}
+            <div class="level-item">
+                <button class="button is-danger is-small is-outlined" @click="openDeleteExperiment()">
+                    <span class="icon"><i class="fas fa-trash"></i></span>
+                    <span>Delete</span>
+                </button>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {# -- Meta --------------------------------------------------- #}
+    <div class="columns is-variable is-2 mb-4">
+        <div class="column">
+            <div class="box py-3">
+                <p class="stat-label">Started</p>
+                <p class="is-size-6">{{ experiment.started_at ? experiment.started_at|date('M j, Y H:i') : 'Not started' }}</p>
+            </div>
+        </div>
+        <div class="column">
+            <div class="box py-3">
+                <p class="stat-label">Total Visitors</p>
+                {% set totalVisitors = 0 %}
+                {% for v in variants %}{% set totalVisitors = totalVisitors + v.total %}{% endfor %}
+                <p class="is-size-6 has-text-weight-bold">{{ totalVisitors|number_format }}</p>
+            </div>
+        </div>
+        <div class="column">
+            <div class="box py-3">
+                <p class="stat-label">Variants</p>
+                <p class="is-size-6 has-text-weight-bold">{{ variants|length }}</p>
+            </div>
+        </div>
+        <div class="column">
+            <div class="box py-3">
+                <p class="stat-label">Duration</p>
+                {% if experiment.started_at %}
+                    {% set endDate = experiment.ended_at ?: 'now' %}
+                    <p class="is-size-6">{{ ((endDate|date('U') - experiment.started_at|date('U')) / 86400)|round }} days</p>
+                {% else %}
+                    <p class="is-size-6">--</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    {# -- Variant Results ---------------------------------------- #}
+    <div class="columns is-multiline">
+        {% for v in variants %}
+        <div class="column is-6">
+            <div class="box variant-card {{ v.is_control ? 'is-control' : '' }} {{ experiment.winner_variant_id == v.variant_id ? 'is-winner' : '' }}">
+                <div class="level mb-3">
+                    <div class="level-left">
+                        <h3 class="subtitle is-6 mb-0">
+                            {{ v.variant_name }}
+                            {% if experiment.winner_variant_id == v.variant_id %}
+                                <span class="tag is-success is-small ml-1"><i class="fas fa-trophy mr-1"></i> Winner</span>
+                            {% endif %}
+                            <span class="tag is-warning is-light is-small ml-1" title="Banner layout">
+                                <i class="fas fa-palette mr-1"></i>{{ v.layout_name }}
+                            </span>
+                        </h3>
+                    </div>
+                    <div class="level-right">
+                        {% if v.lift is defined and v.lift != 0 and not v.is_control %}
+                            <span class="lift-badge {{ v.lift > 0 ? 'lift-positive' : 'lift-negative' }}">
+                                {{ v.lift > 0 ? '+' : '' }}{{ v.lift }}% lift
+                            </span>
+                        {% endif %}
+                        <div class="buttons are-small ml-2">
+                            {% if experiment.status != 'completed' %}
+                            <button class="button is-info is-light" title="Edit variant"
+                                    @click="openEditVariant({{ v.variant_id }}, '{{ v.variant_name|e('js') }}', '{{ v.variant_key|e('js') }}', {{ v.weight|default(50) }})">
+                                <span class="icon"><i class="fas fa-pencil-alt"></i></span>
+                            </button>
+                            {% if not v.is_control %}
+                            <button class="button is-danger is-light" title="Delete variant"
+                                    @click="openDeleteVariant({{ v.variant_id }}, '{{ v.variant_name|e('js') }}')">
+                                <span class="icon"><i class="fas fa-trash"></i></span>
+                            </button>
+                            {% endif %}
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="columns is-mobile has-text-centered">
+                    <div class="column">
+                        <p class="stat-label">Visitors</p>
+                        <p class="stat-value">{{ v.total|number_format }}</p>
+                    </div>
+                    <div class="column">
+                        <p class="stat-label">Accepted</p>
+                        <p class="stat-value has-text-success">{{ v.accepted_rate }}%</p>
+                    </div>
+                    <div class="column">
+                        <p class="stat-label">Rejected</p>
+                        <p class="stat-value has-text-danger">{{ v.rejected_rate }}%</p>
+                    </div>
+                    <div class="column">
+                        <p class="stat-label">Partial</p>
+                        <p class="stat-value has-text-warning">{{ v.partial_rate }}%</p>
+                    </div>
+                </div>
+
+                {% if v.confidence is defined and v.confidence is not null %}
+                <div class="mt-2">
+                    <progress class="progress is-small {{ v.confidence >= 95 ? 'is-success' : (v.confidence >= 80 ? 'is-warning' : 'is-light') }}"
+                              value="{{ v.confidence }}" max="100">{{ v.confidence }}%</progress>
+                    <p class="is-size-7 has-text-grey">{{ v.confidence }}% statistical confidence</p>
+                </div>
+                {% endif %}
+
+                {% if experiment.status == 'running' or experiment.status == 'paused' %}
+                <div class="mt-3 has-text-right">
+                    <button class="button is-small is-success is-outlined"
+                            @click="openSelectWinner({{ v.variant_id }}, '{{ v.variant_name|e('js') }}')"
+                            :class="{ 'is-loading': acting }">
+                        <span class="icon"><i class="fas fa-trophy"></i></span>
+                        <span>Select as Winner</span>
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    {# -- Start Confirmation Modal ------------------------------- #}
+    <div class="modal" :class="{ 'is-active': confirmStart.open }">
+        <div class="modal-background" @click="confirmStart.open = false"></div>
+        <div class="modal-card" style="max-width:480px">
+            <header class="modal-card-head">
+                <p class="modal-card-title is-size-6">Start Experiment</p>
+                <button class="delete" aria-label="close" @click="confirmStart.open = false"></button>
+            </header>
+            <section class="modal-card-body">
+                <p>Start this experiment? Visitors will see different banner variants.</p>
+                <p class="help is-danger" x-show="confirmStart.error" x-text="confirmStart.error"></p>
+            </section>
+            <footer class="modal-card-foot">
+                <button class="button is-success" @click="doAction('start')"
+                        :class="{ 'is-loading': acting }">Start</button>
+                <button class="button" @click="confirmStart.open = false">Cancel</button>
+            </footer>
+        </div>
+    </div>
+
+    {# -- Select Winner Modal ------------------------------------ #}
+    <div class="modal" :class="{ 'is-active': winnerModal.open }">
+        <div class="modal-background" @click="winnerModal.open = false"></div>
+        <div class="modal-card" style="max-width:480px">
+            <header class="modal-card-head">
+                <p class="modal-card-title is-size-6">Select Winner</p>
+                <button class="delete" aria-label="close" @click="winnerModal.open = false"></button>
+            </header>
+            <section class="modal-card-body">
+                <p>Select <strong x-text="winnerModal.name"></strong> as the winner?</p>
+                <p class="has-text-grey mt-2">This will apply its settings to your banner and end the experiment.</p>
+                <p class="help is-danger" x-show="winnerModal.error" x-text="winnerModal.error"></p>
+            </section>
+            <footer class="modal-card-foot">
+                <button class="button is-success" @click="confirmSelectWinner()"
+                        :class="{ 'is-loading': acting }">
+                    <span class="icon"><i class="fas fa-trophy"></i></span>
+                    <span>Confirm Winner</span>
+                </button>
+                <button class="button" @click="winnerModal.open = false">Cancel</button>
+            </footer>
+        </div>
+    </div>
+
+    {# -- Edit Experiment Modal ---------------------------------- #}
+    <div class="modal" :class="{ 'is-active': editExpModal.open }">
+        <div class="modal-background" @click="editExpModal.open = false"></div>
+        <div class="modal-card" style="max-width:480px">
+            <header class="modal-card-head">
+                <p class="modal-card-title is-size-6">Edit Experiment</p>
+                <button class="delete" aria-label="close" @click="editExpModal.open = false"></button>
+            </header>
+            <section class="modal-card-body">
+                <div class="field">
+                    <label class="label is-small">Experiment Name</label>
+                    <div class="control">
+                        <input class="input" type="text" x-model="editExpModal.name"
+                               @keydown.enter="saveExperiment()">
+                    </div>
+                </div>
+                <p class="help is-danger" x-show="editExpModal.error" x-text="editExpModal.error"></p>
+            </section>
+            <footer class="modal-card-foot">
+                <button class="button is-primary" @click="saveExperiment()"
+                        :class="{ 'is-loading': editExpModal.saving }" :disabled="!editExpModal.name.trim()">
+                    Save
+                </button>
+                <button class="button" @click="editExpModal.open = false">Cancel</button>
+            </footer>
+        </div>
+    </div>
+
+    {# -- Delete Experiment Modal -------------------------------- #}
+    <div class="modal" :class="{ 'is-active': deleteExpModal.open }">
+        <div class="modal-background" @click="deleteExpModal.open = false"></div>
+        <div class="modal-card" style="max-width:480px">
+            <header class="modal-card-head has-background-danger-light">
+                <p class="modal-card-title has-text-danger is-size-6">Delete Experiment</p>
+                <button class="delete" aria-label="close" @click="deleteExpModal.open = false"></button>
+            </header>
+            <section class="modal-card-body">
+                <p>Are you sure you want to <strong class="has-text-danger">permanently delete</strong> this experiment?</p>
+                <p class="has-text-danger mt-2">This action cannot be undone. All variants and data will be lost.</p>
+                <p class="help is-danger" x-show="deleteExpModal.error" x-text="deleteExpModal.error"></p>
+            </section>
+            <footer class="modal-card-foot">
+                <button class="button is-danger" @click="confirmDeleteExperiment()"
+                        :class="{ 'is-loading': deleteExpModal.saving }">Delete</button>
+                <button class="button" @click="deleteExpModal.open = false">Cancel</button>
+            </footer>
+        </div>
+    </div>
+
+    {# -- Add Variant Modal -------------------------------------- #}
+    <div class="modal" :class="{ 'is-active': showAddVariant }">
+        <div class="modal-background" @click="showAddVariant = false"></div>
+        <div class="modal-card" style="max-width:480px">
+            <header class="modal-card-head">
+                <p class="modal-card-title is-size-6">Add Variant</p>
+                <button class="delete" aria-label="close" @click="showAddVariant = false"></button>
+            </header>
+            <section class="modal-card-body">
+                <div class="field">
+                    <label class="label is-small">Variant Name</label>
+                    <div class="control">
+                        <input class="input" type="text" x-model="variantForm.name"
+                               placeholder="e.g. Variant B — Popup style">
+                    </div>
+                </div>
+                <div class="field">
+                    <label class="label is-small">Key</label>
+                    <div class="control">
+                        <input class="input" type="text" x-model="variantForm.key"
+                               placeholder="e.g. b" maxlength="20">
+                    </div>
+                    <p class="help">Short identifier (a, b, c, etc.)</p>
+                </div>
+                <div class="field">
+                    <label class="label is-small">Layout</label>
+                    <div class="select is-fullwidth">
+                        <select x-model="variantForm.layout">
+                            <option value="">Same as control (default)</option>
+                            <option value="gdpr/classic">Classic</option>
+                            <option value="gdpr/minimal">Minimal</option>
+                            <option value="gdpr/stacked">Stacked</option>
+                            <option value="gdpr/card">Card</option>
+                            <option value="gdpr/sidebar">Sidebar</option>
+                            <option value="gdpr/hero">Hero</option>
+                            {% for cl in customLayouts|default([]) %}
+                            <option value="custom:{{ cl.id }}">{{ cl.layout_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <p class="help">Optionally pick a different layout for this variant.</p>
+                </div>
+                <p class="is-size-7 has-text-grey mt-3">
+                    Settings (colors, buttons, etc.) will be copied from the control.
+                    You can manage layouts from the <a href="/layouts">Layouts</a> page.
+                </p>
+                <p class="help is-danger" x-show="variantForm.error" x-text="variantForm.error"></p>
+            </section>
+            <footer class="modal-card-foot">
+                <button class="button is-primary" @click="addVariant()"
+                        :class="{ 'is-loading': variantForm.saving }" :disabled="!variantForm.name.trim() || !variantForm.key.trim()">
+                    Add
+                </button>
+                <button class="button" @click="showAddVariant = false">Cancel</button>
+            </footer>
+        </div>
+    </div>
+
+    {# -- Edit Variant Modal ------------------------------------- #}
+    <div class="modal" :class="{ 'is-active': editVariantModal.open }">
+        <div class="modal-background" @click="editVariantModal.open = false"></div>
+        <div class="modal-card" style="max-width:480px">
+            <header class="modal-card-head">
+                <p class="modal-card-title is-size-6">Edit Variant</p>
+                <button class="delete" aria-label="close" @click="editVariantModal.open = false"></button>
+            </header>
+            <section class="modal-card-body">
+                <div class="field">
+                    <label class="label is-small">Variant Name</label>
+                    <div class="control">
+                        <input class="input" type="text" x-model="editVariantModal.name"
+                               @keydown.enter="saveVariant()">
+                    </div>
+                </div>
+                <div class="field">
+                    <label class="label is-small">Key</label>
+                    <div class="control">
+                        <input class="input" type="text" x-model="editVariantModal.key" maxlength="20">
+                    </div>
+                </div>
+                <div class="field">
+                    <label class="label is-small">Traffic Weight (%)</label>
+                    <div class="control">
+                        <input class="input" type="number" x-model.number="editVariantModal.weight"
+                               min="0" max="100">
+                    </div>
+                    <p class="help">Percentage of traffic to send to this variant (0–100).</p>
+                </div>
+                <p class="help is-danger" x-show="editVariantModal.error" x-text="editVariantModal.error"></p>
+            </section>
+            <footer class="modal-card-foot">
+                <button class="button is-primary" @click="saveVariant()"
+                        :class="{ 'is-loading': editVariantModal.saving }" :disabled="!editVariantModal.name.trim() || !editVariantModal.key.trim()">
+                    Save
+                </button>
+                <button class="button" @click="editVariantModal.open = false">Cancel</button>
+            </footer>
+        </div>
+    </div>
+
+    {# -- Delete Variant Modal ----------------------------------- #}
+    <div class="modal" :class="{ 'is-active': deleteVariantModal.open }">
+        <div class="modal-background" @click="deleteVariantModal.open = false"></div>
+        <div class="modal-card" style="max-width:480px">
+            <header class="modal-card-head has-background-danger-light">
+                <p class="modal-card-title has-text-danger is-size-6">Delete Variant</p>
+                <button class="delete" aria-label="close" @click="deleteVariantModal.open = false"></button>
+            </header>
+            <section class="modal-card-body">
+                <p>Are you sure you want to delete <strong x-text="deleteVariantModal.name"></strong>?</p>
+                <p class="has-text-grey mt-2">This action cannot be undone.</p>
+                <p class="help is-danger" x-show="deleteVariantModal.error" x-text="deleteVariantModal.error"></p>
+            </section>
+            <footer class="modal-card-foot">
+                <button class="button is-danger" @click="confirmDeleteVariant()"
+                        :class="{ 'is-loading': deleteVariantModal.saving }">Delete</button>
+                <button class="button" @click="deleteVariantModal.open = false">Cancel</button>
+            </footer>
+        </div>
+    </div>
+
+    {# ── Revenue Impact Report ──────────────────────────────────── #}
+    {% include 'partials/abtest/_impact_report.html.twig' %}
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function experimentDetail() {
+    return {
+        acting: false,
+        showAddVariant: false,
+
+        // Revenue Impact state
+        impactLoading: false,
+        impactLoaded: false,
+        impactError: '',
+        impactData: { variants: [], comparison: [], tier: 'estimated', recommendation: null },
+        showSignalsModal: false,
+        signals: {},
+        industryPresets: {},
+        signalsSaving: false,
+        signalsError: '',
+
+        confirmStart: { open: false, error: '' },
+        winnerModal: { open: false, id: 0, name: '', error: '' },
+        editExpModal: { open: false, saving: false, name: '', error: '' },
+        deleteExpModal: { open: false, saving: false, error: '' },
+        variantForm: { name: '', key: '', layout: '', saving: false, error: '' },
+        editVariantModal: { open: false, saving: false, id: 0, name: '', key: '', weight: 50, error: '' },
+        deleteVariantModal: { open: false, saving: false, id: 0, name: '', error: '' },
+
+        doAction(action) {
+            if (this.acting) return;
+            this.acting = true;
+            this.confirmStart.error = '';
+
+            fetch('/app/ab-tests/{{ experiment.id }}/' + action, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                body: JSON.stringify({ site_id: {{ experiment.site_id }} })
+            })
+            .then(r => r.json())
+            .then(data => {
+                this.acting = false;
+                if (data.success) {
+                    window.location.reload();
+                } else {
+                    this.confirmStart.error = data.message || 'Action failed';
+                }
+            })
+            .catch(() => {
+                this.acting = false;
+                this.confirmStart.error = 'Action failed';
+            });
+        },
+
+        openSelectWinner(variantId, name) {
+            this.winnerModal = { open: true, id: variantId, name, error: '' };
+        },
+
+        confirmSelectWinner() {
+            if (this.acting) return;
+            this.acting = true;
+            this.winnerModal.error = '';
+
+            fetch('/app/ab-tests/{{ experiment.id }}/complete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                body: JSON.stringify({ site_id: {{ experiment.site_id }}, winner_variant_id: this.winnerModal.id })
+            })
+            .then(r => r.json())
+            .then(data => {
+                this.acting = false;
+                if (data.success) {
+                    window.location.reload();
+                } else {
+                    this.winnerModal.error = data.message || 'Failed to select winner';
+                }
+            })
+            .catch(() => {
+                this.acting = false;
+                this.winnerModal.error = 'Failed to select winner';
+            });
+        },
+
+        // -- Experiment edit/delete --
+        openEditExperiment() {
+            this.editExpModal = { open: true, saving: false, name: '{{ experiment.experiment_name|e('js') }}', error: '' };
+        },
+
+        saveExperiment() {
+            if (!this.editExpModal.name.trim() || this.editExpModal.saving) return;
+            this.editExpModal.saving = true;
+            this.editExpModal.error = '';
+
+            fetch('/app/ab-tests/{{ experiment.id }}', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                body: JSON.stringify({ site_id: {{ experiment.site_id }}, name: this.editExpModal.name.trim() })
+            })
+            .then(r => r.json())
+            .then(data => {
+                this.editExpModal.saving = false;
+                if (data.success) {
+                    window.location.reload();
+                } else {
+                    this.editExpModal.error = data.message || 'Failed to update experiment';
+                }
+            })
+            .catch(() => {
+                this.editExpModal.saving = false;
+                this.editExpModal.error = 'Failed to update experiment';
+            });
+        },
+
+        openDeleteExperiment() {
+            this.deleteExpModal = { open: true, saving: false, error: '' };
+        },
+
+        confirmDeleteExperiment() {
+            if (this.deleteExpModal.saving) return;
+            this.deleteExpModal.saving = true;
+            this.deleteExpModal.error = '';
+
+            fetch('/app/ab-tests/{{ experiment.id }}', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                body: JSON.stringify({ site_id: {{ experiment.site_id }} })
+            })
+            .then(r => r.json())
+            .then(data => {
+                this.deleteExpModal.saving = false;
+                if (data.success) {
+                    window.location.href = '/ab-tests';
+                } else {
+                    this.deleteExpModal.error = data.message || 'Failed to delete experiment';
+                }
+            })
+            .catch(() => {
+                this.deleteExpModal.saving = false;
+                this.deleteExpModal.error = 'Failed to delete experiment';
+            });
+        },
+
+        // -- Variant CRUD --
+        openAddVariant() {
+            this.variantForm = { name: '', key: '', layout: '', saving: false, error: '' };
+            this.showAddVariant = true;
+        },
+
+        addVariant() {
+            if (!this.variantForm.name.trim() || !this.variantForm.key.trim() || this.variantForm.saving) return;
+            this.variantForm.saving = true;
+            this.variantForm.error = '';
+
+            fetch('/app/ab-tests/{{ experiment.id }}/variants', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                body: JSON.stringify({
+                    name: this.variantForm.name.trim(),
+                    key: this.variantForm.key.trim(),
+                    layout_key: this.variantForm.layout.startsWith('custom:') ? null : (this.variantForm.layout || null),
+                    custom_layout_id: this.variantForm.layout.startsWith('custom:') ? parseInt(this.variantForm.layout.split(':')[1]) : null,
+                })
+            })
+            .then(r => r.json())
+            .then(data => {
+                this.variantForm.saving = false;
+                if (data.success) {
+                    window.location.reload();
+                } else {
+                    this.variantForm.error = data.message || 'Failed to add variant';
+                }
+            })
+            .catch(() => {
+                this.variantForm.saving = false;
+                this.variantForm.error = 'Failed to add variant';
+            });
+        },
+
+        openEditVariant(id, name, key, weight) {
+            this.editVariantModal = { open: true, saving: false, id, name, key, weight, error: '' };
+        },
+
+        saveVariant() {
+            if (!this.editVariantModal.name.trim() || !this.editVariantModal.key.trim() || this.editVariantModal.saving) return;
+            this.editVariantModal.saving = true;
+            this.editVariantModal.error = '';
+
+            fetch('/app/ab-tests/{{ experiment.id }}/variants', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                body: JSON.stringify({
+                    variant_id: this.editVariantModal.id,
+                    name: this.editVariantModal.name.trim(),
+                    key: this.editVariantModal.key.trim(),
+                    weight: this.editVariantModal.weight,
+                })
+            })
+            .then(r => r.json())
+            .then(data => {
+                this.editVariantModal.saving = false;
+                if (data.success) {
+                    window.location.reload();
+                } else {
+                    this.editVariantModal.error = data.message || 'Failed to update variant';
+                }
+            })
+            .catch(() => {
+                this.editVariantModal.saving = false;
+                this.editVariantModal.error = 'Failed to update variant';
+            });
+        },
+
+        openDeleteVariant(id, name) {
+            this.deleteVariantModal = { open: true, saving: false, id, name, error: '' };
+        },
+
+        confirmDeleteVariant() {
+            if (this.deleteVariantModal.saving) return;
+            this.deleteVariantModal.saving = true;
+            this.deleteVariantModal.error = '';
+
+            fetch('/app/ab-tests/{{ experiment.id }}/variants/' + this.deleteVariantModal.id, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                body: JSON.stringify({ site_id: {{ experiment.site_id }} })
+            })
+            .then(r => r.json())
+            .then(data => {
+                this.deleteVariantModal.saving = false;
+                if (data.success) {
+                    window.location.reload();
+                } else {
+                    this.deleteVariantModal.error = data.message || 'Failed to delete variant';
+                }
+            })
+            .catch(() => {
+                this.deleteVariantModal.saving = false;
+                this.deleteVariantModal.error = 'Failed to delete variant';
+            });
+        },
+
+        // ── Revenue Impact Methods ──────────────────────────────
+
+        init() {
+            this.loadImpact();
+        },
+
+        loadImpact() {
+            this.impactLoading = true;
+            this.impactError = '';
+            fetch('/app/ab-tests/{{ experiment.id }}/impact', {
+                headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(r => {
+                if (!r.ok && r.status !== 200) {
+                    return r.text().then(text => {
+                        try { return JSON.parse(text); } catch(e) {
+                            throw new Error('Server returned ' + r.status + ': ' + text.substring(0, 200));
+                        }
+                    });
+                }
+                return r.json();
+            })
+            .then(data => {
+                this.impactLoading = false;
+                if (data.success && data.data) {
+                    this.impactData = data.data.impact;
+                    this.industryPresets = data.data.presets || {};
+                    this.impactLoaded = true;
+                    this.loadSignals();
+                } else {
+                    this.impactError = data.error?.message || 'Failed to load impact data';
+                    this.impactLoaded = true;
+                }
+            })
+            .catch((e) => {
+                this.impactLoading = false;
+                this.impactError = e.message || 'Failed to connect to impact API';
+                this.impactLoaded = true;
+                console.error('Impact API error:', e);
+            });
+        },
+
+        loadSignals() {
+            fetch('/app/ab-tests/signals?site_id={{ experiment.site_id }}', {
+                headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success && data.data) {
+                    this.signals = data.data.signals || {};
+                    if (data.data.presets) this.industryPresets = data.data.presets;
+                }
+            })
+            .catch(() => {});
+        },
+
+        saveSignals() {
+            this.signalsSaving = true;
+            this.signalsError = '';
+
+            // Convert percentage inputs to decimals for storage
+            const toSave = { ...this.signals };
+            if (toSave.avgConversionRate && parseFloat(toSave.avgConversionRate) > 1) {
+                toSave.avgConversionRate = String(parseFloat(toSave.avgConversionRate) / 100);
+            }
+            if (toSave.currentConsentRate && parseFloat(toSave.currentConsentRate) > 1) {
+                toSave.currentConsentRate = String(parseFloat(toSave.currentConsentRate) / 100);
+            }
+
+            fetch('/app/ab-tests/signals', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                body: JSON.stringify({ site_id: {{ experiment.site_id }}, signals: toSave })
+            })
+            .then(r => r.json())
+            .then(data => {
+                this.signalsSaving = false;
+                if (data.success) {
+                    this.showSignalsModal = false;
+                    this.loadImpact(); // Recalculate with new signals
+                } else {
+                    this.signalsError = data.message || 'Failed to save';
+                }
+            })
+            .catch(() => {
+                this.signalsSaving = false;
+                this.signalsError = 'Network error';
+            });
+        },
+
+        applyPreset() {
+            const key = this.signals.industryVertical;
+            const preset = this.industryPresets[key];
+            if (!preset) return;
+            this.signals.avgConversionRate = String((preset.avgConversionRate * 100).toFixed(1));
+            this.signals.avgOrderValue = String(preset.avgOrderValue);
+            this.signals.avgCPC = String(preset.avgCPC);
+        },
+
+        // Helper: find the non-control delta entry
+        _findDelta(comparison, key) {
+            if (!comparison) return null;
+            for (const d of comparison) {
+                if (!d.isControl && d.deltas && d.deltas[key]) return d.deltas[key];
+            }
+            return null;
+        },
+
+        deltaTag(comparison, key, unit, invertColor) {
+            const d = this._findDelta(comparison, key);
+            if (!d) return '—';
+            const val = d.absolute;
+            const positive = invertColor ? val < 0 : val > 0;
+            const cls = val === 0 ? '' : (positive ? 'has-text-success' : 'has-text-danger');
+            const sign = val > 0 ? '+' : '';
+            return `<span class="${cls} has-text-weight-semibold">${sign}${val}${unit}</span>`;
+        },
+
+        deltaPercent(comparison, key) {
+            const d = this._findDelta(comparison, key);
+            if (!d || !d.percent) return '—';
+            const cls = d.percent > 0 ? 'has-text-success' : (d.percent < 0 ? 'has-text-danger' : '');
+            const sign = d.percent > 0 ? '+' : '';
+            return `<span class="${cls} has-text-weight-semibold">${sign}${d.percent}%</span>`;
+        },
+
+        deltaRevenue(comparison, key) {
+            const d = this._findDelta(comparison, key);
+            if (!d) return '—';
+            const cls = d.absolute > 0 ? 'has-text-success' : (d.absolute < 0 ? 'has-text-danger' : '');
+            const sign = d.absolute > 0 ? '+' : '';
+            return `<span class="${cls} has-text-weight-semibold">${sign}€${Math.round(d.absolute).toLocaleString()}</span>`;
+        },
+
+        deltaSimple(variants, key) {
+            if (variants.length < 2) return '—';
+            const control = variants.find(v => v.isControl) || variants[0];
+            const other = variants.find(v => !v.isControl);
+            if (!other) return '—';
+            const diff = other[key] - control[key];
+            const cls = diff > 0 ? 'has-text-success' : (diff < 0 ? 'has-text-danger' : '');
+            const sign = diff > 0 ? '+' : '';
+            return `<span class="${cls} has-text-weight-semibold">${sign}${diff.toLocaleString()}</span>`;
+        },
+
+        tierBadgeClass(tier) {
+            return {
+                'is-warning is-light': tier === 'estimated',
+                'is-info is-light': tier === 'manual',
+                'is-success is-light': tier === 'live'
+            };
+        },
+
+        tierLabel(tier) {
+            return tier === 'estimated' ? 'Estimated' : (tier === 'manual' ? 'Custom' : (tier === 'live' ? 'Live' : 'Estimated'));
+        }
+    };
+}
+</script>
+{% endblock %}

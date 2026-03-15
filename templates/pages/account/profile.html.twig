@@ -1,0 +1,256 @@
+{% extends 'layouts/base.html.twig' %}
+
+{% block title %}Account Settings{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+      integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA=="
+      crossorigin="anonymous" referrerpolicy="no-referrer" />
+{% endblock %}
+
+{% block content %}
+<div>
+    <nav class="breadcrumb mb-4" aria-label="breadcrumbs">
+        <ul>
+            <li><a href="/">Dashboard</a></li>
+            <li class="is-active"><a href="/account">Account Settings</a></li>
+        </ul>
+    </nav>
+
+    <h1 class="title is-3 mb-5">Account Settings</h1>
+
+    {% if success %}
+        <div class="notification is-success is-light" style="border-radius:var(--oci-radius)">
+            <button class="delete" onclick="this.parentElement.remove()"></button>
+            {{ success }}
+        </div>
+    {% endif %}
+
+    {% if error %}
+        <div class="notification is-danger is-light" style="border-radius:var(--oci-radius)">
+            <button class="delete" onclick="this.parentElement.remove()"></button>
+            {{ error }}
+        </div>
+    {% endif %}
+
+    <form method="post" action="/account">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+
+        {# ── Personal Information ── #}
+        <div class="box mb-5">
+            <div class="oci-section-header" style="cursor:default">
+                <h2 class="title is-5 mb-0">
+                    <span class="section-icon"><i class="fas fa-user"></i></span>
+                    Personal Information
+                </h2>
+            </div>
+            <div class="oci-section-body">
+                <div class="oci-field-grid mb-4">
+                    <div class="field">
+                        <label class="label" for="first_name">First Name <span class="has-text-danger">*</span></label>
+                        <div class="control has-icons-left">
+                            <input class="input" type="text" id="first_name" name="first_name"
+                                   value="{{ old.first_name ?? user.first_name }}" required>
+                            <span class="icon is-small is-left"><i class="fas fa-user"></i></span>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label class="label" for="last_name">Last Name <span class="has-text-danger">*</span></label>
+                        <div class="control has-icons-left">
+                            <input class="input" type="text" id="last_name" name="last_name"
+                                   value="{{ old.last_name ?? user.last_name }}" required>
+                            <span class="icon is-small is-left"><i class="fas fa-user"></i></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label class="label" for="email">Email Address <span class="has-text-danger">*</span></label>
+                    <div class="control has-icons-left">
+                        <input class="input" type="email" id="email" name="email"
+                               value="{{ old.email ?? user.email }}" required>
+                        <span class="icon is-small is-left"><i class="fas fa-envelope"></i></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {# ── Change Password ── #}
+        <div class="box mb-5">
+            <div class="oci-section-header" style="cursor:default">
+                <h2 class="title is-5 mb-0">
+                    <span class="section-icon"><i class="fas fa-lock"></i></span>
+                    Change Password
+                </h2>
+            </div>
+            <div class="oci-section-body">
+                <p class="has-text-grey mb-4" style="font-size:0.85rem">Leave blank to keep your current password.</p>
+                <div class="oci-field-grid">
+                    <div class="field">
+                        <label class="label" for="password">New Password</label>
+                        <div class="control has-icons-left">
+                            <input class="input" type="password" id="password" name="password"
+                                   placeholder="Minimum 8 characters" autocomplete="new-password" minlength="8">
+                            <span class="icon is-small is-left"><i class="fas fa-lock"></i></span>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label class="label" for="password_confirm">Confirm Password</label>
+                        <div class="control has-icons-left">
+                            <input class="input" type="password" id="password_confirm" name="password_confirm"
+                                   placeholder="Repeat new password" autocomplete="new-password" minlength="8">
+                            <span class="icon is-small is-left"><i class="fas fa-lock"></i></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {# ── Company Information ── #}
+        <div class="box mb-5">
+            <div class="oci-section-header" style="cursor:default">
+                <h2 class="title is-5 mb-0">
+                    <span class="section-icon"><i class="fas fa-building"></i></span>
+                    Company Information
+                </h2>
+            </div>
+            <div class="oci-section-body">
+                <div class="oci-field-grid mb-4">
+                    <div class="field">
+                        <label class="label" for="company_name">Company Name</label>
+                        <div class="control has-icons-left">
+                            <input class="input" type="text" id="company_name" name="company_name"
+                                   value="{{ old.company_name ?? company.company_name ?? '' }}">
+                            <span class="icon is-small is-left"><i class="fas fa-building"></i></span>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label class="label" for="vat_number">VAT Number</label>
+                        <div class="control has-icons-left">
+                            <input class="input" type="text" id="vat_number" name="vat_number"
+                                   value="{{ old.vat_number ?? company.vat_number ?? '' }}" placeholder="e.g. DK12345678">
+                            <span class="icon is-small is-left"><i class="fas fa-receipt"></i></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="field mb-4">
+                    <label class="label" for="address">Address</label>
+                    <div class="control has-icons-left">
+                        <input class="input" type="text" id="address" name="address"
+                               value="{{ old.address ?? company.address ?? '' }}">
+                        <span class="icon is-small is-left"><i class="fas fa-location-dot"></i></span>
+                    </div>
+                </div>
+
+                <div class="oci-field-grid mb-4">
+                    <div class="field">
+                        <label class="label" for="city">City</label>
+                        <div class="control">
+                            <input class="input" type="text" id="city" name="city"
+                                   value="{{ old.city ?? company.city ?? '' }}">
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label class="label" for="zip">ZIP / Postal Code</label>
+                        <div class="control">
+                            <input class="input" type="text" id="zip" name="zip"
+                                   value="{{ old.zip ?? company.zip ?? '' }}">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="oci-field-grid mb-4">
+                    <div class="field">
+                        <label class="label" for="state">State / Region</label>
+                        <div class="control">
+                            <input class="input" type="text" id="state" name="state"
+                                   value="{{ old.state ?? company.state ?? '' }}">
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label class="label" for="country_code">Country Code</label>
+                        <div class="control">
+                            <input class="input" type="text" id="country_code" name="country_code"
+                                   value="{{ old.country_code ?? company.country_code ?? '' }}" placeholder="e.g. DK" maxlength="10">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label class="label" for="phone">Phone</label>
+                    <div class="control has-icons-left">
+                        <input class="input" type="tel" id="phone" name="phone"
+                               value="{{ old.phone ?? company.phone ?? '' }}" placeholder="+45 12345678">
+                        <span class="icon is-small is-left"><i class="fas fa-phone"></i></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {# ── Save Button ── #}
+        <div class="field">
+            <button class="button is-primary" type="submit">
+                <span class="icon is-small"><i class="fas fa-check"></i></span>
+                <span>Save Changes</span>
+            </button>
+        </div>
+    </form>
+
+    {# ── Delete Account (non-admin only) ── #}
+    {% if user.role != 'admin' %}
+    <div class="box mt-6" x-data="{ showDelete: false }">
+        <div class="oci-section-header" style="cursor:default">
+            <h2 class="title is-5 mb-0 has-text-danger">
+                <span class="section-icon" style="background:rgba(220,38,38,0.1);color:#dc2626"><i class="fas fa-triangle-exclamation"></i></span>
+                Danger Zone
+            </h2>
+        </div>
+        <div class="oci-section-body">
+            <p class="mb-4" style="font-size:0.85rem;color:var(--oci-text-light)">
+                Permanently delete your account and all associated data. This action cannot be undone.
+            </p>
+            <button class="button is-danger is-outlined" type="button" @click="showDelete = true">
+                <span class="icon is-small"><i class="fas fa-trash"></i></span>
+                <span>Delete My Account</span>
+            </button>
+
+            {# Delete confirmation modal #}
+            <div class="modal" :class="showDelete && 'is-active'">
+                <div class="modal-background" @click="showDelete = false"></div>
+                <div class="modal-card" style="max-width:480px">
+                    <header class="modal-card-head">
+                        <p class="modal-card-title has-text-danger">Delete Account</p>
+                        <button class="delete" aria-label="close" @click="showDelete = false"></button>
+                    </header>
+                    <section class="modal-card-body">
+                        <p>Are you sure you want to permanently delete your account? This will remove:</p>
+                        <ul class="mt-3 ml-4" style="list-style:disc">
+                            <li>Your profile and company information</li>
+                            <li>All your sites and their configurations</li>
+                            <li>All consent logs and scan data</li>
+                        </ul>
+                        <p class="mt-3 has-text-weight-semibold">This action cannot be undone.</p>
+                    </section>
+                    <footer class="modal-card-foot" style="justify-content:flex-end">
+                        <button class="button" @click="showDelete = false">Cancel</button>
+                        <button class="button is-danger"
+                                @click="fetch('/app/account/delete', {
+                                    method: 'POST',
+                                    headers: {'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest'},
+                                    body: JSON.stringify({_csrf_token: '{{ csrf_token }}'})
+                                }).then(r => r.json()).then(d => {
+                                    if (d.success) window.location.href = '/login';
+                                    else alert(d.error || 'Failed to delete account.');
+                                })">
+                            <span class="icon is-small"><i class="fas fa-trash"></i></span>
+                            <span>Delete Permanently</span>
+                        </button>
+                    </footer>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

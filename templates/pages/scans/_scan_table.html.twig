@@ -1,0 +1,170 @@
+{# Scan history table — used as htmx partial #}
+{% if scans|length > 0 %}
+<div class="table-container">
+    <table class="table is-fullwidth is-hoverable is-striped">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Type</th>
+                <th>Status</th>
+                <th>Pages</th>
+                <th>Cookies</th>
+                <th>Beacons</th>
+                <th>Started</th>
+                <th>Duration</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for scan in scans %}
+            <tr>
+                <td>
+                    <a href="/scans/{{ scan.id }}" class="has-text-link">
+                        {{ scan.id }}
+                    </a>
+                </td>
+                <td>
+                    {% if scan.is_scheduled %}
+                        <span class="tag is-info is-light">
+                            <i class="fas fa-clock mr-1"></i>
+                            {{ scan.frequency|default('once')|capitalize }}
+                        </span>
+                    {% else %}
+                        <span class="tag is-light">
+                            {{ scan.scan_type|default('full')|capitalize }}
+                        </span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if scan.scan_status == 'completed' %}
+                        <span class="tag is-success is-light">
+                            <i class="fas fa-check mr-1"></i> Completed
+                        </span>
+                    {% elseif scan.scan_status == 'in_progress' %}
+                        <span class="tag is-info is-light">
+                            <i class="fas fa-spinner fa-spin mr-1"></i> Scanning
+                        </span>
+                    {% elseif scan.scan_status == 'queued' %}
+                        <span class="tag is-warning is-light">
+                            <i class="fas fa-hourglass-half mr-1"></i> Queued
+                        </span>
+                    {% elseif scan.scan_status == 'scheduled' %}
+                        <span class="tag is-info is-light">
+                            <i class="fas fa-calendar mr-1"></i> Scheduled
+                        </span>
+                    {% elseif scan.scan_status == 'failed' %}
+                        <span class="tag is-danger is-light">
+                            <i class="fas fa-times mr-1"></i> Failed
+                        </span>
+                    {% elseif scan.scan_status == 'cancelled' %}
+                        <span class="tag is-light">
+                            <i class="fas fa-ban mr-1"></i> Cancelled
+                        </span>
+                    {% else %}
+                        <span class="tag is-light">{{ scan.scan_status }}</span>
+                    {% endif %}
+                </td>
+                <td>{{ scan.total_pages }}</td>
+                <td>{{ scan.total_cookies }}</td>
+                <td>{{ scan.total_scripts }}</td>
+                <td>
+                    {% if scan.started_at %}
+                        {{ scan.started_at|date('M j H:i') }}
+                    {% elseif scan.schedule_date %}
+                        {{ scan.schedule_date|date('M j') }}
+                        {% if scan.schedule_time %} {{ scan.schedule_time|date('H:i') }}{% endif %}
+                    {% else %}
+                        —
+                    {% endif %}
+                </td>
+                <td>
+                    {% if scan.started_at and scan.completed_at %}
+                        {% set start_ts = scan.started_at|date('U') %}
+                        {% set end_ts = scan.completed_at|date('U') %}
+                        {% set duration = end_ts - start_ts %}
+                        {% if duration < 60 %}
+                            {{ duration }}s
+                        {% elseif duration < 3600 %}
+                            {{ (duration / 60)|round }}m
+                        {% else %}
+                            {{ (duration / 3600)|round(1) }}h
+                        {% endif %}
+                    {% elseif scan.scan_status in ['in_progress', 'queued'] %}
+                        <i class="fas fa-spinner fa-spin has-text-grey-light"></i>
+                    {% else %}
+                        —
+                    {% endif %}
+                </td>
+                <td>
+                    {% if scan.scan_status == 'completed' %}
+                        <a href="/scans/{{ scan.id }}" class="button is-small is-info is-light">
+                            <span class="icon is-small"><i class="fas fa-eye"></i></span>
+                            <span>View</span>
+                        </a>
+                    {% elseif scan.scan_status in ['queued', 'in_progress'] %}
+                        <button class="button is-small is-danger is-light"
+                                @click="cancelScan({{ scan.id }})">
+                            <span class="icon is-small"><i class="fas fa-stop"></i></span>
+                            <span>Cancel</span>
+                        </button>
+                    {% elseif scan.scan_status == 'scheduled' %}
+                        <button class="button is-small is-danger is-light"
+                                @click="cancelScan({{ scan.id }})">
+                            <span class="icon is-small"><i class="fas fa-times"></i></span>
+                            <span>Remove</span>
+                        </button>
+                    {% elseif scan.scan_status == 'failed' %}
+                        <a href="/scans/{{ scan.id }}" class="button is-small is-light">
+                            <span class="icon is-small"><i class="fas fa-info-circle"></i></span>
+                            <span>Details</span>
+                        </a>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{# ── Pagination ────────────────────────────────────── #}
+{% if pagination.totalPages > 1 %}
+<nav class="pagination is-small is-centered mt-4" role="navigation">
+    <a class="pagination-previous"
+       {% if pagination.page > 1 %}href="/scans?site_id={{ siteId }}&page={{ pagination.page - 1 }}"{% else %}disabled{% endif %}>
+        Previous
+    </a>
+    <a class="pagination-next"
+       {% if pagination.page < pagination.totalPages %}href="/scans?site_id={{ siteId }}&page={{ pagination.page + 1 }}"{% else %}disabled{% endif %}>
+        Next
+    </a>
+    <ul class="pagination-list">
+        {% for p in 1..pagination.totalPages %}
+            {% if p <= 3 or p > pagination.totalPages - 2 or (p >= pagination.page - 1 and p <= pagination.page + 1) %}
+                <li>
+                    <a class="pagination-link {{ p == pagination.page ? 'is-current' : '' }}"
+                       href="/scans?site_id={{ siteId }}&page={{ p }}">{{ p }}</a>
+                </li>
+            {% elseif p == 4 or p == pagination.totalPages - 2 %}
+                <li><span class="pagination-ellipsis">&hellip;</span></li>
+            {% endif %}
+        {% endfor %}
+    </ul>
+</nav>
+{% endif %}
+
+{% else %}
+    {# ── Empty State ───────────────────────────────── #}
+    <div class="has-text-centered py-6">
+        <span class="icon is-large has-text-grey-lighter mb-3">
+            <i class="fas fa-magnifying-glass-chart fa-3x"></i>
+        </span>
+        <h3 class="title is-5 has-text-grey">No scans yet</h3>
+        <p class="subtitle is-6 has-text-grey-light mb-4">
+            Run a cookie scan to detect cookies, tracking scripts, and beacons on your site.
+        </p>
+        <button class="button is-primary" @click="startScanModal = true">
+            <span class="icon"><i class="fas fa-search"></i></span>
+            <span>Start First Scan</span>
+        </button>
+    </div>
+{% endif %}

@@ -1,0 +1,288 @@
+{% extends 'layouts/base.html.twig' %}
+{% import 'components/macros.html.twig' as ui %}
+
+{% set active_page = 'layouts' %}
+
+{% block title %}Layouts{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+      integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA=="
+      crossorigin="anonymous" referrerpolicy="no-referrer" />
+<style>
+    .columns.is-multiline { align-items: stretch; }
+    .column.is-4 { display: flex; }
+    .layout-card { display: flex; flex-direction: column; width: 100%; transition: transform 0.15s, box-shadow 0.15s; cursor: pointer; }
+    .layout-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+    .layout-card .card-content { flex: 1; }
+    .layout-preview { height: 160px; background: var(--oci-hover-bg); border-bottom: 1px solid var(--oci-border); display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 6px 6px 0 0; padding: 12px; }
+    .layout-preview svg { max-height: 140px; width: 100%; }
+    .layout-card:hover .layout-preview svg { opacity: 0.85; }
+    .layout-preview .placeholder-icon { font-size: 48px; color: var(--oci-text-light); }
+    .preview-modal-iframe { width: 100%; height: 70vh; border: none; background: var(--oci-hover-bg); border-radius: 4px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div x-data="layoutsPage()">
+
+    <nav class="breadcrumb mb-4" aria-label="breadcrumbs">
+        <ul>
+            <li><a href="/">Dashboard</a></li>
+            <li class="is-active"><a href="/layouts" aria-current="page">Layouts</a></li>
+        </ul>
+    </nav>
+
+    <div class="level mb-5">
+        <div class="level-left">
+            <h1 class="title is-3">Banner Layouts</h1>
+        </div>
+        <div class="level-right">
+            {{ ui.siteSelector(sites, siteId, '/layouts') }}
+        </div>
+    </div>
+
+    {# ── System Layouts ──────────────────────────────── #}
+    <h2 class="title is-5 mb-3">
+        <span class="icon"><i class="fas fa-palette"></i></span>
+        System Layouts
+    </h2>
+    <p class="subtitle is-6 has-text-grey mb-4">Read-only templates. Duplicate to customize.</p>
+
+    <div class="columns is-multiline mb-6">
+        {% for slug, layout in systemLayouts %}
+        <div class="column is-4">
+            <div class="card layout-card">
+                <div class="card-image">
+                    <div class="layout-preview">
+                        {% if layout.thumbnail_svg is defined and layout.thumbnail_svg %}
+                            {{ layout.thumbnail_svg|raw }}
+                        {% else %}
+                            <span class="placeholder-icon"><i class="fas fa-layer-group"></i></span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="card-content">
+                    <p class="title is-6 mb-1">{{ layout.name }}</p>
+                    <p class="subtitle is-7 has-text-grey">{{ layout.description }}</p>
+                    <div class="tags">
+                        {% for pos in layout.positions %}
+                        <span class="tag is-light is-small">{{ pos }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+                <footer class="card-footer">
+                    <a class="card-footer-item" @click.prevent="previewLayout('gdpr/{{ slug }}', '{{ layout.name }}')">
+                        <span class="icon is-small"><i class="fas fa-eye"></i></span>
+                        <span>Preview</span>
+                    </a>
+                    <a class="card-footer-item" @click.prevent="duplicateLayout('gdpr/{{ slug }}', '{{ layout.name }}')">
+                        <span class="icon is-small"><i class="fas fa-copy"></i></span>
+                        <span>Duplicate</span>
+                    </a>
+                </footer>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    {# ── Custom Layouts ──────────────────────────────── #}
+    <h2 class="title is-5 mb-3">
+        <span class="icon"><i class="fas fa-pen-ruler"></i></span>
+        Custom Layouts
+    </h2>
+
+    {% if customLayouts|length > 0 %}
+    <div class="columns is-multiline">
+        {% for layout in customLayouts %}
+        <div class="column is-4">
+            <div class="card layout-card" @click="window.location.href='/layouts/{{ layout.id }}/edit'">
+                <div class="card-image">
+                    <div class="layout-preview">
+                        <span class="placeholder-icon"><i class="fas fa-code"></i></span>
+                    </div>
+                </div>
+                <div class="card-content">
+                    <p class="title is-6 mb-1">{{ layout.layout_name }}</p>
+                    <p class="subtitle is-7 has-text-grey">Based on: {{ layout.base_layout_key }}</p>
+                    <p class="is-size-7 has-text-grey">Updated: {{ layout.updated_at }}</p>
+                </div>
+                <footer class="card-footer">
+                    <a href="/layouts/{{ layout.id }}/edit" class="card-footer-item">
+                        <span class="icon is-small"><i class="fas fa-edit"></i></span>
+                        <span>Edit</span>
+                    </a>
+                    <a class="card-footer-item has-text-danger" @click.stop="deleteLayout({{ layout.id }}, '{{ layout.layout_name|e('js') }}')">
+                        <span class="icon is-small"><i class="fas fa-trash"></i></span>
+                        <span>Delete</span>
+                    </a>
+                </footer>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="box has-text-centered py-6">
+        <span class="icon is-large has-text-grey-light"><i class="fas fa-palette fa-3x"></i></span>
+        <p class="title is-5 mt-4">No Custom Layouts</p>
+        <p class="subtitle is-6 has-text-grey">Duplicate a system layout above to start customizing.</p>
+    </div>
+    {% endif %}
+
+    {# ── Preview Modal ──────────────────────────────── #}
+    <div class="modal" :class="{ 'is-active': showPreviewModal }">
+        <div class="modal-background" @click="closePreview()"></div>
+        <div class="modal-card" style="width: 90%; max-width: 1200px;">
+            <header class="modal-card-head">
+                <p class="modal-card-title" x-text="'Preview: ' + previewName"></p>
+                <button class="delete" aria-label="close" @click="closePreview()"></button>
+            </header>
+            <section class="modal-card-body" style="padding: 0;">
+                <div x-show="previewLoading" class="has-text-centered py-6">
+                    <span class="icon is-large"><i class="fas fa-spinner fa-spin fa-2x"></i></span>
+                    <p class="mt-3">Loading preview...</p>
+                </div>
+                <iframe id="previewModalFrame" class="preview-modal-iframe" x-show="!previewLoading" sandbox="allow-same-origin allow-scripts"></iframe>
+            </section>
+            <footer class="modal-card-foot">
+                <button class="button is-primary" @click="closePreview(); duplicateLayout(previewKey, previewName)">
+                    <span class="icon is-small"><i class="fas fa-copy"></i></span>
+                    <span>Duplicate</span>
+                </button>
+                <button class="button" @click="closePreview()">Close</button>
+            </footer>
+        </div>
+    </div>
+
+    {# ── Duplicate Modal ─────────────────────────────── #}
+    <div class="modal" :class="{ 'is-active': showDuplicateModal }">
+        <div class="modal-background" @click="showDuplicateModal = false"></div>
+        <div class="modal-card">
+            <header class="modal-card-head">
+                <p class="modal-card-title">Duplicate Layout</p>
+                <button class="delete" aria-label="close" @click="showDuplicateModal = false"></button>
+            </header>
+            <section class="modal-card-body">
+                <div class="field">
+                    <label class="label">Layout Name</label>
+                    <div class="control">
+                        <input class="input" type="text" x-model="duplicateName" placeholder="My Custom Layout" @keydown.enter="submitDuplicate()">
+                    </div>
+                </div>
+            </section>
+            <footer class="modal-card-foot">
+                <button class="button is-primary" :class="{ 'is-loading': saving }" @click="submitDuplicate()" :disabled="duplicateName.trim() === ''">Duplicate</button>
+                <button class="button" @click="showDuplicateModal = false">Cancel</button>
+            </footer>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function layoutsPage() {
+    return {
+        showDuplicateModal: false,
+        showPreviewModal: false,
+        previewLoading: false,
+        previewKey: '',
+        previewName: '',
+        duplicateBaseKey: '',
+        duplicateName: '',
+        saving: false,
+
+        async previewLayout(layoutKey, name) {
+            this.previewKey = layoutKey;
+            this.previewName = name;
+            this.previewLoading = true;
+            this.showPreviewModal = true;
+
+            try {
+                const res = await fetch('/app/layouts/preview', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ layout_key: layoutKey }),
+                });
+                const data = await res.json();
+                if (data.success) {
+                    const frame = document.getElementById('previewModalFrame');
+                    const doc = frame.contentDocument || frame.contentWindow.document;
+                    doc.open();
+                    doc.write(data.data.preview);
+                    doc.close();
+                }
+            } catch (e) {
+                // Silently fail
+            } finally {
+                this.previewLoading = false;
+            }
+        },
+
+        closePreview() {
+            this.showPreviewModal = false;
+            // Clear iframe
+            const frame = document.getElementById('previewModalFrame');
+            if (frame) {
+                const doc = frame.contentDocument || frame.contentWindow.document;
+                doc.open();
+                doc.write('');
+                doc.close();
+            }
+        },
+
+        duplicateLayout(baseKey, baseName) {
+            this.duplicateBaseKey = baseKey;
+            this.duplicateName = 'My ' + baseName;
+            this.showDuplicateModal = true;
+        },
+
+        async submitDuplicate() {
+            if (this.duplicateName.trim() === '' || this.saving) return;
+            this.saving = true;
+
+            try {
+                const res = await fetch('/app/layouts/duplicate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        base_layout_key: this.duplicateBaseKey,
+                        name: this.duplicateName.trim(),
+                        site_id: {{ siteId }},
+                    }),
+                });
+                const data = await res.json();
+                if (data.success && data.data.redirect) {
+                    window.location.href = data.data.redirect;
+                } else {
+                    alert(data.message || 'Failed to duplicate layout');
+                }
+            } catch (e) {
+                alert('An error occurred');
+            } finally {
+                this.saving = false;
+            }
+        },
+
+        async deleteLayout(id, name) {
+            if (!confirm('Delete layout "' + name + '"? This cannot be undone.')) return;
+
+            try {
+                const res = await fetch('/app/layouts/' + id, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                });
+                const data = await res.json();
+                if (data.success) {
+                    window.location.reload();
+                } else {
+                    alert(data.message || 'Failed to delete layout');
+                }
+            } catch (e) {
+                alert('An error occurred');
+            }
+        },
+    };
+}
+</script>
+{% endblock %}

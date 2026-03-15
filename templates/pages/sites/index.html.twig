@@ -1,0 +1,638 @@
+{% extends 'layouts/base.html.twig' %}
+{% import 'components/macros.html.twig' as ui %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div x-data="sitesPage()">
+
+    <nav class="breadcrumb mb-3" aria-label="breadcrumbs">
+        <ul>
+            <li><a href="/">Dashboard</a></li>
+            <li class="is-active"><a href="#" aria-current="page">Sites</a></li>
+        </ul>
+    </nav>
+
+    {# ── Header ────────────────────────────────────────── #}
+    <div class="level mb-4">
+        <div class="level-left">
+            <div class="level-item">
+                <h1 class="title is-4 mb-0">My Sites</h1>
+            </div>
+            <div class="level-item">
+                <span class="tag is-info is-light is-medium">
+                    {{ statusCounts.all }} site{{ statusCounts.all != 1 ? 's' : '' }}
+                </span>
+            </div>
+        </div>
+        <div class="level-right">
+            <div class="level-item">
+                {% if canAddSite %}
+                    <button class="button is-primary" @click="openCreateModal()">
+                        <span class="icon"><i class="fas fa-plus"></i></span>
+                        <span>Add Site</span>
+                    </button>
+                {% else %}
+                    <div>
+                        <a href="/billing" class="button is-warning">
+                            <span class="icon"><i class="fas fa-arrow-up"></i></span>
+                            <span>Upgrade Plan</span>
+                        </a>
+                        <p class="help has-text-grey mt-1">Domain limit reached ({{ maxDomains }})</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    {# ── Status Filter Tabs ────────────────────────────── #}
+    <div class="tabs is-boxed mb-4">
+        <ul>
+            <li class="{{ statusFilter is null ? 'is-active' : '' }}">
+                <a href="/sites">
+                    All <span class="tag is-light ml-2">{{ statusCounts.all }}</span>
+                </a>
+            </li>
+            <li class="{{ statusFilter == 'active' ? 'is-active' : '' }}">
+                <a href="/sites?status=active">
+                    Active <span class="tag is-success is-light ml-2">{{ statusCounts.active }}</span>
+                </a>
+            </li>
+            <li class="{{ statusFilter == 'disabled' ? 'is-active' : '' }}">
+                <a href="/sites?status=disabled">
+                    Disabled <span class="tag is-warning is-light ml-2">{{ statusCounts.disabled }}</span>
+                </a>
+            </li>
+            {% if statusCounts.deleted > 0 %}
+            <li class="{{ statusFilter == 'deleted' ? 'is-active' : '' }}">
+                <a href="/sites?status=deleted">
+                    Deleted <span class="tag is-danger is-light ml-2">{{ statusCounts.deleted }}</span>
+                </a>
+            </li>
+            {% endif %}
+            {% if statusCounts.suspended > 0 %}
+            <li class="{{ statusFilter == 'suspended' ? 'is-active' : '' }}">
+                <a href="/sites?status=suspended">
+                    Suspended <span class="tag is-dark is-light ml-2">{{ statusCounts.suspended }}</span>
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </div>
+
+    {# ── Sites Table ───────────────────────────────────── #}
+    {% if sites is empty %}
+        <div class="box has-text-centered py-6">
+            <span class="icon is-large has-text-grey-light">
+                <i class="fas fa-globe fa-3x"></i>
+            </span>
+            <p class="title is-5 mt-4">No sites found</p>
+            <p class="subtitle is-6 has-text-grey">
+                {% if statusFilter %}
+                    No sites with status "{{ statusFilter }}".
+                    <a href="/sites">Show all sites</a>
+                {% else %}
+                    Get started by adding your first site.
+                {% endif %}
+            </p>
+        </div>
+    {% else %}
+    <div class="table-container">
+        <table class="table is-fullwidth is-hoverable is-striped">
+            <thead>
+                <tr>
+                    <th>Domain</th>
+                    <th>Site Name</th>
+                    <th>Website Key</th>
+                    <th>Status</th>
+                    <th>Compliance</th>
+                    <th>Created</th>
+                    <th class="has-text-right">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for site in sites %}
+                <tr>
+                    <td>
+                        <a href="/" class="has-text-weight-semibold"
+                           onclick="document.cookie='site_id={{ site.id }}; path=/; SameSite=Lax; max-age=31536000'">
+                            {{ site.domain }}
+                        </a>
+                    </td>
+                    <td>{{ site.site_name ?? site.domain }}</td>
+                    <td>
+                        <code class="is-size-7">{{ site.website_key is defined ? site.website_key : '—' }}</code>
+                    </td>
+                    <td>
+                        {% if site.status == 'active' %}
+                            <span class="tag is-success is-light">Active</span>
+                        {% elseif site.status == 'disabled' %}
+                            <span class="tag is-warning is-light">Disabled</span>
+                        {% elseif site.status == 'deleted' %}
+                            <span class="tag is-danger is-light">Deleted</span>
+                        {% elseif site.status == 'suspended' %}
+                            <span class="tag is-dark is-light">Suspended</span>
+                        {% else %}
+                            <span class="tag is-light">{{ site.status is defined ? site.status : 'Unknown' }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if site.compliant_status is defined and site.compliant_status %}
+                            {% if site.compliant_status == 'full' %}
+                                <span class="tag is-success is-light">Compliant</span>
+                            {% elseif site.compliant_status == 'partial' %}
+                                <span class="tag is-warning is-light">Partial</span>
+                            {% elseif site.compliant_status == 'failed' %}
+                                <span class="tag is-danger is-light">Non-compliant</span>
+                            {% else %}
+                                <span class="tag is-light">{{ site.compliant_status|replace({'_': ' '})|capitalize }}</span>
+                            {% endif %}
+                        {% else %}
+                            <span class="tag is-light">Not checked</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="has-text-grey is-size-7">{{ site.created_at|date('d M Y') }}</span>
+                    </td>
+                    <td class="has-text-right">
+                        <div class="buttons is-right are-small">
+                            {% if site.status != 'deleted' %}
+                                <a href="/" class="button is-light" title="Dashboard"
+                                   onclick="document.cookie='site_id={{ site.id }}; path=/; SameSite=Lax; max-age=31536000'">
+                                    <span class="icon"><i class="fas fa-chart-line"></i></span>
+                                </a>
+                                {% if site.status == 'active' %}
+                                <button class="button is-info is-light" title="Edit"
+                                        @click="openEditModal({{ site|json_encode }})">
+                                    <span class="icon"><i class="fas fa-pencil-alt"></i></span>
+                                </button>
+                                {% endif %}
+                                {% if site.status == 'active' %}
+                                <button class="button is-warning is-light" title="Disable"
+                                        @click="toggleSiteStatus({{ site.id }}, 'disabled')">
+                                    <span class="icon"><i class="fas fa-pause"></i></span>
+                                </button>
+                                {% elseif site.status == 'disabled' %}
+                                <button class="button is-success is-light" title="Enable"
+                                        @click="toggleSiteStatus({{ site.id }}, 'active')">
+                                    <span class="icon"><i class="fas fa-play"></i></span>
+                                </button>
+                                {% endif %}
+                                <a href="/banners" class="button is-link is-light" title="Banner Settings"
+                                   onclick="document.cookie='site_id={{ site.id }}; path=/; SameSite=Lax; max-age=31536000'">
+                                    <span class="icon"><i class="fas fa-window-maximize"></i></span>
+                                </a>
+                                <button class="button is-danger is-light" title="Delete"
+                                        @click="openDeleteModal({{ site.id }}, '{{ site.domain }}')">
+                                    <span class="icon"><i class="fas fa-trash"></i></span>
+                                </button>
+                            {% else %}
+                                <button class="button is-success is-light" title="Restore"
+                                        @click="restoreSite({{ site.id }})">
+                                    <span class="icon"><i class="fas fa-trash-restore-alt"></i></span>
+                                </button>
+                                <button class="button is-danger" title="Permanently Remove"
+                                        @click="openDestroyModal({{ site.id }}, '{{ site.domain }}')">
+                                    <span class="icon"><i class="fas fa-times"></i></span>
+                                </button>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    {# ── Create Site Wizard Modal ─────────────────────── #}
+    <div class="modal" :class="{ 'is-active': createModal.open }">
+        <div class="modal-background" @click="createModal.open = false"></div>
+        <div class="modal-card" style="max-width:560px">
+            <header class="modal-card-head">
+                <p class="modal-card-title">Add New Site</p>
+                <button class="delete" aria-label="close" @click="createModal.open = false"></button>
+            </header>
+            <section class="modal-card-body">
+                {{ ui.wizardSteps(['Website', 'Languages', 'Banner Type'], 'createModal.step') }}
+
+                {# ── Step 1: Website Info ── #}
+                <div x-show="createModal.step === 1" x-transition>
+                    <div class="field">
+                        <label class="label">Domain</label>
+                        <div class="control has-icons-left">
+                            <input class="input" type="text" x-model="createModal.domain"
+                                   placeholder="example.com" @keydown.enter="nextCreateStep()">
+                            <span class="icon is-small is-left"><i class="fas fa-globe"></i></span>
+                        </div>
+                        <p class="help is-danger" x-show="createModal.errors.domain" x-text="createModal.errors.domain"></p>
+                    </div>
+                    <div class="field">
+                        <label class="label">Site Name</label>
+                        <div class="control has-icons-left">
+                            <input class="input" type="text" x-model="createModal.siteName"
+                                   placeholder="My Website" @keydown.enter="nextCreateStep()">
+                            <span class="icon is-small is-left"><i class="fas fa-tag"></i></span>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label class="label">Privacy Policy URL</label>
+                        <div class="control has-icons-left">
+                            <input class="input" type="url" x-model="createModal.privacyPolicyUrl"
+                                   placeholder="https://example.com/privacy" @keydown.enter="nextCreateStep()">
+                            <span class="icon is-small is-left"><i class="fas fa-shield-halved"></i></span>
+                        </div>
+                    </div>
+                </div>
+
+                {# ── Step 2: Languages ── #}
+                <div x-show="createModal.step === 2" x-transition>
+                    <p class="mb-3 has-text-grey">Select the languages your site supports. The first selected language will be the default.</p>
+                    <div class="oci-field-grid" style="grid-template-columns:repeat(auto-fill,minmax(160px,1fr))">
+                        {% for lang in languages %}
+                        <label class="checkbox" style="display:flex;align-items:center;gap:0.5rem;padding:0.4rem 0">
+                            <input type="checkbox" value="{{ lang.id }}"
+                                   :checked="createModal.languageIds.includes({{ lang.id }})"
+                                   @change="toggleCreateLang({{ lang.id }}, $event.target.checked)">
+                            <span>{{ lang.lang_name }}</span>
+                            <span class="has-text-grey is-size-7">({{ lang.lang_code }})</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                    <p class="help is-info mt-3">
+                        <span class="icon is-small"><i class="fas fa-info-circle"></i></span>
+                        If none selected, English will be used as default.
+                    </p>
+                </div>
+
+                {# ── Step 3: Banner Type ── #}
+                <div x-show="createModal.step === 3" x-transition>
+                    <p class="mb-3 has-text-grey">Choose the type of consent banner for your site.</p>
+                    <div class="oci-template-grid" style="grid-template-columns:repeat(3,1fr)">
+                        {{ ui.templateCard('createModal.bannerType', 'gdpr', 'GDPR', 'EU General Data Protection Regulation', 'shield-halved', '#3273dc', false) }}
+                        {{ ui.templateCard('createModal.bannerType', 'ccpa', 'US Privacy', 'CCPA / US State Privacy Laws', 'flag-usa', '#ff3860', false) }}
+                        {{ ui.templateCard('createModal.bannerType', 'both', 'Combined', 'GDPR + US Privacy (recommended)', 'globe', '#23d160', false) }}
+                    </div>
+                    <p class="help is-danger" x-show="createModal.errors.plan" x-text="createModal.errors.plan"></p>
+                </div>
+            </section>
+            <footer class="modal-card-foot" style="justify-content:space-between">
+                <div>
+                    <button class="button" x-show="createModal.step > 1" @click="createModal.step--">
+                        <span class="icon"><i class="fas fa-arrow-left"></i></span>
+                        <span>Back</span>
+                    </button>
+                </div>
+                <div class="buttons">
+                    <button class="button" @click="createModal.open = false">Cancel</button>
+                    <button class="button is-primary" x-show="createModal.step < 3"
+                            @click="nextCreateStep()">
+                        <span>Next</span>
+                        <span class="icon"><i class="fas fa-arrow-right"></i></span>
+                    </button>
+                    <button class="button is-success" x-show="createModal.step === 3"
+                            :class="{ 'is-loading': createModal.saving }"
+                            @click="submitCreateSite()">
+                        <span class="icon"><i class="fas fa-check"></i></span>
+                        <span>Create Site</span>
+                    </button>
+                </div>
+            </footer>
+        </div>
+    </div>
+
+    {# ── Edit Site Modal (Wizard Steps) ──────────────── #}
+    <div class="modal" :class="{ 'is-active': editModal.open }">
+        <div class="modal-background" @click="editModal.open = false"></div>
+        <div class="modal-card" style="max-width:560px">
+            <header class="modal-card-head">
+                <p class="modal-card-title">Edit Site</p>
+                <button class="delete" aria-label="close" @click="editModal.open = false"></button>
+            </header>
+            <section class="modal-card-body">
+                {{ ui.wizardSteps(['Website', 'Languages'], 'editModal.step') }}
+
+                {# ── Step 1: Website Info ── #}
+                <div x-show="editModal.step === 1" x-transition>
+                    <div class="field">
+                        <label class="label">Domain</label>
+                        <div class="control has-icons-left">
+                            <input class="input" type="text" x-model="editModal.domain" placeholder="example.com">
+                            <span class="icon is-small is-left"><i class="fas fa-globe"></i></span>
+                        </div>
+                        <p class="help is-danger" x-show="editModal.errors.domain" x-text="editModal.errors.domain"></p>
+                    </div>
+                    <div class="field">
+                        <label class="label">Site Name</label>
+                        <div class="control has-icons-left">
+                            <input class="input" type="text" x-model="editModal.siteName" placeholder="My Website">
+                            <span class="icon is-small is-left"><i class="fas fa-tag"></i></span>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label class="label">Privacy Policy URL</label>
+                        <div class="control has-icons-left">
+                            <input class="input" type="url" x-model="editModal.privacyPolicyUrl"
+                                   placeholder="https://example.com/privacy-policy">
+                            <span class="icon is-small is-left"><i class="fas fa-shield-halved"></i></span>
+                        </div>
+                    </div>
+                </div>
+
+                {# ── Step 2: Languages ── #}
+                <div x-show="editModal.step === 2" x-transition>
+                    <p class="mb-3 has-text-grey">Select the languages your site supports. The first selected language will be the default.</p>
+                    <div class="oci-field-grid" style="grid-template-columns:repeat(auto-fill,minmax(160px,1fr))">
+                        {% for lang in languages %}
+                        <label class="checkbox" style="display:flex;align-items:center;gap:0.5rem;padding:0.4rem 0">
+                            <input type="checkbox" value="{{ lang.id }}"
+                                   :checked="editModal.languageIds.includes({{ lang.id }})"
+                                   @change="toggleEditLang({{ lang.id }}, $event.target.checked)">
+                            <span>{{ lang.lang_name }}</span>
+                            <span class="has-text-grey is-size-7">({{ lang.lang_code }})</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                    <p class="help is-info mt-3">
+                        <span class="icon is-small"><i class="fas fa-info-circle"></i></span>
+                        If none selected, English will be used as default.
+                    </p>
+                </div>
+            </section>
+            <footer class="modal-card-foot" style="justify-content:space-between">
+                <div>
+                    <button class="button" x-show="editModal.step > 1" @click="editModal.step--">
+                        <span class="icon"><i class="fas fa-arrow-left"></i></span>
+                        <span>Back</span>
+                    </button>
+                </div>
+                <div class="buttons">
+                    <button class="button" @click="editModal.open = false">Cancel</button>
+                    <button class="button is-primary" x-show="editModal.step < 2"
+                            @click="nextEditStep()">
+                        <span>Next</span>
+                        <span class="icon"><i class="fas fa-arrow-right"></i></span>
+                    </button>
+                    <button class="button is-success" x-show="editModal.step === 2"
+                            :class="{ 'is-loading': editModal.saving }"
+                            @click="saveSiteEdit()">
+                        <span class="icon"><i class="fas fa-check"></i></span>
+                        <span>Save Changes</span>
+                    </button>
+                </div>
+            </footer>
+        </div>
+    </div>
+
+    {# ── Delete Confirmation Modal ──────────────────────── #}
+    <div class="modal" :class="{ 'is-active': deleteModal.open }">
+        <div class="modal-background" @click="deleteModal.open = false"></div>
+        <div class="modal-card">
+            <header class="modal-card-head">
+                <p class="modal-card-title">Delete Site</p>
+                <button class="delete" aria-label="close" @click="deleteModal.open = false"></button>
+            </header>
+            <section class="modal-card-body">
+                <p>Are you sure you want to delete <strong x-text="deleteModal.domain"></strong>?</p>
+                <p class="has-text-grey mt-2">The site will be soft-deleted and can be restored later.</p>
+            </section>
+            <footer class="modal-card-foot">
+                <button class="button is-danger" :class="{ 'is-loading': deleteModal.saving }"
+                        @click="confirmDelete()">Delete Site</button>
+                <button class="button" @click="deleteModal.open = false">Cancel</button>
+            </footer>
+        </div>
+    </div>
+
+    {# ── Permanent Destroy Modal ────────────────────────── #}
+    <div class="modal" :class="{ 'is-active': destroyModal.open }">
+        <div class="modal-background" @click="destroyModal.open = false"></div>
+        <div class="modal-card">
+            <header class="modal-card-head has-background-danger-light">
+                <p class="modal-card-title has-text-danger">Permanently Remove Site</p>
+                <button class="delete" aria-label="close" @click="destroyModal.open = false"></button>
+            </header>
+            <section class="modal-card-body">
+                <p>Are you sure you want to <strong class="has-text-danger">permanently remove</strong>
+                   <strong x-text="destroyModal.domain"></strong>?</p>
+                <p class="has-text-danger mt-2">This action cannot be undone. All data for this site will be lost.</p>
+            </section>
+            <footer class="modal-card-foot">
+                <button class="button is-danger" :class="{ 'is-loading': destroyModal.saving }"
+                        @click="confirmDestroy()">Remove Permanently</button>
+                <button class="button" @click="destroyModal.open = false">Cancel</button>
+            </footer>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function sitesPage() {
+    return {
+        createModal: {
+            open: {{ autoOpenCreate ? 'true' : 'false' }}, saving: false, step: 1,
+            domain: '', siteName: '', privacyPolicyUrl: '',
+            bannerType: 'gdpr', languageIds: [],
+            errors: {}
+        },
+        editModal: { open: false, saving: false, step: 1, siteId: 0, siteName: '', domain: '', privacyPolicyUrl: '', languageIds: [], errors: {} },
+        deleteModal: { open: false, saving: false, siteId: 0, domain: '' },
+        destroyModal: { open: false, saving: false, siteId: 0, domain: '' },
+
+        openCreateModal() {
+            this.createModal = {
+                open: true, saving: false, step: 1,
+                domain: '', siteName: '', privacyPolicyUrl: '',
+                bannerType: 'gdpr', languageIds: [],
+                errors: {}
+            };
+        },
+
+        nextCreateStep() {
+            this.createModal.errors = {};
+            if (this.createModal.step === 1) {
+                if (!this.createModal.domain.trim()) {
+                    this.createModal.errors.domain = 'Domain is required';
+                    return;
+                }
+            }
+            if (this.createModal.step < 3) {
+                this.createModal.step++;
+            }
+        },
+
+        toggleCreateLang(langId, checked) {
+            if (checked) {
+                if (!this.createModal.languageIds.includes(langId)) {
+                    this.createModal.languageIds.push(langId);
+                }
+            } else {
+                this.createModal.languageIds = this.createModal.languageIds.filter(id => id !== langId);
+            }
+        },
+
+        submitCreateSite() {
+            this.createModal.saving = true;
+            this.createModal.errors = {};
+            fetch('/sites/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify({
+                    domain: this.createModal.domain,
+                    site_name: this.createModal.siteName,
+                    privacy_policy_url: this.createModal.privacyPolicyUrl,
+                    banner_type: this.createModal.bannerType,
+                    language_ids: this.createModal.languageIds
+                })
+            })
+            .then(r => r.json())
+            .then(data => {
+                this.createModal.saving = false;
+                if (data.success) {
+                    window.location.reload();
+                } else if (data.errors) {
+                    this.createModal.errors = data.errors;
+                    if (data.errors.domain) this.createModal.step = 1;
+                    else if (data.errors.plan) this.createModal.step = 3;
+                }
+            })
+            .catch(() => { this.createModal.saving = false; });
+        },
+
+        openEditModal(site) {
+            this.editModal.siteId = site.id;
+            this.editModal.siteName = site.site_name || '';
+            this.editModal.domain = site.domain || '';
+            this.editModal.privacyPolicyUrl = site.privacy_policy_url || '';
+            this.editModal.languageIds = Array.isArray(site.language_ids) ? [...site.language_ids] : [];
+            this.editModal.step = 1;
+            this.editModal.errors = {};
+            this.editModal.open = true;
+        },
+
+        nextEditStep() {
+            this.editModal.errors = {};
+            if (this.editModal.step === 1) {
+                if (!this.editModal.domain.trim()) {
+                    this.editModal.errors.domain = 'Domain is required';
+                    return;
+                }
+            }
+            if (this.editModal.step < 2) {
+                this.editModal.step++;
+            }
+        },
+
+        toggleEditLang(langId, checked) {
+            if (checked) {
+                if (!this.editModal.languageIds.includes(langId)) {
+                    this.editModal.languageIds.push(langId);
+                }
+            } else {
+                this.editModal.languageIds = this.editModal.languageIds.filter(id => id !== langId);
+            }
+        },
+
+        saveSiteEdit() {
+            this.editModal.saving = true;
+            this.editModal.errors = {};
+            fetch('/app/sites/' + this.editModal.siteId, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    site_name: this.editModal.siteName,
+                    domain: this.editModal.domain,
+                    privacy_policy_url: this.editModal.privacyPolicyUrl,
+                    language_ids: this.editModal.languageIds
+                })
+            })
+            .then(r => r.json())
+            .then(data => {
+                this.editModal.saving = false;
+                if (data.success) {
+                    window.location.reload();
+                } else if (data.error) {
+                    this.editModal.errors.domain = data.error.message;
+                    this.editModal.step = 1;
+                }
+            })
+            .catch(() => { this.editModal.saving = false; });
+        },
+
+        toggleSiteStatus(siteId, newStatus) {
+            fetch('/app/sites/' + siteId, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: newStatus })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.reload();
+                }
+            });
+        },
+
+        openDeleteModal(siteId, domain) {
+            this.deleteModal.siteId = siteId;
+            this.deleteModal.domain = domain;
+            this.deleteModal.open = true;
+        },
+
+        confirmDelete() {
+            this.deleteModal.saving = true;
+            fetch('/app/sites/' + this.deleteModal.siteId, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(r => r.json())
+            .then(data => {
+                this.deleteModal.saving = false;
+                if (data.success) {
+                    window.location.reload();
+                }
+            })
+            .catch(() => { this.deleteModal.saving = false; });
+        },
+
+        restoreSite(siteId) {
+            fetch('/app/sites/' + siteId + '/restore', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.reload();
+                }
+            });
+        },
+
+        openDestroyModal(siteId, domain) {
+            this.destroyModal.siteId = siteId;
+            this.destroyModal.domain = domain;
+            this.destroyModal.open = true;
+        },
+
+        confirmDestroy() {
+            this.destroyModal.saving = true;
+            fetch('/app/sites/' + this.destroyModal.siteId + '/destroy', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(r => r.json())
+            .then(data => {
+                this.destroyModal.saving = false;
+                if (data.success) {
+                    window.location.reload();
+                }
+            })
+            .catch(() => { this.destroyModal.saving = false; });
+        }
+    };
+}
+</script>
+{% endblock %}

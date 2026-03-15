@@ -1,0 +1,663 @@
+{% extends 'layouts/base.html.twig' %}
+{% import 'components/macros.html.twig' as ui %}
+
+{% block title %}GTM Wizard{% endblock %}
+
+{% block content %}
+<div x-data="gtmWizard()">
+
+    {# ── Breadcrumb ── #}
+    <nav class="breadcrumb mb-4" aria-label="breadcrumbs">
+        <ul>
+            <li><a href="/">Dashboard</a></li>
+            <li class="is-active"><a href="#" aria-current="page">GTM Wizard</a></li>
+        </ul>
+    </nav>
+
+    {# ── Page header ── #}
+    <div class="level mb-5">
+        <div class="level-left">
+            <div>
+                <h1 class="title is-3">Google Tag Manager Wizard</h1>
+                <p class="subtitle is-6 has-text-grey">Automatically configure your GTM container with Conzent CMP and tracking pixels</p>
+            </div>
+        </div>
+        <div class="level-right">
+            {{ ui.siteSelector(sites, siteId, '/gtm/wizard') }}
+        </div>
+    </div>
+
+    {% if not gtmConfigured %}
+    {# ── Not configured ── #}
+    <div class="box has-text-centered py-6">
+        <span class="icon is-large has-text-warning">
+            <i class="fas fa-exclamation-triangle fa-3x"></i>
+        </span>
+        <h2 class="title is-4 mt-4">Google OAuth Not Configured</h2>
+        <p class="subtitle is-6">Set <code>GOOGLE_CLIENT_ID</code> and <code>GOOGLE_CLIENT_SECRET</code> in your environment to use the GTM Wizard.</p>
+    </div>
+    {% else %}
+
+    {# ── Step indicator ── #}
+    <div class="steps mb-6">
+        <div class="columns is-mobile">
+            <div class="column has-text-centered">
+                <span class="icon-text">
+                    <span class="icon is-medium" :class="step >= 1 ? 'has-text-primary' : 'has-text-grey-light'">
+                        <i class="fas fa-circle-1 fa-lg" x-show="step !== 1 || step < 1"></i>
+                        <i class="fas fa-check-circle fa-lg" x-show="step > 1" x-cloak></i>
+                    </span>
+                    <span :class="step >= 1 ? 'has-text-weight-semibold' : 'has-text-grey'">Authenticate</span>
+                </span>
+            </div>
+            <div class="column has-text-centered">
+                <span class="icon-text">
+                    <span class="icon is-medium" :class="step >= 2 ? 'has-text-primary' : 'has-text-grey-light'">
+                        <i class="fas fa-circle-2 fa-lg" x-show="step < 3"></i>
+                        <i class="fas fa-check-circle fa-lg" x-show="step > 2" x-cloak></i>
+                    </span>
+                    <span :class="step >= 2 ? 'has-text-weight-semibold' : 'has-text-grey'">Configure Pixels</span>
+                </span>
+            </div>
+            <div class="column has-text-centered">
+                <span class="icon-text">
+                    <span class="icon is-medium" :class="step >= 3 ? 'has-text-primary' : 'has-text-grey-light'">
+                        <i class="fas fa-circle-3 fa-lg" x-show="step < 3"></i>
+                        <i class="fas fa-check-circle fa-lg" x-show="step >= 3 && applyDone" x-cloak></i>
+                    </span>
+                    <span :class="step >= 3 ? 'has-text-weight-semibold' : 'has-text-grey'">Apply</span>
+                </span>
+            </div>
+        </div>
+        <progress class="progress is-primary is-small" :value="step" max="3" x-text="step + ' / 3'"></progress>
+    </div>
+
+    {# ════════════════════════════════════════════════════════
+       STEP 1 — Authenticate & Select
+       ════════════════════════════════════════════════════════ #}
+    <div x-show="step === 1" x-cloak>
+        <div class="box">
+            <h2 class="title is-5 mb-4">
+                <span class="icon"><i class="fas fa-plug"></i></span>
+                Connect to Google Tag Manager
+            </h2>
+
+            <template x-if="!gtmConnected">
+                <div class="has-text-centered py-5">
+                    <p class="mb-4">Sign in with your Google account to grant Conzent access to manage your GTM container.</p>
+                    <a href="/gtm/auth?site_id={{ siteId }}&return_url=/gtm/wizard?site_id={{ siteId }}"
+                       class="button is-primary is-medium">
+                        <span class="icon"><i class="fab fa-google"></i></span>
+                        <span>Connect Google Account</span>
+                    </a>
+                    <p class="help mt-3">We request permission to create tags, triggers, and variables in your GTM container. You can revoke access at any time from your Google account settings.</p>
+                </div>
+            </template>
+
+            <template x-if="gtmConnected">
+                <div>
+                    <div class="notification is-success is-light mb-4">
+                        <span class="icon"><i class="fas fa-check-circle"></i></span>
+                        Connected to Google Tag Manager
+                    </div>
+
+                    {# Account selector #}
+                    <div class="field">
+                        <label class="label">GTM Account</label>
+                        <div class="control">
+                            <div class="select is-fullwidth" :class="loadingAccounts ? 'is-loading' : ''">
+                                <select x-model="selectedAccount" @change="onAccountChange()">
+                                    <option value="">Select an account...</option>
+                                    <template x-for="acc in accounts" :key="acc.accountId">
+                                        <option :value="acc.accountId" x-text="acc.name"></option>
+                                    </template>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    {# Container selector #}
+                    <div class="field" x-show="selectedAccount">
+                        <label class="label">Container</label>
+                        <div class="control">
+                            <div class="select is-fullwidth" :class="loadingContainers ? 'is-loading' : ''">
+                                <select x-model="selectedContainer" @change="onContainerChange()">
+                                    <option value="">Select a container...</option>
+                                    <template x-for="c in containers" :key="c.containerId">
+                                        <option :value="c.containerId" x-text="c.name + ' (' + c.publicId + ')'"></option>
+                                    </template>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    {# Workspace selector #}
+                    <div class="field" x-show="selectedContainer">
+                        <label class="label">Workspace</label>
+                        <div class="control">
+                            <div class="select is-fullwidth" :class="loadingWorkspaces ? 'is-loading' : ''">
+                                <select x-model="selectedWorkspace">
+                                    <option value="">Select a workspace...</option>
+                                    <template x-for="ws in workspaces" :key="ws.workspaceId">
+                                        <option :value="ws.workspaceId" x-text="ws.name"></option>
+                                    </template>
+                                </select>
+                            </div>
+                        </div>
+                        <p class="help" x-show="selectedContainer && !hasConzentWorkspace && !loadingWorkspaces">
+                            <a href="#" @click.prevent="createConzentWorkspace()" class="has-text-primary">
+                                <span class="icon is-small"><i class="fas fa-plus"></i></span>
+                                Create new "Conzent Workspace"
+                            </a>
+                        </p>
+                    </div>
+
+                    {# Next button #}
+                    <div class="field mt-5">
+                        <button class="button is-primary" :disabled="!selectedWorkspace" @click="step = 2">
+                            <span>Next: Configure Pixels</span>
+                            <span class="icon"><i class="fas fa-arrow-right"></i></span>
+                        </button>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    {# ════════════════════════════════════════════════════════
+       STEP 2 — Configure Pixels
+       ════════════════════════════════════════════════════════ #}
+    <div x-show="step === 2" x-cloak>
+        <div class="box">
+            <h2 class="title is-5 mb-2">
+                <span class="icon"><i class="fas fa-code"></i></span>
+                Configure Tracking Pixels
+            </h2>
+
+            {# CMP info box #}
+            <div class="notification is-primary is-light mb-5">
+                <span class="icon"><i class="fas fa-shield-halved"></i></span>
+                The <strong>Conzent CMP Tag</strong> (consent banner, triggers, and variables) is always created automatically. The pixels below are optional — expand any service you use to enter its tracking ID.
+            </div>
+
+            <p class="subtitle is-6 has-text-grey mb-5">Click a service to expand it and enter the tracking ID or code snippet. Leave collapsed to skip.</p>
+
+            {# ── Google Analytics ── #}
+            <div class="box mb-3 p-0" x-data="{ open: false }">
+                <div class="px-4 py-3" style="cursor:pointer;display:flex;align-items:center;gap:0.5rem" @click="open = !open">
+                    <span class="icon has-text-info"><i class="fas fa-chart-line"></i></span>
+                    <strong style="flex:1">Google Analytics</strong>
+                    <span class="tag is-success is-light" x-show="pixels.google_analytics.trim()" x-cloak>Configured</span>
+                    <span class="icon is-small has-text-grey"><i class="fas" :class="open ? 'fa-chevron-up' : 'fa-chevron-down'"></i></span>
+                </div>
+                <div class="px-4 pb-4" x-show="open" x-cloak>
+                    <div class="field">
+                        <label class="label is-small">Measurement ID</label>
+                        <div class="control has-icons-left">
+                            <input class="input" type="text" x-model="pixels.google_analytics" placeholder="G-XXXXXXXXXX">
+                            <span class="icon is-small is-left"><i class="fas fa-chart-simple"></i></span>
+                        </div>
+                        <p class="help">Your GA4 measurement ID (starts with G-)</p>
+                    </div>
+                </div>
+            </div>
+
+            {# ── Google Ads ── #}
+            <div class="box mb-3 p-0" x-data="{ open: false }">
+                <div class="px-4 py-3" style="cursor:pointer;display:flex;align-items:center;gap:0.5rem" @click="open = !open">
+                    <span class="icon has-text-warning"><i class="fas fa-ad"></i></span>
+                    <strong style="flex:1">Google Ads Conversion Tracking</strong>
+                    <span class="tag is-success is-light" x-show="pixels.google_ads_conversion_id.trim()" x-cloak>Configured</span>
+                    <span class="icon is-small has-text-grey"><i class="fas" :class="open ? 'fa-chevron-up' : 'fa-chevron-down'"></i></span>
+                </div>
+                <div class="px-4 pb-4" x-show="open" x-cloak>
+                    <div class="columns">
+                        <div class="column">
+                            <div class="field">
+                                <label class="label is-small">Conversion ID</label>
+                                <div class="control">
+                                    <input class="input" type="text" x-model="pixels.google_ads_conversion_id" placeholder="AW-XXXXXXXXX">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="column">
+                            <div class="field">
+                                <label class="label is-small">Conversion Label</label>
+                                <div class="control">
+                                    <input class="input" type="text" x-model="pixels.google_ads_conversion_label" placeholder="Conversion Label">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {# ── Facebook Pixel ── #}
+            <div class="box mb-3 p-0" x-data="{ open: false }">
+                <div class="px-4 py-3" style="cursor:pointer;display:flex;align-items:center;gap:0.5rem" @click="open = !open">
+                    <span class="icon has-text-link"><i class="fab fa-facebook"></i></span>
+                    <strong style="flex:1">Facebook Pixel</strong>
+                    <span class="tag is-success is-light" x-show="pixels.facebook_pixel.trim()" x-cloak>Configured</span>
+                    <span class="icon is-small has-text-grey"><i class="fas" :class="open ? 'fa-chevron-up' : 'fa-chevron-down'"></i></span>
+                </div>
+                <div class="px-4 pb-4" x-show="open" x-cloak>
+                    <div class="field">
+                        <label class="label is-small">Pixel Script</label>
+                        <div class="control">
+                            <textarea class="textarea" x-model="pixels.facebook_pixel" rows="4" placeholder="Paste the full Facebook Pixel &lt;script&gt; snippet here..."></textarea>
+                        </div>
+                        <p class="help">The complete script tag provided by Facebook/Meta</p>
+                    </div>
+                </div>
+            </div>
+
+            {# ── Microsoft Clarity ── #}
+            <div class="box mb-3 p-0" x-data="{ open: false }">
+                <div class="px-4 py-3" style="cursor:pointer;display:flex;align-items:center;gap:0.5rem" @click="open = !open">
+                    <span class="icon has-text-info"><i class="fab fa-microsoft"></i></span>
+                    <strong style="flex:1">Microsoft Clarity</strong>
+                    <span class="tag is-success is-light" x-show="pixels.microsoft_clarity.trim()" x-cloak>Configured</span>
+                    <span class="icon is-small has-text-grey"><i class="fas" :class="open ? 'fa-chevron-up' : 'fa-chevron-down'"></i></span>
+                </div>
+                <div class="px-4 pb-4" x-show="open" x-cloak>
+                    <div class="field">
+                        <label class="label is-small">Clarity Script</label>
+                        <div class="control">
+                            <textarea class="textarea" x-model="pixels.microsoft_clarity" rows="4" placeholder="Paste the full Clarity &lt;script&gt; snippet here..."></textarea>
+                        </div>
+                        <p class="help">The complete Clarity tracking script</p>
+                    </div>
+                </div>
+            </div>
+
+            {# ── LinkedIn ── #}
+            <div class="box mb-3 p-0" x-data="{ open: false }">
+                <div class="px-4 py-3" style="cursor:pointer;display:flex;align-items:center;gap:0.5rem" @click="open = !open">
+                    <span class="icon has-text-link"><i class="fab fa-linkedin"></i></span>
+                    <strong style="flex:1">LinkedIn Insight Tag</strong>
+                    <span class="tag is-success is-light" x-show="pixels.linkedin_insights.trim()" x-cloak>Configured</span>
+                    <span class="icon is-small has-text-grey"><i class="fas" :class="open ? 'fa-chevron-up' : 'fa-chevron-down'"></i></span>
+                </div>
+                <div class="px-4 pb-4" x-show="open" x-cloak>
+                    <div class="field">
+                        <label class="label is-small">Partner ID</label>
+                        <div class="control has-icons-left">
+                            <input class="input" type="text" x-model="pixels.linkedin_insights" placeholder="123456">
+                            <span class="icon is-small is-left"><i class="fab fa-linkedin-in"></i></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {# ── Pinterest ── #}
+            <div class="box mb-3 p-0" x-data="{ open: false }">
+                <div class="px-4 py-3" style="cursor:pointer;display:flex;align-items:center;gap:0.5rem" @click="open = !open">
+                    <span class="icon has-text-danger"><i class="fab fa-pinterest"></i></span>
+                    <strong style="flex:1">Pinterest Tag</strong>
+                    <span class="tag is-success is-light" x-show="pixels.pinterest_pixel.trim()" x-cloak>Configured</span>
+                    <span class="icon is-small has-text-grey"><i class="fas" :class="open ? 'fa-chevron-up' : 'fa-chevron-down'"></i></span>
+                </div>
+                <div class="px-4 pb-4" x-show="open" x-cloak>
+                    <div class="field">
+                        <label class="label is-small">Tag ID</label>
+                        <div class="control has-icons-left">
+                            <input class="input" type="text" x-model="pixels.pinterest_pixel" placeholder="2612345678901">
+                            <span class="icon is-small is-left"><i class="fab fa-pinterest-p"></i></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {# ── Snapchat ── #}
+            <div class="box mb-3 p-0" x-data="{ open: false }">
+                <div class="px-4 py-3" style="cursor:pointer;display:flex;align-items:center;gap:0.5rem" @click="open = !open">
+                    <span class="icon has-text-warning"><i class="fab fa-snapchat"></i></span>
+                    <strong style="flex:1">Snapchat Pixel</strong>
+                    <span class="tag is-success is-light" x-show="pixels.snapchat_pixel.trim()" x-cloak>Configured</span>
+                    <span class="icon is-small has-text-grey"><i class="fas" :class="open ? 'fa-chevron-up' : 'fa-chevron-down'"></i></span>
+                </div>
+                <div class="px-4 pb-4" x-show="open" x-cloak>
+                    <div class="field">
+                        <label class="label is-small">Pixel Script</label>
+                        <div class="control">
+                            <textarea class="textarea" x-model="pixels.snapchat_pixel" rows="4" placeholder="Paste the full Snapchat Pixel &lt;script&gt; snippet here..."></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {# ── TikTok ── #}
+            <div class="box mb-3 p-0" x-data="{ open: false }">
+                <div class="px-4 py-3" style="cursor:pointer;display:flex;align-items:center;gap:0.5rem" @click="open = !open">
+                    <span class="icon"><i class="fab fa-tiktok"></i></span>
+                    <strong style="flex:1">TikTok Pixel</strong>
+                    <span class="tag is-success is-light" x-show="pixels.tiktok_pixel.trim()" x-cloak>Configured</span>
+                    <span class="icon is-small has-text-grey"><i class="fas" :class="open ? 'fa-chevron-up' : 'fa-chevron-down'"></i></span>
+                </div>
+                <div class="px-4 pb-4" x-show="open" x-cloak>
+                    <div class="field">
+                        <label class="label is-small">Pixel Script</label>
+                        <div class="control">
+                            <textarea class="textarea" x-model="pixels.tiktok_pixel" rows="4" placeholder="Paste the full TikTok Pixel &lt;script&gt; snippet here..."></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {# Navigation #}
+            <div class="field is-grouped mt-5">
+                <p class="control">
+                    <button class="button" @click="step = 1">
+                        <span class="icon"><i class="fas fa-arrow-left"></i></span>
+                        <span>Back</span>
+                    </button>
+                </p>
+                <p class="control">
+                    <button class="button is-primary" @click="step = 3">
+                        <span>Next: Review & Apply</span>
+                        <span class="icon"><i class="fas fa-arrow-right"></i></span>
+                    </button>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    {# ════════════════════════════════════════════════════════
+       STEP 3 — Review & Apply
+       ════════════════════════════════════════════════════════ #}
+    <div x-show="step === 3" x-cloak>
+        <div class="box">
+            <h2 class="title is-5 mb-4">
+                <span class="icon"><i class="fas fa-rocket"></i></span>
+                Review & Apply
+            </h2>
+
+            {# Summary #}
+            <div class="content mb-5" x-show="!applying && !applyDone">
+                <p>The following will be created in your GTM workspace:</p>
+                <table class="table is-fullwidth is-striped">
+                    <thead>
+                        <tr>
+                            <th>Component</th>
+                            <th>Details</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><span class="icon is-small has-text-primary"><i class="fas fa-check"></i></span> Conzent CMP</td>
+                            <td>Template, tag, trigger, variables (always created)</td>
+                        </tr>
+                        <template x-for="item in summaryItems" :key="item.name">
+                            <tr>
+                                <td>
+                                    <span class="icon is-small has-text-primary"><i class="fas fa-check"></i></span>
+                                    <span x-text="item.name"></span>
+                                </td>
+                                <td x-text="item.detail"></td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+
+                <div class="notification is-info is-light" x-show="summaryItems.length === 0">
+                    <span class="icon"><i class="fas fa-info-circle"></i></span>
+                    No additional pixels configured. Only the Conzent CMP foundation will be created.
+                </div>
+            </div>
+
+            {# Progress during apply #}
+            <div x-show="applying" class="mb-5">
+                <div class="notification is-info is-light">
+                    <span class="icon"><i class="fas fa-spinner fa-spin"></i></span>
+                    Applying configuration to your GTM workspace... This may take a moment.
+                </div>
+            </div>
+
+            {# Results after apply #}
+            <div x-show="applyDone" class="mb-5">
+                <div class="notification" :class="applyAllSuccess ? 'is-success is-light' : 'is-warning is-light'">
+                    <span class="icon">
+                        <i :class="applyAllSuccess ? 'fas fa-check-circle' : 'fas fa-exclamation-triangle'"></i>
+                    </span>
+                    <span x-text="applyAllSuccess ? 'All tags created successfully!' : 'Completed with some warnings. Check results below.'"></span>
+                </div>
+
+                <table class="table is-fullwidth is-striped">
+                    <thead>
+                        <tr>
+                            <th>Component</th>
+                            <th>Status</th>
+                            <th>Details</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="r in applyResults" :key="r.name">
+                            <tr>
+                                <td x-text="r.name"></td>
+                                <td>
+                                    <span class="tag" :class="r.success ? 'is-success is-light' : 'is-warning is-light'"
+                                          x-text="r.success ? 'Created' : 'Warning'"></span>
+                                </td>
+                                <td x-text="r.error || '—'"></td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+
+                <div class="notification is-light mt-4">
+                    <span class="icon"><i class="fas fa-lightbulb"></i></span>
+                    Remember to <strong>publish</strong> the workspace changes in Google Tag Manager for them to go live.
+                </div>
+            </div>
+
+            {# Navigation / Apply #}
+            <div class="field is-grouped mt-5">
+                <p class="control" x-show="!applying && !applyDone">
+                    <button class="button" @click="step = 2">
+                        <span class="icon"><i class="fas fa-arrow-left"></i></span>
+                        <span>Back</span>
+                    </button>
+                </p>
+                <p class="control" x-show="!applying && !applyDone">
+                    <button class="button is-primary" @click="applyWizard()" :class="applying ? 'is-loading' : ''">
+                        <span class="icon"><i class="fas fa-rocket"></i></span>
+                        <span>Apply Configuration</span>
+                    </button>
+                </p>
+                <p class="control" x-show="applyDone">
+                    <a href="/gtm/wizard?site_id={{ siteId }}" class="button is-primary">
+                        <span class="icon"><i class="fas fa-redo"></i></span>
+                        <span>Run Again</span>
+                    </a>
+                </p>
+                <p class="control" x-show="applyDone">
+                    <a href="/" class="button">
+                        <span class="icon"><i class="fas fa-home"></i></span>
+                        <span>Back to Dashboard</span>
+                    </a>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    {% endif %}{# gtmConfigured #}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function gtmWizard() {
+    return {
+        step: {{ gtmConnected ? 1 : 1 }},
+        gtmConnected: {{ gtmConnected ? 'true' : 'false' }},
+        siteId: {{ siteId }},
+        websiteKey: '{{ websiteKey }}',
+
+        // Step 1 — account/container/workspace
+        accounts: [],
+        containers: [],
+        workspaces: [],
+        selectedAccount: '',
+        selectedContainer: '',
+        selectedWorkspace: '',
+        hasConzentWorkspace: false,
+        loadingAccounts: false,
+        loadingContainers: false,
+        loadingWorkspaces: false,
+
+        // Step 2 — pixel config
+        pixels: {
+            google_analytics: '',
+            google_ads_conversion_id: '',
+            google_ads_conversion_label: '',
+            facebook_pixel: '',
+            microsoft_clarity: '',
+            linkedin_insights: '',
+            pinterest_pixel: '',
+            snapchat_pixel: '',
+            tiktok_pixel: ''
+        },
+
+        // Step 3 — apply
+        applying: false,
+        applyDone: false,
+        applyResults: [],
+        applyAllSuccess: false,
+
+        init() {
+            if (this.gtmConnected) {
+                this.loadAccounts();
+            }
+        },
+
+        async loadAccounts() {
+            this.loadingAccounts = true;
+            try {
+                const res = await fetch('/app/gtm/accounts');
+                const json = await res.json();
+                this.accounts = json.data?.accounts || [];
+            } catch (e) {
+                console.error('Failed to load accounts', e);
+            }
+            this.loadingAccounts = false;
+        },
+
+        async onAccountChange() {
+            this.containers = [];
+            this.workspaces = [];
+            this.selectedContainer = '';
+            this.selectedWorkspace = '';
+            if (!this.selectedAccount) return;
+
+            this.loadingContainers = true;
+            try {
+                const res = await fetch('/app/gtm/accounts?account_id=' + this.selectedAccount);
+                const json = await res.json();
+                this.containers = json.data?.containers || [];
+            } catch (e) {
+                console.error('Failed to load containers', e);
+            }
+            this.loadingContainers = false;
+        },
+
+        async onContainerChange() {
+            this.workspaces = [];
+            this.selectedWorkspace = '';
+            if (!this.selectedContainer) return;
+
+            this.loadingWorkspaces = true;
+            try {
+                const res = await fetch('/app/gtm/workspaces?account_id=' + this.selectedAccount + '&container_id=' + this.selectedContainer);
+                const json = await res.json();
+                if (json.success) {
+                    this.workspaces = json.data.workspaces || [];
+                    this.hasConzentWorkspace = json.data.hasConzentWorkspace || false;
+                }
+            } catch (e) {
+                console.error('Failed to load workspaces', e);
+            }
+            this.loadingWorkspaces = false;
+        },
+
+        async createConzentWorkspace() {
+            this.loadingWorkspaces = true;
+            try {
+                const res = await fetch('/app/gtm/workspaces/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        account_id: this.selectedAccount,
+                        container_id: this.selectedContainer
+                    })
+                });
+                const json = await res.json();
+                if (json.success) {
+                    this.workspaces = json.data.workspaces || [];
+                    this.hasConzentWorkspace = true;
+                    // Auto-select the new workspace
+                    if (json.data.created) {
+                        this.selectedWorkspace = json.data.created.workspaceId;
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to create workspace', e);
+            }
+            this.loadingWorkspaces = false;
+        },
+
+        get summaryItems() {
+            const items = [];
+            if (this.pixels.google_analytics.trim())
+                items.push({ name: 'Google Analytics', detail: 'Measurement ID: ' + this.pixels.google_analytics });
+            if (this.pixels.google_ads_conversion_id.trim())
+                items.push({ name: 'Google Ads', detail: 'Conversion ID + Linker' });
+            if (this.pixels.facebook_pixel.trim())
+                items.push({ name: 'Facebook Pixel', detail: 'Custom HTML tag' });
+            if (this.pixels.microsoft_clarity.trim())
+                items.push({ name: 'Microsoft Clarity', detail: 'Custom HTML tag' });
+            if (this.pixels.linkedin_insights.trim())
+                items.push({ name: 'LinkedIn Insight Tag', detail: 'Partner ID: ' + this.pixels.linkedin_insights });
+            if (this.pixels.pinterest_pixel.trim())
+                items.push({ name: 'Pinterest Tag', detail: 'Tag ID: ' + this.pixels.pinterest_pixel });
+            if (this.pixels.snapchat_pixel.trim())
+                items.push({ name: 'Snapchat Pixel', detail: 'Custom HTML tag' });
+            if (this.pixels.tiktok_pixel.trim())
+                items.push({ name: 'TikTok Pixel', detail: 'Custom HTML tag' });
+            return items;
+        },
+
+        async applyWizard() {
+            this.applying = true;
+            this.applyDone = false;
+            this.applyResults = [];
+
+            try {
+                const res = await fetch('/app/gtm/wizard/apply', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        account_id: this.selectedAccount,
+                        container_id: this.selectedContainer,
+                        workspace_id: this.selectedWorkspace,
+                        website_key: this.websiteKey,
+                        pixels: this.pixels
+                    })
+                });
+                const json = await res.json();
+                if (json.success && json.data) {
+                    this.applyResults = json.data.results || [];
+                    this.applyAllSuccess = this.applyResults.every(r => r.success);
+                } else {
+                    this.applyResults = [{ name: 'Error', success: false, error: json.error || 'Unknown error' }];
+                }
+            } catch (e) {
+                this.applyResults = [{ name: 'Error', success: false, error: e.message }];
+            }
+
+            this.applying = false;
+            this.applyDone = true;
+        }
+    };
+}
+</script>
+{% endblock %}

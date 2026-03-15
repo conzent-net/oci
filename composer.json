@@ -1,0 +1,50 @@
+{
+    "name": "conzent/oci",
+    "description": "Open Consent Infrastructure — IAB & Google Certified Consent Management Platform",
+    "type": "project",
+    "license": "BSL-1.1",
+    "minimum-stability": "stable",
+    "prefer-stable": true,
+    "require": {
+        "php": ">=8.3",
+        "doctrine/dbal": "^4.0",
+        "geoip2/geoip2": "^3.3",
+        "laminas/laminas-httphandlerrunner": "^2.10",
+        "league/event": "^3.0",
+        "matthiasmullie/minify": "^1.3",
+        "monolog/monolog": "^3.5",
+        "nikic/fast-route": "^1.3",
+        "nyholm/psr7": "^1.8",
+        "nyholm/psr7-server": "^1.1",
+        "php-di/php-di": "^7.0",
+        "phpmailer/phpmailer": "^6.9",
+        "predis/predis": "^2.2",
+        "stripe/stripe-php": "^19.4",
+        "twig/twig": "^3.8",
+        "vlucas/phpdotenv": "^5.6"
+    },
+    "require-dev": {
+        "doctrine/migrations": "^3.8",
+        "friendsofphp/php-cs-fixer": "^3.49",
+        "mockery/mockery": "^1.6",
+        "phpstan/phpstan": "^1.10",
+        "phpstan/phpstan-strict-rules": "^1.5",
+        "phpunit/phpunit": "^11.0",
+        "rector/rector": "^1.0",
+        "symfony/var-dumper": "^7.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "OCI\\": "src/"
+        }
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {}
+    },
+    "extra": {
+        "symfony": {
+            "require": "7.2.*"
+        }
+    }
+}

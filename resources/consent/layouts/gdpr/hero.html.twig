@@ -1,0 +1,74 @@
+{#
+  Layout: Hero
+  Full-width banner with a large image header above the consent message.
+  Eye-catching, brand-forward design. The image area uses the site logo
+  or a gradient fallback. Great for building trust and brand recognition.
+#}
+{% extends "gdpr/base.html.twig" %}
+
+{% block banner %}
+<div id="Conzent" tabindex="0" class="conzent-{{ banner_type }}{{ display_position }}">
+  <div class="conzent-inner-content-box" style="border:1px solid {{ colors.notice_border }};background-color:{{ colors.notice_bg }};border-radius:12px;overflow:hidden;max-width:560px;{% if banner_type == 'popup-center' %}margin:auto;{% endif %}box-shadow:0 4px 24px rgba(0,0,0,0.12);">
+    <div class="conzent-notice">
+      {# ── Hero Image Header ──────────────────────────── #}
+      <div class="cnz-hero-header" style="background:linear-gradient(135deg, {{ colors.notice_border }} 0%, {{ colors.notice_bg }} 100%);padding:28px 24px 20px;text-align:center;position:relative;">
+        <div style="margin-bottom:12px;">{{ logo_html|raw }}</div>
+        <p class="title-wrap" style="color:{{ colors.notice_title }};justify-content:center;margin:0;font-size:1.2em;">[conzent_cookie_notice_banner_title]</p>
+      </div>
+
+      {# ── Body ────────────────────────────────────────── #}
+      <div style="padding:16px 24px;">
+        <div class="content-wrap" style="display:block;">
+          <div class="msg-wrap" style="color:{{ colors.notice_description }};margin-bottom:16px;">
+            [conzent_cookie_notice_message]
+            {{ privacy_policy_link|raw }}
+          </div>
+          <div class="btn-wrap" style="display:flex;gap:8px;flex-wrap:wrap;">
+            {{ buttons_html|raw }}
+          </div>
+        </div>
+        <div class="notice_button_wrap" style="margin-top:12px;">{{ banner_cookie_list|raw }}{{ pref_buttons_html|raw }}</div>
+        <div class="conzent-branding" style="display:flex;justify-content:center;padding:8px 0 0;font-size:11px;opacity:0.7;">
+          {{ branding_html|raw }}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block preference_center %}
+<div class="conzent-modal conzent-{{ preference_type }}{{ preference_position }}" tabindex="0">
+  <div class="conzent-preference-center" style="border:1px solid {{ colors.notice_border }};background-color:{{ colors.notice_bg }};border-radius:12px;overflow:hidden;">
+    {# ── Hero Header in Preference Center ─────────── #}
+    <div class="cnz-hero-header" style="background:linear-gradient(135deg, {{ colors.notice_border }} 0%, {{ colors.notice_bg }} 100%);padding:20px 24px 16px;position:relative;">
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <span class="conzent-preference-title" style="color:{{ colors.notice_title }};font-size:1.1em;">[conzent_preference_center_preference_title]</span>
+        <span id="preCloseBtn" class="cnz-btn-close">{{ close_button_html|raw }}</span>
+      </div>
+    </div>
+
+    <div class="conzent-preference-body-wrapper">
+      <div class="conzent-preference-content-wrapper" style="color:{{ colors.notice_description }}">
+        <div class="overview_text">[conzent_preference_center_overview]</div>
+        {{ google_privacy_policy|raw }}
+      </div>
+      <div class="conzent-horizontal-separator"></div>
+      <div class="conzent-accordion-wrapper cnz-category-table">
+        {{ cookie_categories_html|raw }}
+      </div>
+    </div>
+
+    <div class="conzent-footer-wrapper">
+      <span class="cnz-footer-shadow"></span>
+      <div class="conzent-prefrence-btn-wrapper">
+        {{ pref_buttons_html|raw }}
+      </div>
+      <div class="conzent-branding">
+        <div style="text-align:left;max-width: calc(100% - 160px);">The choices you make regarding the purposes and entities listed in this notice are saved in a cookie named conzentConsentPrefs for a maximum duration of 12 months.</div>
+        <div style="min-width:140px;display:flex;">{{ branding_html|raw }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

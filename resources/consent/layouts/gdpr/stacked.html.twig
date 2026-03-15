@@ -1,0 +1,26 @@
+{#
+  Layout: Stacked
+  Full-width banner with vertically stacked elements:
+  Logo + title on top, message in the middle, buttons at the bottom.
+  Buttons are displayed as full-width stacked blocks.
+  Works well as a top or bottom bar.
+#}
+{% extends "gdpr/base.html.twig" %}
+
+{% block banner_body %}
+<div class="content-wrap" style="display:flex;align-items:center;gap:16px;">
+  <div class="msg-wrap" style="color:{{ colors.notice_description }};flex:1;">
+    {% if iab|default(false) %}[conzent_iab_notice_description]{% else %}[conzent_cookie_notice_message]{% endif %}
+    {{ privacy_policy_link|raw }}
+  </div>
+  <div class="btn-wrap" style="flex-direction:column;gap:6px;min-width:180px;">
+    {{ buttons_html|raw }}
+  </div>
+</div>
+{% endblock %}
+
+{% block banner_footer %}
+<div class="conzent-branding" style="display:flex;justify-content:flex-end;padding:6px 0 0;font-size:11px;opacity:0.7;">
+  {{ branding_html|raw }}
+</div>
+{% endblock %}

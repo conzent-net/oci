@@ -1,0 +1,355 @@
+#!/usr/bin/env php
+<?php
+
+/**
+ * OCI CLI — Command-line entry point.
+ *
+ * Replaces all legacy cron scripts with named, logged commands.
+ *
+ * Usage:
+ *   php bin/oci <command> [options]
+ *
+ * Commands:
+ *   health                         Check application health
+ *   migrations:migrate             Run database migrations
+ *   legacy:migrate <domain|all>    Migrate legacy data to oci_* tables
+ *   cache:clear                    Clear application cache
+ *   queue:work                     Process queued jobs (long-running)
+ *   ingest:flush                   Flush beacon buffer to DB (long-running)
+ *   schedule:run                   Run scheduled tasks (long-running)
+ *   scripts:regenerate             Regenerate consent scripts for all active sites
+ *
+ * Legacy Migration Options:
+ *   --dry-run              Preview without writing data
+ *   --batch-size=N         Rows per batch (default: 1000)
+ *
+ * Domains: users, sites, languages, categories, cookies, banners,
+ *          consents, plans, scans, policies, agencies, all
+ *
+ * Environment:
+ *   LEGACY_EXCLUDE_USER_IDS=1,5,99  Comma-separated user IDs to skip
+ *
+ * More commands will be added as domains are built.
+ */
+
+declare(strict_types=1);
+
+use OCI\Http\Kernel\Application;
+use OCI\Infrastructure\Database\LegacyMigrationRunner;
+
+require_once dirname(__DIR__) . '/vendor/autoload.php';
+
+$app = Application::boot(dirname(__DIR__));
+$container = $app->getContainer();
+
+// Simple CLI router (will be expanded into a proper CommandRunner)
+$command = $argv[1] ?? 'help';
+
+match ($command) {
+    'health' => (function () use ($container, $app) {
+        try {
+            $db = $container->get(\Doctrine\DBAL\Connection::class);
+            $db->fetchOne('SELECT 1');
+            echo "Database: OK\n";
+        } catch (\Throwable $e) {
+            echo "Database: FAILED — {$e->getMessage()}\n";
+        }
+
+        try {
+            $redis = $container->get(\Predis\Client::class);
+            $redis->ping();
+            echo "Redis: OK\n";
+        } catch (\Throwable $e) {
+            echo "Redis: FAILED — {$e->getMessage()}\n";
+        }
+
+        echo "Environment: {$app->getEnvironment()}\n";
+        echo "Debug: " . ($app->isDebug() ? 'true' : 'false') . "\n";
+    })(),
+
+    'cache:clear' => (function () use ($app) {
+        $cachePath = $container->get('config.base_path') . '/var/cache';
+        if (is_dir($cachePath)) {
+            $files = new RecursiveIteratorIterator(
+                new RecursiveDirectoryIterator($cachePath, FilesystemIterator::SKIP_DOTS),
+                RecursiveIteratorIterator::CHILD_FIRST,
+            );
+            foreach ($files as $file) {
+                $file->isDir() ? rmdir($file->getRealPath()) : unlink($file->getRealPath());
+            }
+        }
+        echo "Cache cleared.\n";
+    })(),
+
+    'queue:work' => (function () use ($container) {
+        $scanService = $container->get(\OCI\Scanning\Service\ScanService::class);
+        $logger = $container->get(\Psr\Log\LoggerInterface::class);
+
+        echo "Queue worker started. Waiting for jobs...\n";
+        $logger->info('Queue worker started');
+
+        $idleCount = 0;
+
+        while (true) {
+            try {
+                $processed = $scanService->processNextScan();
+
+                if ($processed) {
+                    $idleCount = 0;
+                } else {
+                    $idleCount++;
+                    // Check for stale scans every 60 idle cycles (~5 min with 5s blocking pop)
+                    if ($idleCount % 60 === 0) {
+                        $scanService->processStaleScans();
+                    }
+                }
+            } catch (\Throwable $e) {
+                $logger->error('Queue worker error: ' . $e->getMessage());
+                echo "Error: {$e->getMessage()}\n";
+                sleep(5);
+            }
+        }
+    })(),
+
+    'ingest:flush' => (function () use ($container) {
+        $flushService = $container->get(\OCI\Scanning\Service\BeaconFlushService::class);
+        $logger = $container->get(\Psr\Log\LoggerInterface::class);
+
+        echo "Beacon flush worker started. Processing buffer...\n";
+        $logger->info('Beacon flush worker started');
+
+        while (true) {
+            try {
+                $count = $flushService->flush(200);
+
+                if ($count === 0) {
+                    usleep(500_000); // 500ms idle sleep
+                }
+            } catch (\Throwable $e) {
+                $logger->error('Beacon flush error: ' . $e->getMessage());
+                echo "Error: {$e->getMessage()}\n";
+                sleep(5);
+            }
+        }
+    })(),
+
+    'schedule:run' => (function () use ($container) {
+        $scanService = $container->get(\OCI\Scanning\Service\ScanService::class);
+        $reportService = $container->get(\OCI\Report\Service\ReportService::class);
+        $logger = $container->get(\Psr\Log\LoggerInterface::class);
+
+        echo "Scheduler started. Checking every 5 minutes...\n";
+        $logger->info('Scheduler started');
+
+        while (true) {
+            try {
+                $scanService->processDueScheduledScans();
+            } catch (\Throwable $e) {
+                $logger->error('Scheduler error (scans): ' . $e->getMessage());
+                echo "Error: {$e->getMessage()}\n";
+            }
+
+            try {
+                $reportService->processDueSchedules();
+            } catch (\Throwable $e) {
+                $logger->error('Scheduler error (reports): ' . $e->getMessage());
+                echo "Error: {$e->getMessage()}\n";
+            }
+
+            sleep(300); // Check every 5 minutes
+        }
+    })(),
+
+    'migrations:migrate' => (function () use ($container) {
+        echo "Running OCI migrations...\n";
+
+        $db = $container->get(\Doctrine\DBAL\Connection::class);
+
+        // Ensure tracking table exists
+        $db->executeStatement('
+            CREATE TABLE IF NOT EXISTS oci_migration_versions (
+                version VARCHAR(255) NOT NULL PRIMARY KEY,
+                executed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ');
+
+        // Discover migration files
+        $migrationsDir = dirname(__DIR__) . '/migrations/versions';
+        $files = glob($migrationsDir . '/Version*.php');
+        sort($files);
+
+        if (empty($files)) {
+            echo "No migration files found in {$migrationsDir}\n";
+            return;
+        }
+
+        // Already executed
+        $executed = $db->fetchFirstColumn('SELECT version FROM oci_migration_versions ORDER BY version');
+        $executedMap = array_flip($executed);
+
+        $pending = [];
+        foreach ($files as $file) {
+            $className = 'OCI\\Database\\Migrations\\' . pathinfo($file, PATHINFO_FILENAME);
+            if (!isset($executedMap[$className])) {
+                $pending[$className] = $file;
+            }
+        }
+
+        if (empty($pending)) {
+            echo "No new migrations to run. (" . \count($executed) . " already executed)\n";
+            return;
+        }
+
+        echo \count($pending) . " new migration(s) to execute.\n\n";
+
+        foreach ($pending as $className => $file) {
+            require_once $file;
+
+            if (!class_exists($className)) {
+                echo "  SKIP: Class {$className} not found in {$file}\n";
+                continue;
+            }
+
+            $shortName = pathinfo($file, PATHINFO_FILENAME);
+            echo "  ▸ {$shortName}...";
+
+            try {
+                $migration = new $className($db);
+                $migration->up();
+
+                $db->insert('oci_migration_versions', [
+                    'version' => $className,
+                    'executed_at' => date('Y-m-d H:i:s'),
+                ]);
+
+                echo " ✓\n";
+            } catch (\Throwable $e) {
+                echo " ✗ {$e->getMessage()}\n";
+                exit(1);
+            }
+        }
+
+        echo "\nMigrations completed successfully.\n";
+    })(),
+
+    'scripts:regenerate' => (function () use ($container) {
+        $db = $container->get(\Doctrine\DBAL\Connection::class);
+        $gen = $container->get(\OCI\Banner\Service\ScriptGenerationService::class);
+
+        $sites = $db->fetchAllAssociative("SELECT id, domain FROM oci_sites WHERE status = 'active'");
+
+        if (empty($sites)) {
+            echo "No active sites found.\n";
+            return;
+        }
+
+        echo "Regenerating consent scripts for " . \count($sites) . " site(s)...\n";
+
+        foreach ($sites as $site) {
+            echo "  ▸ {$site['domain']} (ID {$site['id']})...";
+            try {
+                $gen->generate((int) $site['id']);
+                echo " ✓\n";
+            } catch (\Throwable $e) {
+                echo " ✗ {$e->getMessage()}\n";
+            }
+        }
+
+        // Also purge the shared loader from edge cache
+        $cachePurge = $container->get(\OCI\Banner\Service\CachePurgeService::class);
+        $cachePurge->purgeLoader();
+        echo "Loader cache purged.\n";
+
+        echo "Done.\n";
+    })(),
+
+    'cache:purge-loader' => (function () use ($container) {
+        $cachePurge = $container->get(\OCI\Banner\Service\CachePurgeService::class);
+        $cachePurge->purgeLoader();
+        echo "Loader cache purged from Cloudflare edge.\n";
+    })(),
+
+    'legacy:migrate' => (function () use ($container, $argv) {
+        $domain = $argv[2] ?? null;
+        $dryRun = \in_array('--dry-run', $argv, true);
+        $batchSize = 1000;
+
+        // Parse --batch-size=N
+        foreach ($argv as $arg) {
+            if (str_starts_with($arg, '--batch-size=')) {
+                $batchSize = (int) substr($arg, 13);
+            }
+        }
+
+        $runner = new LegacyMigrationRunner(
+            $container->get(\Doctrine\DBAL\Connection::class),
+            $container->get(\Psr\Log\LoggerInterface::class),
+        );
+
+        $runner->setBatchSize($batchSize);
+        $runner->setDryRun($dryRun);
+
+        if ($domain === null) {
+            echo "Usage: php bin/oci legacy:migrate <domain|all> [--dry-run] [--batch-size=N]\n\n";
+            echo "Available domains:\n";
+            foreach ($runner->getAvailableDomains() as $d) {
+                echo "  {$d}\n";
+            }
+            echo "  all\n\n";
+            echo "Environment:\n";
+            $excludeIds = $_ENV['LEGACY_EXCLUDE_USER_IDS'] ?? '(not set)';
+            echo "  LEGACY_EXCLUDE_USER_IDS={$excludeIds}\n";
+            return;
+        }
+
+        echo "╔══════════════════════════════════════════╗\n";
+        echo "║   OCI Legacy Data Migration              ║\n";
+        echo "╚══════════════════════════════════════════╝\n\n";
+
+        echo "Domain:     {$domain}\n";
+        echo "Batch size: {$batchSize}\n";
+        echo "Dry run:    " . ($dryRun ? 'YES (no data will be written)' : 'NO') . "\n";
+        $excludeIds = $_ENV['LEGACY_EXCLUDE_USER_IDS'] ?? '';
+        echo "Excluding:  " . ($excludeIds !== '' ? "user IDs [{$excludeIds}]" : 'none') . "\n";
+        echo "\n";
+
+        $started = microtime(true);
+
+        try {
+            $result = $runner->run($domain);
+        } catch (\InvalidArgumentException $e) {
+            echo "ERROR: {$e->getMessage()}\n";
+            exit(1);
+        }
+
+        $elapsed = round(microtime(true) - $started, 2);
+
+        echo "\n";
+        echo "═══════════════════════════════════════════\n";
+        echo " Migrated: {$result['migrated']}\n";
+        echo " Skipped:  {$result['skipped']}\n";
+        echo " Errors:   {$result['errors']}\n";
+        echo " Time:     {$elapsed}s\n";
+        echo "═══════════════════════════════════════════\n";
+
+        exit($result['errors'] > 0 ? 1 : 0);
+    })(),
+
+    default => (function () use ($command) {
+        echo "OCI — Open Consent Infrastructure CLI\n\n";
+        if ($command !== 'help') {
+            echo "Unknown command: {$command}\n\n";
+        }
+        echo "Available commands:\n";
+        echo "  health                         Check application health\n";
+        echo "  migrations:migrate             Run Doctrine schema migrations\n";
+        echo "  legacy:migrate <domain|all>    Migrate legacy data to oci_* tables\n";
+        echo "  cache:clear                    Clear application cache\n";
+        echo "  queue:work                     Process queued jobs\n";
+        echo "  ingest:flush                   Flush beacon buffer to database\n";
+        echo "  schedule:run                   Run scheduled tasks\n";
+        echo "  scripts:regenerate             Regenerate all consent scripts\n";
+        echo "  cache:purge-loader             Purge CMP loader from Cloudflare edge\n";
+        echo "\n";
+    })(),
+};

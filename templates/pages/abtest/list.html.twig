@@ -1,0 +1,309 @@
+{% extends 'layouts/base.html.twig' %}
+{% import 'components/macros.html.twig' as ui %}
+
+{% set active_page = 'ab-tests' %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div x-data="abTestList()">
+
+    <nav class="breadcrumb mb-3" aria-label="breadcrumbs">
+        <ul>
+            <li><a href="/">Dashboard</a></li>
+            <li class="is-active"><a href="#" aria-current="page">A/B Tests</a></li>
+        </ul>
+    </nav>
+
+    <div class="level mb-5">
+        <div class="level-left">
+            <div class="level-item">
+                <h1 class="title is-4 mb-0">A/B Split Tests</h1>
+            </div>
+            <div class="level-item">
+                {{ ui.siteSelector(sites, siteId, '/ab-tests') }}
+            </div>
+        </div>
+        <div class="level-right">
+            <div class="level-item">
+                {% if isIab %}
+                <button class="button is-primary is-small" disabled title="A/B testing is not available with IAB TCF enabled">
+                    <span class="icon"><i class="fas fa-plus"></i></span>
+                    <span>New Experiment</span>
+                </button>
+                {% else %}
+                <button class="button is-primary is-small" @click="showCreate = true">
+                    <span class="icon"><i class="fas fa-plus"></i></span>
+                    <span>New Experiment</span>
+                </button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    {% if isIab %}
+    <div class="notification is-warning is-light">
+        <i class="fas fa-exclamation-triangle mr-2"></i>
+        <strong>A/B testing is not available</strong> — This site has IAB TCF enabled. IAB Transparency &amp; Consent Framework has strict rules on wording and button placement that prohibit banner variations.
+    </div>
+    {% endif %}
+
+    {# -- Experiment List ---------------------------------------- #}
+    {% if experiments|length > 0 %}
+    <div class="table-container">
+        <table class="table is-fullwidth is-hoverable is-striped">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Status</th>
+                    <th>Started</th>
+                    <th>Ended</th>
+                    <th>Winner</th>
+                    <th class="has-text-right">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for exp in experiments %}
+                <tr>
+                    <td>
+                        <a href="/ab-tests/{{ exp.id }}" class="has-text-weight-medium">{{ exp.experiment_name }}</a>
+                    </td>
+                    <td>
+                        {% if exp.status == 'running' %}
+                            <span class="tag is-success is-light"><i class="fas fa-circle fa-xs mr-1"></i> Running</span>
+                        {% elseif exp.status == 'draft' %}
+                            <span class="tag is-light">Draft</span>
+                        {% elseif exp.status == 'paused' %}
+                            <span class="tag is-warning is-light">Paused</span>
+                        {% elseif exp.status == 'completed' %}
+                            <span class="tag is-info is-light">Completed</span>
+                        {% endif %}
+                    </td>
+                    <td class="is-size-7">{{ exp.started_at ? exp.started_at|date('Y-m-d H:i') : '--' }}</td>
+                    <td class="is-size-7">{{ exp.ended_at ? exp.ended_at|date('Y-m-d H:i') : '--' }}</td>
+                    <td>
+                        {% if exp.winner_variant_id %}
+                            <span class="icon has-text-success"><i class="fas fa-trophy"></i></span>
+                        {% else %}
+                            <span class="has-text-grey-light">--</span>
+                        {% endif %}
+                    </td>
+                    <td class="has-text-right">
+                        <div class="buttons is-right are-small">
+                            <a href="/ab-tests/{{ exp.id }}" class="button is-info is-light" title="View results">
+                                <span class="icon"><i class="fas fa-chart-bar"></i></span>
+                            </a>
+                            <button class="button is-info is-light" title="Edit"
+                                    @click="openEditModal({{ exp.id }}, '{{ exp.experiment_name|e('js') }}')">
+                                <span class="icon"><i class="fas fa-pencil-alt"></i></span>
+                            </button>
+                            {% if exp.status != 'running' %}
+                            <button class="button is-danger is-light" title="Delete"
+                                    @click="openDeleteModal({{ exp.id }}, '{{ exp.experiment_name|e('js') }}')">
+                                <span class="icon"><i class="fas fa-trash"></i></span>
+                            </button>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="box has-text-centered py-6">
+        <span class="icon is-large has-text-grey-light"><i class="fas fa-flask fa-3x"></i></span>
+        <h3 class="title is-5 mt-4">No experiments yet</h3>
+        {% if isIab %}
+        <p class="subtitle is-6 has-text-grey">A/B testing is not available for banners with IAB TCF enabled.</p>
+        {% else %}
+        <p class="subtitle is-6 has-text-grey">Create your first A/B test to optimize your cookie banner's consent rate.</p>
+        <button class="button is-primary" @click="showCreate = true">
+            <span class="icon"><i class="fas fa-plus"></i></span>
+            <span>Create Experiment</span>
+        </button>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {# -- Create Modal ------------------------------------------- #}
+    <div class="modal" :class="{ 'is-active': showCreate }">
+        <div class="modal-background" @click="showCreate = false"></div>
+        <div class="modal-card" style="max-width:480px">
+            <header class="modal-card-head">
+                <p class="modal-card-title is-size-6">New A/B Experiment</p>
+                <button class="delete" aria-label="close" @click="showCreate = false"></button>
+            </header>
+            <section class="modal-card-body">
+                <div class="field">
+                    <label class="label is-small">Experiment Name</label>
+                    <div class="control">
+                        <input class="input" type="text" x-model="newName"
+                               placeholder="e.g. Bottom banner vs Popup" autofocus>
+                    </div>
+                    <p class="help">A descriptive name for this split test.</p>
+                </div>
+                <p class="help is-danger" x-show="createError" x-text="createError"></p>
+            </section>
+            <footer class="modal-card-foot">
+                <button class="button is-primary" @click="createExperiment()"
+                        :class="{ 'is-loading': creating }" :disabled="!newName.trim()">
+                    Create
+                </button>
+                <button class="button" @click="showCreate = false">Cancel</button>
+            </footer>
+        </div>
+    </div>
+
+    {# -- Edit Modal --------------------------------------------- #}
+    <div class="modal" :class="{ 'is-active': editModal.open }">
+        <div class="modal-background" @click="editModal.open = false"></div>
+        <div class="modal-card" style="max-width:480px">
+            <header class="modal-card-head">
+                <p class="modal-card-title is-size-6">Edit Experiment</p>
+                <button class="delete" aria-label="close" @click="editModal.open = false"></button>
+            </header>
+            <section class="modal-card-body">
+                <div class="field">
+                    <label class="label is-small">Experiment Name</label>
+                    <div class="control">
+                        <input class="input" type="text" x-model="editModal.name"
+                               @keydown.enter="saveExperiment()">
+                    </div>
+                </div>
+                <p class="help is-danger" x-show="editModal.error" x-text="editModal.error"></p>
+            </section>
+            <footer class="modal-card-foot">
+                <button class="button is-primary" @click="saveExperiment()"
+                        :class="{ 'is-loading': editModal.saving }" :disabled="!editModal.name.trim()">
+                    Save
+                </button>
+                <button class="button" @click="editModal.open = false">Cancel</button>
+            </footer>
+        </div>
+    </div>
+
+    {# -- Delete Modal ------------------------------------------- #}
+    <div class="modal" :class="{ 'is-active': deleteModal.open }">
+        <div class="modal-background" @click="deleteModal.open = false"></div>
+        <div class="modal-card" style="max-width:480px">
+            <header class="modal-card-head has-background-danger-light">
+                <p class="modal-card-title has-text-danger is-size-6">Delete Experiment</p>
+                <button class="delete" aria-label="close" @click="deleteModal.open = false"></button>
+            </header>
+            <section class="modal-card-body">
+                <p>Are you sure you want to delete <strong x-text="deleteModal.name"></strong>?</p>
+                <p class="has-text-danger mt-2">This action cannot be undone. All variants and data will be lost.</p>
+                <p class="help is-danger" x-show="deleteModal.error" x-text="deleteModal.error"></p>
+            </section>
+            <footer class="modal-card-foot">
+                <button class="button is-danger" @click="confirmDelete()"
+                        :class="{ 'is-loading': deleteModal.saving }">
+                    Delete
+                </button>
+                <button class="button" @click="deleteModal.open = false">Cancel</button>
+            </footer>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function abTestList() {
+    return {
+        showCreate: false,
+        creating: false,
+        newName: '',
+        createError: '',
+
+        editModal: { open: false, saving: false, id: 0, name: '', error: '' },
+        deleteModal: { open: false, saving: false, id: 0, name: '', error: '' },
+
+        createExperiment() {
+            if (!this.newName.trim() || this.creating) return;
+            this.creating = true;
+            this.createError = '';
+
+            fetch('/app/ab-tests', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                body: JSON.stringify({ site_id: {{ siteId }}, name: this.newName.trim() })
+            })
+            .then(r => r.json())
+            .then(data => {
+                this.creating = false;
+                if (data.success && data.data.redirect) {
+                    window.location.href = data.data.redirect;
+                } else {
+                    this.createError = (data.error && data.error.message) || data.message || 'Failed to create experiment';
+                }
+            })
+            .catch(() => {
+                this.creating = false;
+                this.createError = 'Failed to create experiment';
+            });
+        },
+
+        openEditModal(id, name) {
+            this.editModal = { open: true, saving: false, id, name, error: '' };
+        },
+
+        saveExperiment() {
+            if (!this.editModal.name.trim() || this.editModal.saving) return;
+            this.editModal.saving = true;
+            this.editModal.error = '';
+
+            fetch('/app/ab-tests/' + this.editModal.id, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                body: JSON.stringify({ site_id: {{ siteId }}, name: this.editModal.name.trim() })
+            })
+            .then(r => r.json())
+            .then(data => {
+                this.editModal.saving = false;
+                if (data.success) {
+                    window.location.reload();
+                } else {
+                    this.editModal.error = data.message || 'Failed to update experiment';
+                }
+            })
+            .catch(() => {
+                this.editModal.saving = false;
+                this.editModal.error = 'Failed to update experiment';
+            });
+        },
+
+        openDeleteModal(id, name) {
+            this.deleteModal = { open: true, saving: false, id, name, error: '' };
+        },
+
+        confirmDelete() {
+            if (this.deleteModal.saving) return;
+            this.deleteModal.saving = true;
+            this.deleteModal.error = '';
+
+            fetch('/app/ab-tests/' + this.deleteModal.id, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                body: JSON.stringify({ site_id: {{ siteId }} })
+            })
+            .then(r => r.json())
+            .then(data => {
+                this.deleteModal.saving = false;
+                if (data.success) {
+                    window.location.reload();
+                } else {
+                    this.deleteModal.error = data.message || 'Failed to delete experiment';
+                }
+            })
+            .catch(() => {
+                this.deleteModal.saving = false;
+                this.deleteModal.error = 'Failed to delete experiment';
+            });
+        }
+    };
+}
+</script>
+{% endblock %}

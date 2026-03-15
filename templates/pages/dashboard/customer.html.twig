@@ -1,0 +1,1276 @@
+{% extends 'layouts/base.html.twig' %}
+{% import 'components/macros.html.twig' as ui %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block head %}
+{# ApexCharts for consent donut + pageview area chart #}
+<script src="https://cdn.jsdelivr.net/npm/apexcharts@3.52.0"></script>
+<style>
+    .compliance-gauge { width: 120px; height: 120px; position: relative; display: inline-block; }
+    .compliance-gauge .gauge-bg { fill: none; stroke: #e8e8e8; stroke-width: 14; }
+    .compliance-gauge .gauge-fill { fill: none; stroke-width: 14; stroke-linecap: round; transition: stroke-dasharray 1s ease; }
+    .compliance-gauge .gauge-text { font-size: 26px; font-weight: 700; text-anchor: middle; dominant-baseline: central; }
+    .recommendation-item { padding: 0.4rem 0; border-bottom: 1px solid var(--oci-border, #f0f0f0); display:flex; align-items:center; gap:0.5rem; }
+    .recommendation-item:last-child { border-bottom: none; }
+    .rec-done { color: #22b573; }
+    .rec-fail { color: #ff4444; }
+    .verify-check { display:flex; align-items:center; gap:0.75rem; padding:0.625rem 0; border-bottom:1px solid var(--oci-border, #f0f0f0); }
+    .verify-check:last-child { border-bottom:none; }
+    .verify-check .check-icon { width:28px; text-align:center; font-size:1.1rem; }
+    .verify-check .check-label { flex:1; }
+    .verify-spinner { display:inline-block; width:18px; height:18px; border:2px solid #e8e8e8; border-top-color:#2e9e5e; border-radius:50%; animation:vspin .6s linear infinite; }
+    @keyframes vspin { to { transform:rotate(360deg); } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div x-data="customerDashboard()" x-init="init()">
+
+    {# ── Header + Site Selector + Preview Toggle ─────────── #}
+    <div class="columns is-vcentered mb-4">
+        <div class="column">
+            <h1 class="title is-3 mb-1">Dashboard</h1>
+            <p class="subtitle is-6 has-text-grey">Manage your consent setup</p>
+        </div>
+        <div class="column is-narrow">
+            <div class="is-flex is-align-items-center" style="gap:0.75rem">
+                {{ ui.siteSelector(dashboard.sites, dashboard.selectedSiteId, '/') }}
+
+                {# Preview Button #}
+                <button class="button is-info is-outlined" @click="openPreview()" title="Preview banner on site">
+                    <span class="icon"><i class="fas fa-eye"></i></span>
+                    <span>Preview</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    {% if not dashboard.isSubscribed and not dashboard.isEnterprise %}
+    {# ── Free Plan Notice ──────────────────────────────── #}
+    <div class="notification is-warning is-light">
+        <strong>Free Plan</strong> — Upgrade to unlock GCM Advanced, IAB/TCF, and more features.
+        <a href="/billing" class="button is-small is-warning ml-3">Upgrade Now</a>
+    </div>
+    {% endif %}
+
+    {# ══════════════════════════════════════════════════════ #}
+    {# ROW 1: Quick Config (left) + Site Status/Recs (right) #}
+    {# ══════════════════════════════════════════════════════ #}
+    <div class="columns mb-4" x-data="easyConfig()">
+
+        {# ── Quick Configuration ─────────────────────────── #}
+        <div class="column is-8">
+            <div class="box" style="height:100%">
+                <h2 class="title is-5 mb-3">
+                    <span class="icon"><i class="fas fa-wand-magic-sparkles"></i></span>
+                    Quick Configuration
+                </h2>
+                <p class="subtitle is-6 has-text-grey mb-4">
+                    Click each step for quick access to configure your consent setup.
+                </p>
+
+                {# ── Clickable Wizard Steps ──────────────── #}
+                <div class="oci-wizard-steps">
+                    {# Step 1: Apply Template #}
+                    <div class="oci-wizard-step"
+                         :class="{ 'is-active': wizardStep === 1, 'is-completed': wizardStep > 1 }"
+                         @click="wizardStep = 1" style="cursor:pointer">
+                        <div class="step-circle">
+                            <i class="fas fa-check" style="font-size:0.75rem" x-show="wizardStep > 1"></i>
+                            <span x-show="wizardStep <= 1">1</span>
+                        </div>
+                        <span class="step-label">Apply Template</span>
+                    </div>
+
+                    {# Step 2: Customize Banner #}
+                    <div class="oci-wizard-step"
+                         :class="{ 'is-active': wizardStep === 2, 'is-completed': wizardStep > 2 }"
+                         @click="goToStep(2)" style="cursor:pointer">
+                        <div class="step-circle">
+                            <i class="fas fa-check" style="font-size:0.75rem" x-show="wizardStep > 2"></i>
+                            <span x-show="wizardStep <= 2">2</span>
+                        </div>
+                        <span class="step-label">Customize Banner</span>
+                    </div>
+
+                    {# Step 3: Install Script #}
+                    <div class="oci-wizard-step"
+                         :class="{ 'is-active': wizardStep === 3, 'is-completed': wizardStep > 3 }"
+                         @click="wizardStep = 3" style="cursor:pointer">
+                        <div class="step-circle">
+                            <i class="fas fa-check" style="font-size:0.75rem" x-show="wizardStep > 3"></i>
+                            <span x-show="wizardStep <= 3">3</span>
+                        </div>
+                        <span class="step-label">Install Script</span>
+                    </div>
+
+                    {# Step 4: Verify #}
+                    <div class="oci-wizard-step"
+                         :class="{ 'is-active': wizardStep === 4, 'is-completed': wizardStep > 4 }"
+                         @click="openVerify()" style="cursor:pointer">
+                        <div class="step-circle">
+                            <i class="fas fa-check" style="font-size:0.75rem" x-show="wizardStep > 4"></i>
+                            <span x-show="wizardStep <= 4">4</span>
+                        </div>
+                        <span class="step-label">Verify</span>
+                    </div>
+                </div>
+
+                {# ── Step 1 Content: Template Chooser ────── #}
+                <div x-show="wizardStep === 1" x-transition>
+                    <div class="oci-template-grid mt-4">
+                        {{ ui.templateCard(
+                            'selectedTemplate', 'basic',
+                            'GCM Basic',
+                            'Google Consent Mode V2 Basic. Adjusts Google service behavior based on user consent.',
+                            'shield-halved', '#2e9e5e', false
+                        ) }}
+                        {{ ui.templateCard(
+                            'selectedTemplate', 'advanced',
+                            'GCM Advanced',
+                            'Granular control of data collection. Google Tags fire before consent.',
+                            'shield-check', '#7c3aed',
+                            not dashboard.isSubscribed and not dashboard.isEnterprise
+                        ) }}
+                        {{ ui.templateCard(
+                            'selectedTemplate', 'basic_tcf',
+                            'GCM Basic + TCF',
+                            tcf_enabled ? 'IAB TCF v2.3 integration with basic consent controls.' : 'TCF not enabled. Requires IAB Europe CMP membership.',
+                            'certificate', '#0891b2',
+                            not tcf_enabled or (not dashboard.isSubscribed and not dashboard.isEnterprise)
+                        ) }}
+                        {{ ui.templateCard(
+                            'selectedTemplate', 'advanced_tcf',
+                            'GCM Advanced + TCF',
+                            tcf_enabled ? 'Full IAB TCF v2.3 + advanced consent mode. Google Tags fire before consent.' : 'TCF not enabled. Requires IAB Europe CMP membership.',
+                            'award', '#059669',
+                            not tcf_enabled or (not dashboard.isSubscribed and not dashboard.isEnterprise)
+                        ) }}
+                    </div>
+
+                    <div class="mt-4" x-show="selectedTemplate && selectedTemplate !== appliedTemplate">
+                        <button class="button is-primary" :class="{ 'is-loading': applyingTemplate }"
+                                @click="applyTemplate()" :disabled="!selectedTemplate">
+                            <span class="icon"><i class="fas fa-check"></i></span>
+                            <span>Apply Template</span>
+                        </button>
+                    </div>
+                </div>
+
+                {# ── Step 2 Content: Navigate to Banner Settings ─ #}
+                <div x-show="wizardStep === 2" x-transition class="mt-4">
+                    <div class="notification is-info is-light" style="padding:1rem">
+                        <div class="level mb-0">
+                            <div class="level-left">
+                                <div>
+                                    <p class="has-text-weight-semibold">Customize Your Banner</p>
+                                    <p class="is-size-7 mt-1">Configure layout, content, colors, and translations for your consent banner.</p>
+                                </div>
+                            </div>
+                            <div class="level-right">
+                                <a href="/banners" class="button is-info">
+                                    <span class="icon"><i class="fas fa-palette"></i></span>
+                                    <span>Open Banner Settings</span>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    {% if dashboard.templateApplied %}
+                    <p class="is-size-7 has-text-grey mt-2">
+                        <i class="fas fa-info-circle"></i>
+                        Current template: <strong>{{ dashboard.templateLabel }}</strong>.
+                        Your banner settings have been pre-configured — customize as needed.
+                    </p>
+                    {% endif %}
+                </div>
+
+                {# ── Step 3 Content: Install Script ──────── #}
+                <div x-show="wizardStep === 3" x-transition class="mt-4">
+                    {% if dashboard.websiteKey %}
+                    <div class="columns is-variable is-4" style="align-items:stretch">
+                        {# ── Direct Script Install (Required) ── #}
+                        <div class="column is-6" style="display:flex;flex-direction:column">
+                            <div style="flex:1;display:flex;flex-direction:column">
+                                <h3 class="has-text-weight-semibold mb-2">
+                                    <span class="icon has-text-info"><i class="fas fa-code"></i></span>
+                                    Direct Script Install
+                                    <span class="tag is-success is-light ml-2" style="font-size:0.65rem;vertical-align:middle">Required</span>
+                                </h3>
+                                <p class="is-size-7 has-text-grey mb-3">
+                                    Add this script tag to your website's <code>&lt;head&gt;</code> section, before any other scripts.
+                                </p>
+                                <div class="content is-small mt-1" style="background:var(--oci-hover-bg, #f9f9f9);padding:0.75rem;border-radius:6px;font-family:monospace;font-size:0.75rem;overflow-x:auto;word-break:break-all">
+                                    &lt;script src="{{ base_url }}/c/consent.js"<br>
+                                    &nbsp;&nbsp;&nbsp;&nbsp;data-key="{{ dashboard.websiteKey }}"&gt;&lt;/script&gt;
+                                </div>
+                                <div class="mt-2">
+                                    <button class="button is-small is-link copy-btn" @click="copySnippet($event)">
+                                        <span class="icon"><i class="fas fa-copy"></i></span>
+                                        <span>Copy</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        {# ── Google Tag Manager (Optional) ── #}
+                        <div class="column is-6" style="display:flex;flex-direction:column">
+                            <div style="flex:1;display:flex;flex-direction:column">
+                                <h3 class="has-text-weight-semibold mb-2">
+                                    <span class="icon" style="color:#4285f4"><i class="fab fa-google"></i></span>
+                                    Google Tag Manager
+                                    <span class="tag is-light ml-2" style="font-size:0.65rem;vertical-align:middle">Optional</span>
+                                </h3>
+                                <p class="is-size-7 has-text-grey mb-3">
+                                    Sign in with Google to select a GTM container. Conzent will auto-inject GTM with consent-aware loading.
+                                </p>
+
+                                {# ── State: Container already saved ── #}
+                                <template x-if="gtmContainerId">
+                                    <div>
+                                        <div class="notification is-success is-light" style="padding:0.75rem 1rem">
+                                            <div class="is-flex is-align-items-center is-justify-content-space-between">
+                                                <span class="is-size-7">
+                                                    <i class="fas fa-check-circle"></i>
+                                                    GTM Container: <strong x-text="gtmContainerId" style="font-family:monospace"></strong>
+                                                </span>
+                                                <button class="delete is-small" @click="gtmContainerId = ''; saveGtmConfig();" title="Remove GTM"></button>
+                                            </div>
+                                        </div>
+                                        <template x-if="gtmSaved">
+                                            <p class="is-size-7 has-text-success mt-1"><i class="fas fa-check"></i> GTM configuration saved.</p>
+                                        </template>
+                                        <details class="mt-2" style="font-size:0.75rem">
+                                            <summary class="has-text-grey" style="cursor:pointer">Advanced: Custom Data Layer name</summary>
+                                            <div class="field has-addons mt-2">
+                                                <div class="control">
+                                                    <input class="input is-small" type="text"
+                                                           x-model="gtmDataLayer"
+                                                           placeholder="dataLayer"
+                                                           style="width:140px;font-family:monospace" />
+                                                </div>
+                                                <div class="control">
+                                                    <button class="button is-small is-link" @click="saveGtmConfig()"
+                                                            :class="{ 'is-loading': gtmSaving }">Save</button>
+                                                </div>
+                                            </div>
+                                            <p class="help">Leave empty for the default <code>dataLayer</code>.</p>
+                                        </details>
+                                    </div>
+                                </template>
+
+                                {# ── State: Google connected, picking container ── #}
+                                <template x-if="gtmConnected && !gtmContainerId">
+                                    <div>
+                                        <div class="field mb-2">
+                                            <label class="label is-small">GTM Account</label>
+                                            <div class="control" :class="{ 'is-loading': gtmAccountsLoading }">
+                                                <div class="select is-small is-fullwidth">
+                                                    <select x-model="gtmAccountId" @change="loadGtmContainers()"
+                                                            :disabled="gtmAccountsLoading">
+                                                        <option value="">Select an account...</option>
+                                                        <template x-for="acc in gtmAccounts" :key="acc.accountId">
+                                                            <option :value="acc.accountId" x-text="acc.name"></option>
+                                                        </template>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="field mb-2" x-show="gtmAccountId">
+                                            <label class="label is-small">Container</label>
+                                            <div class="control" :class="{ 'is-loading': gtmContainersLoading }">
+                                                <div class="select is-small is-fullwidth">
+                                                    <select x-model="gtmSelectedContainer"
+                                                            @change="if (gtmSelectedContainer) { gtmContainerId = gtmSelectedContainer; saveGtmConfig(); }"
+                                                            :disabled="gtmContainersLoading">
+                                                        <option value="">Select a container...</option>
+                                                        <template x-for="c in gtmContainers" :key="c.containerId">
+                                                            <option :value="c.publicId" x-text="c.name + ' (' + c.publicId + ')'"></option>
+                                                        </template>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <template x-if="gtmSaving">
+                                            <p class="is-size-7 has-text-grey"><i class="fas fa-spinner fa-spin"></i> Saving...</p>
+                                        </template>
+                                    </div>
+                                </template>
+
+                                {# ── State: Not connected, show sign-in button ── #}
+                                <div x-show="!gtmConnected && !gtmContainerId">
+                                    {% if gtm_oauth_configured is defined and gtm_oauth_configured %}
+                                    <a href="/gtm/auth?site_id={{ dashboard.selectedSiteId }}"
+                                       class="button is-small" style="background:#fff;border:1px solid #dadce0;color:#3c4043;font-family:'Google Sans',Roboto,Arial,sans-serif;font-weight:500;border-radius:4px;padding-left:0.5rem">
+                                        <span class="icon" style="margin-right:4px">
+                                            <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+                                        </span>
+                                        <span>Sign in with Google</span>
+                                    </a>
+                                    {% endif %}
+                                    <p class="is-size-7 has-text-grey mt-3">
+                                        <i class="fas fa-info-circle"></i>
+                                        Prefer full control? Skip this and place the GTM script manually on your site.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="notification is-warning is-light">
+                        No website key generated yet. Please apply a template first.
+                    </div>
+                    {% endif %}
+                </div>
+
+                {# ── Step 4: Verify (content shown in modal) ─ #}
+                <div x-show="wizardStep === 4" x-transition class="mt-4">
+                    <div class="notification is-light" style="padding:1rem">
+                        <div class="level mb-0">
+                            <div class="level-left">
+                                <div>
+                                    <p class="has-text-weight-semibold">Verify Your Setup</p>
+                                    <p class="is-size-7 mt-1">Run validation checks to ensure your consent banner is correctly configured and installed.</p>
+                                </div>
+                            </div>
+                            <div class="level-right">
+                                <button class="button is-success" @click="openVerify()">
+                                    <span class="icon"><i class="fas fa-clipboard-check"></i></span>
+                                    <span>Run Verification</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {# ── Site Status + Recommendations (right column) ─── #}
+        <div class="column is-4">
+            {# Site Status Card #}
+            <div class="box mb-4">
+                <div class="level mb-3">
+                    <div class="level-left">
+                        <h2 class="title is-5 mb-0">Site Status</h2>
+                    </div>
+                    <div class="level-right">
+                        <span class="tag"
+                              :class="siteActive ? 'is-success is-light' : 'is-danger is-light'"
+                              x-text="siteActive ? 'Active' : 'Inactive'"></span>
+                    </div>
+                </div>
+
+                {# Compliance Gauge #}
+                <div class="has-text-centered mb-3">
+                    <svg class="compliance-gauge" viewBox="0 0 150 150">
+                        <circle class="gauge-bg" cx="75" cy="75" r="60"></circle>
+                        <circle class="gauge-fill" cx="75" cy="75" r="60"
+                                :stroke="complianceColor"
+                                :stroke-dasharray="complianceDash"
+                                transform="rotate(-90 75 75)"></circle>
+                        <text class="gauge-text" x="75" y="75"
+                              x-text="complianceScore + '%'"
+                              :fill="complianceColor"></text>
+                    </svg>
+                    <p class="is-size-7 has-text-grey">Compliance Score</p>
+                </div>
+            </div>
+
+            {# Recommendations Card — Alpine-reactive so verify/template updates show immediately #}
+            <div class="box">
+                <h2 class="title is-6 mb-3">Recommendations</h2>
+                <template x-if="recommendations.length > 0">
+                    <div>
+                        <template x-for="(rec, i) in recommendations" :key="i">
+                            <div class="recommendation-item">
+                                <template x-if="rec.status === 'done'">
+                                    <span class="icon rec-done"><i class="fas fa-check-circle"></i></span>
+                                </template>
+                                <template x-if="rec.status === 'checking'">
+                                    <span class="icon"><span class="verify-spinner"></span></span>
+                                </template>
+                                <template x-if="rec.status !== 'done' && rec.status !== 'checking'">
+                                    <span class="icon rec-fail"><i class="fas fa-times-circle"></i></span>
+                                </template>
+                                <span class="is-size-7" :class="{ 'has-text-danger': rec.status === 'fail' }" x-html="rec.text"></span>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+                <template x-if="recommendations.length === 0">
+                    <p class="has-text-grey is-size-7">All recommendations met!</p>
+                </template>
+            </div>
+        </div>
+
+        {# ── Verification Modal ─────────────────────────── #}
+        <div class="modal" :class="{ 'is-active': verifyModal }">
+            <div class="modal-background" @click="verifyModal = false"></div>
+            <div class="modal-card" style="max-width:560px">
+                <header class="modal-card-head">
+                    <p class="modal-card-title">
+                        <span class="icon"><i class="fas fa-clipboard-check"></i></span>
+                        Setup Verification
+                    </p>
+                    <button class="delete" aria-label="close" @click="verifyModal = false"></button>
+                </header>
+                <section class="modal-card-body">
+                    <p class="is-size-7 has-text-grey mb-4">
+                        Validating your consent setup for <strong>{{ dashboard.siteData.domain is defined ? dashboard.siteData.domain : '' }}</strong>
+                    </p>
+
+                    {# Script Detection #}
+                    <div class="verify-check">
+                        <div class="check-icon">
+                            <span class="verify-spinner" x-show="verifyRunning && !verifyResults.script"></span>
+                            <i class="fas fa-check-circle has-text-success" x-show="verifyResults.script === 'pass'" x-cloak></i>
+                            <i class="fas fa-times-circle has-text-danger" x-show="verifyResults.script === 'fail'" x-cloak></i>
+                            <i class="fas fa-minus-circle has-text-grey-light" x-show="!verifyRunning && !verifyResults.script" x-cloak></i>
+                        </div>
+                        <div class="check-label">
+                            <p class="has-text-weight-medium is-size-7">Consent Script Installed</p>
+                            <p class="is-size-7 has-text-grey">Verify the banner script tag is present on your website.</p>
+                        </div>
+                    </div>
+
+                    {# GTM Check (conditional) #}
+                    <div class="verify-check">
+                        <div class="check-icon">
+                            <span class="verify-spinner" x-show="verifyRunning && !verifyResults.gtm"></span>
+                            <i class="fas fa-check-circle has-text-success" x-show="verifyResults.gtm === 'pass'" x-cloak></i>
+                            <i class="fas fa-times-circle has-text-danger" x-show="verifyResults.gtm === 'fail'" x-cloak></i>
+                            <i class="fas fa-minus-circle has-text-grey-light" x-show="verifyResults.gtm === 'skip'" x-cloak></i>
+                            <i class="fas fa-minus-circle has-text-grey-light" x-show="!verifyRunning && !verifyResults.gtm" x-cloak></i>
+                        </div>
+                        <div class="check-label">
+                            <p class="has-text-weight-medium is-size-7">Google Tag Manager</p>
+                            <p class="is-size-7 has-text-grey">Check GTM integration is properly configured (if applicable).</p>
+                        </div>
+                    </div>
+
+                    {# TCF Validation #}
+                    <div class="verify-check">
+                        <div class="check-icon">
+                            <span class="verify-spinner" x-show="verifyRunning && !verifyResults.tcf"></span>
+                            <i class="fas fa-check-circle has-text-success" x-show="verifyResults.tcf === 'pass'" x-cloak></i>
+                            <i class="fas fa-times-circle has-text-danger" x-show="verifyResults.tcf === 'fail'" x-cloak></i>
+                            <i class="fas fa-minus-circle has-text-grey-light" x-show="verifyResults.tcf === 'skip'" x-cloak></i>
+                            <i class="fas fa-minus-circle has-text-grey-light" x-show="!verifyRunning && !verifyResults.tcf" x-cloak></i>
+                        </div>
+                        <div class="check-label">
+                            <p class="has-text-weight-medium is-size-7">IAB TCF v2.3</p>
+                            {% if tcf_enabled %}
+                            <p class="is-size-7 has-text-grey">Validate IAB Transparency & Consent Framework compliance.</p>
+                            {% else %}
+                            <p class="is-size-7 has-text-grey">TCF not enabled (Community Edition). Set <code>CMP_ID</code> to a valid IAB-registered ID to activate.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    {# GCM V2 Validation #}
+                    <div class="verify-check">
+                        <div class="check-icon">
+                            <span class="verify-spinner" x-show="verifyRunning && !verifyResults.gcm"></span>
+                            <i class="fas fa-check-circle has-text-success" x-show="verifyResults.gcm === 'pass'" x-cloak></i>
+                            <i class="fas fa-times-circle has-text-danger" x-show="verifyResults.gcm === 'fail'" x-cloak></i>
+                            <i class="fas fa-minus-circle has-text-grey-light" x-show="!verifyRunning && !verifyResults.gcm" x-cloak></i>
+                        </div>
+                        <div class="check-label">
+                            <p class="has-text-weight-medium is-size-7">Google Consent Mode V2</p>
+                            <p class="is-size-7 has-text-grey">Ensure GCM V2 is active and consent signals are configured.</p>
+                        </div>
+                    </div>
+
+                    {# Compliance Summary #}
+                    <div class="verify-check" style="border-top:2px solid var(--oci-border, #f0f0f0);margin-top:0.5rem;padding-top:0.75rem">
+                        <div class="check-icon">
+                            <span class="verify-spinner" x-show="verifyRunning && !verifyResults.compliance"></span>
+                            <i class="fas fa-shield-check has-text-success" style="font-size:1.2rem" x-show="verifyResults.compliance === 'pass'" x-cloak></i>
+                            <i class="fas fa-shield-xmark has-text-danger" style="font-size:1.2rem" x-show="verifyResults.compliance === 'fail'" x-cloak></i>
+                            <i class="fas fa-shield has-text-grey-light" style="font-size:1.2rem" x-show="!verifyRunning && !verifyResults.compliance" x-cloak></i>
+                        </div>
+                        <div class="check-label">
+                            <p class="has-text-weight-semibold">Overall Compliance</p>
+                            <p class="is-size-7 has-text-grey" x-text="verifyMessage"></p>
+                        </div>
+                    </div>
+
+                    {# Errors list #}
+                    <template x-if="verifyErrors.length > 0">
+                        <div class="notification is-danger is-light mt-3" style="padding:0.625rem 0.75rem">
+                            <p class="has-text-weight-semibold is-size-7 mb-1">Issues Found:</p>
+                            <template x-for="err in verifyErrors" :key="err">
+                                <p class="is-size-7"><i class="fas fa-exclamation-triangle mr-1"></i> <span x-text="err"></span></p>
+                            </template>
+                        </div>
+                    </template>
+                </section>
+                <footer class="modal-card-foot" style="justify-content:space-between">
+                    <button class="button is-success" :class="{ 'is-loading': verifyRunning }"
+                            @click="runVerification()" :disabled="verifyRunning">
+                        <span class="icon"><i class="fas fa-rotate"></i></span>
+                        <span x-text="verifyRanOnce ? 'Re-run Checks' : 'Run Checks'"></span>
+                    </button>
+                    <button class="button" @click="verifyModal = false">Close</button>
+                </footer>
+            </div>
+        </div>
+    </div>
+
+    {# ══════════════════════════════════════════════════════ #}
+    {# A/B TEST PERFORMANCE (shown only when data exists)    #}
+    {# ══════════════════════════════════════════════════════ #}
+    <template x-if="abData && abData.has_data">
+        <div class="mb-4">
+            <div class="columns is-vcentered mb-3">
+                <div class="column">
+                    <h2 class="title is-4 mb-0">
+                        <span class="icon has-text-link"><i class="fas fa-flask"></i></span>
+                        A/B Test Performance
+                    </h2>
+                    <p class="subtitle is-6 has-text-grey" x-text="abData.experiment.name + ' — ' + abData.experiment.status"></p>
+                </div>
+                <div class="column is-narrow">
+                    <a :href="'/ab-tests/' + abData.experiment.id" class="button is-small is-link is-outlined">
+                        <span class="icon"><i class="fas fa-arrow-right"></i></span>
+                        <span>View Details</span>
+                    </a>
+                </div>
+            </div>
+
+            <div class="columns is-multiline">
+
+                {# ── Consent Rate Comparison (radial bars) ─── #}
+                <div class="column is-4">
+                    <div class="box" style="height:100%">
+                        <h3 class="title is-6 mb-2">Consent Rate by Variant</h3>
+                        <div id="ab-radial-chart" style="min-height:240px"></div>
+                    </div>
+                </div>
+
+                {# ── Accepted / Rejected / Partial Breakdown (grouped bar) ─── #}
+                <div class="column is-4">
+                    <div class="box" style="height:100%">
+                        <h3 class="title is-6 mb-2">Consent Breakdown</h3>
+                        <div id="ab-bar-chart" style="min-height:240px"></div>
+                    </div>
+                </div>
+
+                {# ── Winner Summary + Stats ─── #}
+                <div class="column is-4">
+                    <div class="box" style="height:100%">
+                        <h3 class="title is-6 mb-2">Test Summary</h3>
+
+                        {# Total interactions #}
+                        <div class="is-flex is-justify-content-space-between mb-3" style="border-bottom:1px solid #f0f0f0;padding-bottom:0.5rem">
+                            <span class="has-text-grey is-size-7">Total Interactions</span>
+                            <span class="has-text-weight-bold" x-text="abData.total_consents.toLocaleString()"></span>
+                        </div>
+
+                        {# Control rate #}
+                        <div class="is-flex is-justify-content-space-between mb-3" style="border-bottom:1px solid #f0f0f0;padding-bottom:0.5rem">
+                            <span class="has-text-grey is-size-7">Control Consent Rate</span>
+                            <span class="has-text-weight-bold" x-text="abData.control_rate + '%'"></span>
+                        </div>
+
+                        {# Challenger rate #}
+                        <div class="is-flex is-justify-content-space-between mb-3" style="border-bottom:1px solid #f0f0f0;padding-bottom:0.5rem">
+                            <span class="has-text-grey is-size-7">Challenger Consent Rate</span>
+                            <span class="has-text-weight-bold" x-text="abData.challenger_rate + '%'"></span>
+                        </div>
+
+                        {# Uplift #}
+                        <div class="is-flex is-justify-content-space-between mb-3" style="border-bottom:1px solid #f0f0f0;padding-bottom:0.5rem">
+                            <span class="has-text-grey is-size-7">Uplift</span>
+                            <span class="has-text-weight-bold"
+                                  :class="abData.uplift > 0 ? 'has-text-success' : (abData.uplift < 0 ? 'has-text-danger' : '')"
+                                  x-text="(abData.uplift > 0 ? '+' : '') + abData.uplift + '%'"></span>
+                        </div>
+
+                        {# Confidence #}
+                        <template x-if="abData.confidence !== null">
+                            <div class="is-flex is-justify-content-space-between mb-3" style="border-bottom:1px solid #f0f0f0;padding-bottom:0.5rem">
+                                <span class="has-text-grey is-size-7">Confidence</span>
+                                <span class="has-text-weight-bold" x-text="abData.confidence + '%'"></span>
+                            </div>
+                        </template>
+
+                        {# Winner badge #}
+                        <div class="has-text-centered mt-4">
+                            <template x-if="abData.confidence !== null && abData.confidence >= 95">
+                                <div>
+                                    <span class="icon is-large has-text-success"><i class="fas fa-trophy fa-2x"></i></span>
+                                    <p class="has-text-weight-bold mt-1" x-text="abData.best_variant"></p>
+                                    <p class="is-size-7 has-text-grey">Statistically significant winner</p>
+                                </div>
+                            </template>
+                            <template x-if="abData.confidence === null || abData.confidence < 95">
+                                <div>
+                                    <span class="icon is-large has-text-warning"><i class="fas fa-hourglass-half fa-2x"></i></span>
+                                    <p class="has-text-weight-bold mt-1">Gathering Data</p>
+                                    <p class="is-size-7 has-text-grey">More interactions needed for significance</p>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </template>
+
+    {# ══════════════════════════════════════════════════════ #}
+    {# ROW 2: Cookie Scan | Consent Overview | Page Views    #}
+    {# ══════════════════════════════════════════════════════ #}
+    <div class="columns is-multiline">
+
+        {# ── Cookie Scan ─────────────────────────────────── #}
+        <div class="column is-4">
+            <div class="box" style="height:100%">
+                <h2 class="title is-5 mb-3">
+                    <span class="icon has-text-info"><i class="fas fa-cookie-bite"></i></span>
+                    Cookie Scan
+                </h2>
+                {% if dashboard.scanInfo is not empty %}
+                    <div class="content">
+                        <p>
+                            <strong>Last Scan:</strong>
+                            {{ dashboard.scanInfo.completed_at is defined ? dashboard.scanInfo.completed_at : 'N/A' }}
+                        </p>
+                        <p>
+                            <strong>Cookies Found:</strong>
+                            <span class="tag is-light is-medium">{{ dashboard.scanInfo.total_cookies is defined ? dashboard.scanInfo.total_cookies : '0' }}</span>
+                        </p>
+                    </div>
+                {% else %}
+                    <p class="has-text-grey is-size-7">No scan results yet.
+                        <a href="/scans">Run a scan</a>
+                    </p>
+                {% endif %}
+                {% if dashboard.nextScan is not empty %}
+                    <p class="is-size-7 has-text-grey mt-2">
+                        <i class="fas fa-clock"></i>
+                        Next scan: {{ dashboard.nextScan.scheduled_at is defined ? dashboard.nextScan.scheduled_at : 'TBD' }}
+                    </p>
+                {% endif %}
+            </div>
+        </div>
+
+        {# ── Consent Chart ───────────────────────────────── #}
+        <div class="column is-4">
+            <div class="box" style="height:100%">
+                <div class="level mb-3">
+                    <div class="level-left">
+                        <h2 class="title is-5 mb-0">Consent Overview</h2>
+                    </div>
+                    <div class="level-right">
+                        <div class="select is-small">
+                            <select @change="loadConsentReport($event.target.value)" x-model="consentPeriod">
+                                <option value="7days">7 Days</option>
+                                <option value="30days">30 Days</option>
+                                <option value="alltime">All Time</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div id="consent-chart" style="min-height: 240px; overflow: hidden;"></div>
+            </div>
+        </div>
+
+        {# ── Pageview Chart ──────────────────────────────── #}
+        <div class="column is-4">
+            <div class="box" style="height:100%">
+                <div class="level mb-3">
+                    <div class="level-left">
+                        <h2 class="title is-5 mb-0">Page Views</h2>
+                    </div>
+                    <div class="level-right">
+                        <div class="select is-small">
+                            <select @change="loadPageviewReport($event.target.value)" x-model="pageviewPeriod">
+                                <option value="7days">7 Days</option>
+                                <option value="30days">30 Days</option>
+                                <option value="alltime">All Time</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div id="pageview-chart" style="min-height: 240px; overflow: hidden;"></div>
+            </div>
+        </div>
+
+        {# ── Recent Consent Logs ─────────────────────────── #}
+        <div class="column is-12">
+            <div class="box">
+                <h2 class="title is-5 mb-3">Recent Consent Logs</h2>
+                {% if dashboard.recentConsents|length > 0 %}
+                <div class="table-container">
+                    <table class="table is-fullwidth is-striped is-hoverable">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>IP / Country</th>
+                                <th>Status</th>
+                                <th>Consent ID</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for log in dashboard.recentConsents %}
+                            <tr>
+                                <td>{{ log.consent_date is defined ? log.consent_date : '' }}</td>
+                                <td>{{ log.ip_address is defined ? log.ip_address : '' }} {{ log.country is defined ? '(' ~ log.country ~ ')' : '' }}</td>
+                                <td>
+                                    {% if log.consent_status is defined %}
+                                        {% if log.consent_status == 'accepted' or log.consent_status == '1' %}
+                                            <span class="tag is-success is-light">Accepted</span>
+                                        {% elseif log.consent_status == 'partially_accepted' or log.consent_status == '2' %}
+                                            <span class="tag is-warning is-light">Partial</span>
+                                        {% else %}
+                                            <span class="tag is-danger is-light">Rejected</span>
+                                        {% endif %}
+                                    {% endif %}
+                                </td>
+                                <td><code>{{ log.consent_session is defined ? log.consent_session : '' }}</code></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <p class="has-text-right is-size-7">
+                    <a href="/consents">View all consent logs</a>
+                </p>
+                {% else %}
+                <p class="has-text-grey is-size-7">No consent logs yet. Once visitors interact with your banner, logs will appear here.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    {# ── Fullscreen Preview Modal (no layout panel) ─── #}
+    {% include 'components/preview-modal.html.twig' with {
+        previewDomain: dashboard.siteData.domain is defined ? dashboard.siteData.domain : '',
+        websiteKey: dashboard.websiteKey is defined ? dashboard.websiteKey : '',
+        siteId: dashboard.selectedSiteId,
+        showLayoutPanel: false
+    } %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function customerDashboard() {
+    return {
+        siteId: {{ dashboard.selectedSiteId }},
+        siteActive: {{ dashboard.siteData.status is defined and dashboard.siteData.status == 'active' ? 'true' : 'false' }},
+        complianceScore: {{ dashboard.complianceScore }},
+        previewModal: false,
+        previewDevice: 'desktop',
+        scriptCheckStatus: 'idle',
+        scriptCheckReason: '',
+        previewUrl: (() => {
+            const domain = '{{ dashboard.siteData.domain is defined ? dashboard.siteData.domain : (dashboard.sites[0].domain is defined ? dashboard.sites[0].domain : "") }}';
+            const key = '{{ dashboard.websiteKey is defined ? dashboard.websiteKey : "" }}';
+            return domain ? (domain.startsWith('http') ? domain : (domain.includes('localhost') ? 'http://' : 'https://') + domain) + '?conzent_preview=' + key : '';
+        })(),
+        recommendations: {{ dashboard.recommendations|json_encode|raw }},
+        consentPeriod: '7days',
+        pageviewPeriod: '7days',
+        consentChart: null,
+        pageviewChart: null,
+        abData: null,
+        abRadialChart: null,
+        abBarChart: null,
+        gtmContainerId: '{{ dashboard.siteData.gtm_container_id is defined and dashboard.siteData.gtm_container_id ? dashboard.siteData.gtm_container_id : "" }}',
+        gtmDataLayer: '{{ dashboard.siteData.gtm_data_layer is defined and dashboard.siteData.gtm_data_layer ? dashboard.siteData.gtm_data_layer : "" }}',
+        gtmSaving: false,
+        gtmSaved: false,
+        gtmConnected: {{ gtm_connected is defined and gtm_connected ? 'true' : 'false' }},
+        gtmAccounts: [],
+        gtmContainers: [],
+        gtmAccountId: '',
+        gtmSelectedContainer: '',
+        gtmAccountsLoading: false,
+        gtmContainersLoading: false,
+
+        get complianceColor() {
+            if (this.complianceScore >= 80) return '#22b573';
+            if (this.complianceScore >= 50) return '#ffdd57';
+            return '#ff4444';
+        },
+
+        get complianceDash() {
+            const circumference = 2 * Math.PI * 60;
+            const filled = (this.complianceScore / 100) * circumference;
+            return filled + ' ' + circumference;
+        },
+
+        init() {
+            this.renderConsentChart({{ dashboard.consentSummary.toArray()|json_encode|raw }});
+            this.renderPageviewChart({{ dashboard.pageviewData|json_encode|raw }});
+            this.loadABTestSummary();
+            if (this.gtmConnected) { this.loadGtmAccounts(); }
+        },
+
+        openPreview() {
+            this.previewModal = true;
+            if (this.scriptCheckStatus === 'idle' || this.scriptCheckStatus === 'not_installed') {
+                this.runScriptCheck();
+            }
+        },
+
+        runScriptCheck() {
+            this.scriptCheckStatus = 'checking';
+            this.scriptCheckReason = '';
+            fetch('/app/dashboard/script-check', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ site_id: {{ dashboard.selectedSiteId }} })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success && data.data.installed) {
+                    this.scriptCheckStatus = 'installed';
+                } else {
+                    this.scriptCheckStatus = 'not_installed';
+                    this.scriptCheckReason = data.data?.reason || 'Consent script not found on the website.';
+                }
+            })
+            .catch(() => {
+                this.scriptCheckStatus = 'not_installed';
+                this.scriptCheckReason = 'Could not check the website. Please verify manually.';
+            });
+        },
+
+        saveGtmConfig() {
+            this.gtmSaving = true;
+            this.gtmSaved = false;
+            fetch('/app/sites/' + this.siteId, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    gtm_container_id: this.gtmContainerId.trim(),
+                    gtm_data_layer: this.gtmDataLayer.trim() || null
+                })
+            })
+            .then(r => r.json())
+            .then(data => {
+                this.gtmSaving = false;
+                if (data.success) {
+                    this.gtmSaved = true;
+                    setTimeout(() => { this.gtmSaved = false; }, 4000);
+                } else {
+                    alert('Save failed: ' + (data.error?.message || 'Unknown error'));
+                }
+            })
+            .catch(err => { this.gtmSaving = false; alert('Network error: ' + err.message); });
+        },
+
+        loadGtmAccounts() {
+            this.gtmAccountsLoading = true;
+            fetch('/app/gtm/accounts')
+                .then(r => r.json())
+                .then(data => {
+                    this.gtmAccountsLoading = false;
+                    if (data.success && data.data.accounts) {
+                        this.gtmAccounts = data.data.accounts;
+                    } else if (data.error) {
+                        this.gtmConnected = false;
+                    }
+                })
+                .catch(() => { this.gtmAccountsLoading = false; this.gtmConnected = false; });
+        },
+
+        loadGtmContainers() {
+            if (!this.gtmAccountId) { this.gtmContainers = []; return; }
+            this.gtmContainersLoading = true;
+            this.gtmSelectedContainer = '';
+            fetch('/app/gtm/accounts?account_id=' + encodeURIComponent(this.gtmAccountId))
+                .then(r => r.json())
+                .then(data => {
+                    this.gtmContainersLoading = false;
+                    if (data.success && data.data.containers) {
+                        this.gtmContainers = data.data.containers;
+                    }
+                })
+                .catch(() => { this.gtmContainersLoading = false; });
+        },
+
+        copySnippet(event) {
+            const key = '{{ dashboard.websiteKey is defined ? dashboard.websiteKey : "" }}';
+            const domain = '{{ dashboard.siteData.domain is defined ? dashboard.siteData.domain : "" }}';
+            const snippet = '<script async src="{{ base_url }}/c/consent.js"\n    data-key="' + key + '"><\/script>';
+            navigator.clipboard.writeText(snippet).then(() => {
+                const btn = event.target.closest('.copy-btn');
+                if (btn) { btn.innerHTML = '<i class="fas fa-check"></i> Copied!'; setTimeout(() => { btn.innerHTML = '<i class="fas fa-copy"></i> Copy'; }, 2000); }
+            });
+        },
+
+        reloadPreview() {
+            if (this.$refs.previewFrame) {
+                this.$refs.previewFrame.src = this.previewUrl + '&_t=' + Date.now();
+            }
+        },
+
+        loadConsentReport(period) {
+            this.consentPeriod = period;
+            fetch('/app/dashboard/consent-report', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ site_id: this.siteId, report_type: period })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    this.renderConsentChart(data.data);
+                }
+            });
+        },
+
+        loadPageviewReport(period) {
+            this.pageviewPeriod = period;
+            fetch('/app/dashboard/pageview-report', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ site_id: this.siteId, report_type: period })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success && data.data.pageviews) {
+                    const pvData = {};
+                    data.data.pageviews.forEach(item => {
+                        pvData[item.date] = item;
+                    });
+                    this.renderPageviewChart(pvData);
+                }
+            });
+        },
+
+        renderConsentChart(data) {
+            if (this.consentChart) this.consentChart.destroy();
+
+            const accepted = data.accepted || 0;
+            const rejected = data.rejected || 0;
+            const partial = data.partially_accepted || 0;
+            const total = accepted + rejected + partial;
+
+            this.consentChart = new ApexCharts(document.querySelector('#consent-chart'), {
+                chart: { type: 'donut', height: 240 },
+                series: total > 0 ? [accepted, rejected, partial] : [1],
+                labels: total > 0 ? ['Accepted', 'Rejected', 'Partial'] : ['No data'],
+                colors: total > 0 ? ['#22b573', '#ff4444', '#ffdd57'] : ['#e8e8e8'],
+                legend: { position: 'bottom', fontSize: '11px' },
+                plotOptions: {
+                    pie: {
+                        donut: {
+                            size: '60%',
+                            labels: {
+                                show: true,
+                                total: {
+                                    show: true,
+                                    label: 'Total',
+                                    formatter: () => total.toString()
+                                }
+                            }
+                        }
+                    }
+                },
+                dataLabels: { enabled: total > 0 }
+            });
+            this.consentChart.render();
+        },
+
+        renderPageviewChart(data) {
+            if (this.pageviewChart) this.pageviewChart.destroy();
+
+            const dates = Object.keys(data).sort();
+            const views = dates.map(d => data[d].views || 0);
+
+            this.pageviewChart = new ApexCharts(document.querySelector('#pageview-chart'), {
+                chart: { type: 'area', height: 240, width: '100%', toolbar: { show: false } },
+                series: [{ name: 'Page Views', data: views }],
+                xaxis: { categories: dates, labels: { rotate: -45, style: { fontSize: '9px' } } },
+                yaxis: { min: 0 },
+                colors: ['#00d1b2'],
+                fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.7, opacityTo: 0.2 } },
+                stroke: { curve: 'smooth', width: 2 },
+                dataLabels: { enabled: false },
+                tooltip: { y: { formatter: (val) => val + ' views' } }
+            });
+            this.pageviewChart.render();
+        },
+
+        loadABTestSummary() {
+            fetch('/app/dashboard/ab-summary?site_id=' + this.siteId)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success && data.data && data.data.has_data) {
+                        this.abData = data.data;
+                        this.$nextTick(() => {
+                            this.renderABRadialChart();
+                            this.renderABBarChart();
+                        });
+                    }
+                })
+                .catch(() => {});
+        },
+
+        renderABRadialChart() {
+            if (!this.abData || !this.abData.variants) return;
+            if (this.abRadialChart) this.abRadialChart.destroy();
+
+            const el = document.querySelector('#ab-radial-chart');
+            if (!el) return;
+
+            const labels = this.abData.variants.map(v => v.name + (v.is_control ? ' (Control)' : ''));
+            const series = this.abData.variants.map(v => v.consent_rate);
+            const colors = ['#3e8ed0', '#22b573', '#ff6b35', '#9b59b6', '#f39c12'];
+
+            this.abRadialChart = new ApexCharts(el, {
+                chart: { type: 'radialBar', height: 240 },
+                series: series,
+                labels: labels,
+                colors: colors.slice(0, series.length),
+                plotOptions: {
+                    radialBar: {
+                        hollow: { size: '30%' },
+                        dataLabels: {
+                            name: { fontSize: '11px' },
+                            value: {
+                                fontSize: '14px',
+                                formatter: (val) => val + '%'
+                            },
+                            total: {
+                                show: true,
+                                label: 'Best',
+                                formatter: () => this.abData.best_variant || '-'
+                            }
+                        },
+                        track: { background: '#f0f0f0' }
+                    }
+                },
+                legend: { show: true, position: 'bottom', fontSize: '10px' }
+            });
+            this.abRadialChart.render();
+        },
+
+        renderABBarChart() {
+            if (!this.abData || !this.abData.variants) return;
+            if (this.abBarChart) this.abBarChart.destroy();
+
+            const el = document.querySelector('#ab-bar-chart');
+            if (!el) return;
+
+            const categories = this.abData.variants.map(v => v.name + (v.is_control ? ' (Ctrl)' : ''));
+
+            this.abBarChart = new ApexCharts(el, {
+                chart: { type: 'bar', height: 240, toolbar: { show: false }, stacked: false },
+                series: [
+                    { name: 'Accepted', data: this.abData.variants.map(v => v.accepted) },
+                    { name: 'Rejected', data: this.abData.variants.map(v => v.rejected) },
+                    { name: 'Partial', data: this.abData.variants.map(v => v.partial) }
+                ],
+                xaxis: { categories: categories, labels: { style: { fontSize: '10px' } } },
+                colors: ['#22b573', '#ff4444', '#ffdd57'],
+                plotOptions: {
+                    bar: { horizontal: false, columnWidth: '65%', borderRadius: 3 }
+                },
+                dataLabels: { enabled: false },
+                legend: { position: 'bottom', fontSize: '10px' },
+                yaxis: { title: { text: 'Consents' }, labels: { style: { fontSize: '10px' } } },
+                tooltip: {
+                    shared: true,
+                    intersect: false,
+                    y: { formatter: (val) => val.toLocaleString() }
+                }
+            });
+            this.abBarChart.render();
+        }
+    };
+}
+
+function easyConfig() {
+    const templateApplied = '{{ dashboard.templateApplied is defined ? dashboard.templateApplied : "" }}';
+    const tcfEnabled = {{ tcf_enabled ? 'true' : 'false' }};
+    const isTcf = tcfEnabled && templateApplied.includes('tcf');
+    const isAdvanced = templateApplied.includes('advanced');
+
+    return {
+        wizardStep: {{ gtm_connected is defined and gtm_connected ? 3 : (dashboard.wizardData.step is defined ? dashboard.wizardData.step : 1) }},
+        appliedTemplate: templateApplied,
+        selectedTemplate: null,
+        applyingTemplate: false,
+        templateApplied: {{ dashboard.templateApplied is defined and dashboard.templateApplied ? 'true' : 'false' }},
+
+        // Verification modal
+        verifyModal: false,
+        verifyRunning: false,
+        verifyRanOnce: false,
+        verifyResults: {},
+        verifyErrors: [],
+        verifyMessage: 'Click "Run Checks" to validate your setup.',
+
+        goToStep(step) {
+            if (step === 2) {
+                // Navigate to banner settings
+                window.location.href = '/banners';
+            } else {
+                this.wizardStep = step;
+            }
+        },
+
+        openVerify() {
+            this.wizardStep = 4;
+            this.verifyModal = true;
+            if (!this.verifyRanOnce) {
+                this.runVerification();
+            }
+        },
+
+        runVerification() {
+            this.verifyRunning = true;
+            this.verifyResults = {};
+            this.verifyErrors = [];
+            this.verifyMessage = 'Running checks...';
+
+            // Show spinner on Google Tags recommendation while verifying
+            this.recommendations = this.recommendations.map(r =>
+                (r.text.includes('Google Tags') && r.status !== 'done')
+                    ? { ...r, status: 'checking', text: 'Verifying Google Tags...' }
+                    : r
+            );
+
+            const siteId = {{ dashboard.selectedSiteId }};
+
+            // Run compliance check AND script check in parallel
+            const complianceP = fetch('/app/dashboard/compliance-check', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    site_id: siteId,
+                    template: this.selectedTemplate || templateApplied || 'basic'
+                })
+            }).then(r => r.json());
+
+            const scriptP = fetch('/app/dashboard/script-check', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ site_id: siteId })
+            }).then(r => r.json());
+
+            Promise.all([complianceP, scriptP])
+            .then(([compData, scriptData]) => {
+                this.verifyRanOnce = true;
+
+                // Process script check — save result to gcm_config_status
+                const scriptInstalled = scriptData.success && scriptData.data && scriptData.data.installed;
+                this.verifyResults.script = scriptInstalled ? 'pass' : 'fail';
+
+                // Persist Google Tags detection result so recommendations update
+                // If GTM is auto-injected by Conzent, always mark as detected
+                const tagsDetected = scriptInstalled || !!this.gtmContainerId;
+                const gcmConfig = { consent: { status: tagsDetected ? 1 : 0 } };
+                fetch('/app/sites/' + siteId, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ gcm_config_status: gcmConfig })
+                });
+
+                if (compData.success) {
+                    const d = compData.data;
+                    const passed = d.total_passed || 0;
+                    const checked = d.total_checked || 0;
+                    const errors = d.errors || [];
+
+                    // GTM: pass if auto-injected, skip otherwise
+                    this.verifyResults.gtm = this.gtmContainerId ? 'pass' : 'skip';
+
+                    // TCF/IAB
+                    if (d.iab_enabled === 1) {
+                        const iabError = errors.find(e => e.toLowerCase().includes('iab') || e.toLowerCase().includes('tcf'));
+                        this.verifyResults.tcf = iabError ? 'fail' : 'pass';
+                    } else {
+                        this.verifyResults.tcf = 'skip';
+                    }
+
+                    // GCM V2
+                    this.verifyResults.gcm = d.gcm_enabled === 1 ? 'pass' : 'fail';
+
+                    // Overall
+                    this.verifyErrors = errors;
+                    if (errors.length === 0 && passed === checked) {
+                        this.verifyResults.compliance = 'pass';
+                        this.verifyMessage = 'All checks passed. Your setup is compliant.';
+                    } else if (d.status === 'full' || d.status === 'partial') {
+                        this.verifyResults.compliance = errors.length > 0 ? 'warn' : 'pass';
+                        this.verifyMessage = passed + '/' + checked + ' checks passed.' + (errors.length > 0 ? ' Some issues found below.' : ' Setup is compliant.');
+                    } else {
+                        this.verifyResults.compliance = 'fail';
+                        this.verifyMessage = passed + '/' + checked + ' checks passed. Please resolve the issues below.';
+                    }
+                } else {
+                    this.verifyResults.gtm = 'fail';
+                    this.verifyResults.tcf = 'fail';
+                    this.verifyResults.gcm = 'fail';
+                    this.verifyResults.compliance = 'fail';
+                    const errMsg = (compData.error && compData.error.message) ? compData.error.message : (typeof compData.error === 'string' ? compData.error : 'Unknown error');
+                    this.verifyMessage = 'Verification failed. ' + errMsg;
+                    const errList = (compData.error && Array.isArray(compData.error.errors)) ? compData.error.errors : [];
+                    this.verifyErrors = errList.length > 0 ? errList.map(e => typeof e === 'string' ? e : (e.message || JSON.stringify(e))) : [errMsg];
+                }
+
+                this.verifyRunning = false;
+                // Small delay to let gcm_config_status persist before refreshing
+                setTimeout(() => this.refreshRecommendations(), 300);
+            })
+            .catch(() => {
+                this.verifyRunning = false;
+                this.verifyResults.compliance = 'fail';
+                this.verifyMessage = 'Could not run verification. Check your connection.';
+                this.refreshRecommendations();
+            });
+        },
+
+        refreshRecommendations() {
+            fetch('/app/dashboard/recommendations?site_id=' + this.siteId)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success && Array.isArray(data.data)) {
+                        this.recommendations = data.data;
+                        // Update compliance score from recommendation pass/fail ratio
+                        const total = this.recommendations.length;
+                        const passed = this.recommendations.filter(r => r.status === 'done').length;
+                        if (total > 0) {
+                            this.complianceScore = Math.round((passed / total) * 100);
+                        }
+                    }
+                })
+                .catch(() => {});
+        },
+
+        applyTemplate() {
+            if (!this.selectedTemplate) return;
+            this.applyingTemplate = true;
+            fetch('/app/dashboard/apply-template', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    site_id: {{ dashboard.selectedSiteId }},
+                    template: this.selectedTemplate
+                })
+            })
+            .then(r => r.json())
+            .then(data => {
+                this.applyingTemplate = false;
+                if (data.success) {
+                    this.appliedTemplate = this.selectedTemplate;
+                    this.selectedTemplate = null;
+                    this.templateApplied = true;
+                    this.wizardStep = 2;
+                    this.refreshRecommendations();
+                }
+            })
+            .catch(() => { this.applyingTemplate = false; });
+        }
+    };
+}
+</script>
+{% endblock %}
