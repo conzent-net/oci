@@ -307,10 +307,19 @@ final class ScriptGenerationService
                 $cookieDescription = [];
 
                 foreach ($preferedLangs as $langIdKey => $langCode) {
-                    $contents = $this->loadUserBannerContent($siteId, $langIdKey, $cookieLaws);
+                    $contentsRaw = $this->loadUserBannerContent($siteId, $langIdKey, $cookieLaws);
                     $defaultContent = $this->loadDefaultBannerContent($langIdKey, $cookieLaws);
                     if (empty($defaultContent)) {
                         $defaultContent = $this->loadDefaultBannerContent($defaultMainId, $cookieLaws);
+                    }
+
+                    // Index user overrides by field_name for reliable lookup
+                    $contentsByField = [];
+                    foreach ($contentsRaw as $row) {
+                        $fn = $row['field_name'] ?? '';
+                        if ($fn !== '') {
+                            $contentsByField[$fn] = $row;
+                        }
                     }
 
                     foreach ($defaultContent as $key => $val) {
@@ -321,8 +330,8 @@ final class ScriptGenerationService
                         $fieldName = $langItem['field_name'] ?? '';
                         $fieldValue = $langItem['trans_value'] ?? $langItem['default_value'] ?? '';
 
-                        if (isset($contents[$key]['field_name']) && $contents[$key]['field_name'] === $fieldName) {
-                            $fieldValue = $contents[$key]['u_field_value'] ?? $fieldValue;
+                        if (isset($contentsByField[$fieldName])) {
+                            $fieldValue = $contentsByField[$fieldName]['u_field_value'] ?? $fieldValue;
                         }
 
                         if ($fieldName === 'cookie_policy_url') {

@@ -4,6 +4,14 @@ All notable changes to the Conzent OCI core will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/).
 
+## [v2.1.3] - 2026-03-16
+
+### Fixed
+- Installer now prompts for admin email when run via `curl | sh` (reads from /dev/tty)
+- Uninstall confirmation prompt works correctly in piped mode
+
+---
+
 ## [v2.1.2] - 2026-03-16
 
 ### Fixed

@@ -640,20 +640,24 @@ create_admin_account() {
     ADMIN_PASSWORD=$(generate_secret | head -c 16)
 
     # Ask for email if not provided
+    # Note: curl|sh makes stdin non-interactive, so we read from /dev/tty
     if [ -z "$ADMIN_EMAIL" ]; then
-        if [ -t 0 ]; then
+        if [ -e /dev/tty ]; then
             printf "\n"
             printf "  ${BOLD}Enter your email address:${RESET} "
-            read -r ADMIN_EMAIL
+            read -r ADMIN_EMAIL < /dev/tty
             printf "\n"
 
             if [ -z "$ADMIN_EMAIL" ]; then
                 warn "Skipping admin creation. Create one later with:"
-                printf "    docker compose exec app php bin/oci setup\n"
+                printf "    cd $INSTALL_DIR && sudo docker compose exec app php bin/oci setup\n"
                 return 0
             fi
         else
-            ADMIN_EMAIL="admin@localhost"
+            warn "No terminal available. Skipping admin creation."
+            printf "  ${DIM}Run this after install to create your admin account:${RESET}\n"
+            printf "    cd $INSTALL_DIR && sudo docker compose exec app php bin/oci setup\n\n"
+            return 0
         fi
     fi
 
@@ -817,9 +821,9 @@ uninstall() {
     printf "  ${DIM}All data (database, uploads, config) will be deleted.${RESET}\n"
     printf "\n"
 
-    if [ -t 0 ]; then
+    if [ -e /dev/tty ]; then
         printf "  Type ${BOLD}yes${RESET} to confirm: "
-        read -r CONFIRM
+        read -r CONFIRM < /dev/tty
         if [ "$CONFIRM" != "yes" ]; then
             info "Uninstall cancelled."
             exit 0
