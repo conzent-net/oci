@@ -4,6 +4,13 @@ All notable changes to the Conzent OCI core will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/).
 
+## [v2.1.4] - 2026-03-16
+
+### Changed
+- Default port changed from 8100 to 80 for simpler access (`http://localhost`)
+
+---
+
 ## [v2.1.3] - 2026-03-16
 
 ### Fixed

@@ -1352,7 +1352,7 @@ if (typeof window._cnzMainLoaded === "undefined") {
           var cookie_name = Object.keys(allcookies)[i].split("=")[0];
 
           if (conzentCookies.indexOf(cookie_name) === -1) {
-            this.erase(cookie_name, "");
+            this.erase(cookie_name);
           }
         }
       },
@@ -1394,15 +1394,8 @@ if (typeof window._cnzMainLoaded === "undefined") {
       },
 
       erase: function (name) {
-        //this.set( name, "", -365,opt);
-
-        //document.cookie = name + '=; Max-Age=0'
-
-        var same_site = "",
-          expires = "; expires=" + daysToUTC(-365) + "; Max-Age=-99999999",
+        var expires = "; expires=" + daysToUTC(-365) + "; Max-Age=-99999999",
           value = "",
-          c = window.location.host,
-          a = c.replace("www", ""),
           n =
             arguments.length > 1 && void 0 !== arguments[1]
               ? arguments[1]
@@ -1412,47 +1405,52 @@ if (typeof window._cnzMainLoaded === "undefined") {
           SecureAttribute =
             "https:" === window.location.protocol ? "; secure" : "";
 
-        //SecureAttribute ='';
+        // 1. Delete without domain (handles cookies set on exact hostname)
+        document.cookie =
+          name + "=" + value + expires + "; path=/" + SecureAttribute;
 
-        if (arguments.length == 1) {
-          //n = a;
+        // 2. Delete with explicit domain if provided
+        if (n != "") {
+          document.cookie =
+            name +
+            "=" +
+            value +
+            expires +
+            "; path=/; domain=" +
+            n +
+            SecureAttribute;
         }
 
-        if (n != "") {
-          n = "; domain=" + n;
-        }
+        // 3. Always try root domain variants (handles _ga, _fbp etc. set on .domain.com)
+        var i_dt = window.location.hostname.split(".");
 
-        // same_site = n+"; SameSite=Strict"+SecureAttribute;
+        if (i_dt.length >= 2) {
+          var ak = i_dt[i_dt.length - 2] + "." + i_dt[i_dt.length - 1];
 
-        same_site = n + "" + SecureAttribute;
+          document.cookie =
+            name +
+            "=" +
+            value +
+            expires +
+            "; path=/; domain=" +
+            ak +
+            SecureAttribute;
 
-        document.cookie = name + "=" + value + expires + "; path=/" + same_site;
-
-        if (n != "") {
-          var i_dt = window.location.hostname.split(".");
-
-          if (i_dt.length >= 2) {
-            var ak = i_dt[i_dt.length - 2] + "." + i_dt[i_dt.length - 1];
-
-            var same_site2 = "; domain=" + ak + "" + SecureAttribute;
-
-            document.cookie =
-              name + "=" + value + expires + "; path=/" + same_site2;
-
-            var same_site2 = "; domain=." + ak + "" + SecureAttribute;
-
-            document.cookie =
-              name + "=" + value + expires + "; path=/" + same_site2;
-          }
+          document.cookie =
+            name +
+            "=" +
+            value +
+            expires +
+            "; path=/; domain=." +
+            ak +
+            SecureAttribute;
         }
 
         var x_val = localStorage.getItem(name);
+        x_val && localStorage.removeItem(name);
 
-        x_val && localStorage.removeItem(x_val);
-
-        var u_val = localStorage.getItem(name);
-
-        u_val && sessionStorage.removeItem(u_val);
+        var u_val = sessionStorage.getItem(name);
+        u_val && sessionStorage.removeItem(name);
       },
     };
 

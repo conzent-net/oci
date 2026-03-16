@@ -671,7 +671,7 @@ create_admin_account() {
 save_credentials() {
     _email="$1"
     _password="$2"
-    _app_url=$(grep -E '^APP_URL=' .env 2>/dev/null | cut -d= -f2- || echo "http://localhost:8100")
+    _app_url=$(grep -E '^APP_URL=' .env 2>/dev/null | cut -d= -f2- || echo "http://localhost")
     _cred_file=".conzent-credentials"
 
     cat > "$_cred_file" <<CRED
@@ -748,8 +748,12 @@ show_config() {
 # ── Print completion message ─────────────────────────────────
 
 print_success() {
-    APP_PORT=$(grep -E '^APP_PORT=' .env 2>/dev/null | cut -d= -f2- || echo "8100")
-    APP_URL="http://localhost:${APP_PORT}"
+    APP_PORT=$(grep -E '^APP_PORT=' .env 2>/dev/null | cut -d= -f2- || echo "80")
+    if [ "$APP_PORT" = "80" ]; then
+        APP_URL="http://localhost"
+    else
+        APP_URL="http://localhost:${APP_PORT}"
+    fi
 
     # Detect LAN IP for remote access
     LAN_IP=""
@@ -761,7 +765,11 @@ print_success() {
     fi
     LAN_URL=""
     if [ -n "$LAN_IP" ]; then
-        LAN_URL="http://${LAN_IP}:${APP_PORT}"
+        if [ "$APP_PORT" = "80" ]; then
+            LAN_URL="http://${LAN_IP}"
+        else
+            LAN_URL="http://${LAN_IP}:${APP_PORT}"
+        fi
     fi
 
     printf "\n"
