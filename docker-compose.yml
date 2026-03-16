@@ -3,7 +3,7 @@ services:
   nginx:
     image: nginx:latest
     ports:
-      - "8100:80"
+      - "${APP_PORT:-8100}:80"
     volumes:
       - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
       - ./public:/var/www/html/public:ro
@@ -26,10 +26,21 @@ services:
       redis:
         condition: service_healthy
     environment:
-      - APP_ENV=${APP_ENV:-dev}
-      - APP_DEBUG=${APP_DEBUG:-true}
+      - APP_ENV=${APP_ENV:-production}
+      - APP_DEBUG=${APP_DEBUG:-false}
+      - APP_URL=${APP_URL:-http://localhost:8100}
+      - APP_SECRET=${APP_SECRET}
       - DATABASE_URL=${DATABASE_URL:-mysql://oci:oci@mariadb:3306/oci?charset=utf8mb4}
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - MAIL_HOST=${MAIL_HOST:-}
+      - MAIL_PORT=${MAIL_PORT:-587}
+      - MAIL_USERNAME=${MAIL_USERNAME:-}
+      - MAIL_PASSWORD=${MAIL_PASSWORD:-}
+      - MAIL_FROM_ADDRESS=${MAIL_FROM_ADDRESS:-}
+      - MAIL_FROM_NAME=${MAIL_FROM_NAME:-Conzent}
+      - CMP_ID=${CMP_ID:-}
+      - CDN_URL=${CDN_URL:-}
+      - MONETIZATION_MODEL=oci
     healthcheck:
       test: ["CMD-SHELL", "php-fpm-healthcheck || exit 1"]
       interval: 10s
@@ -52,7 +63,7 @@ services:
       redis:
         condition: service_healthy
     environment:
-      - APP_ENV=${APP_ENV:-dev}
+      - APP_ENV=${APP_ENV:-production}
       - DATABASE_URL=${DATABASE_URL:-mysql://oci:oci@mariadb:3306/oci?charset=utf8mb4}
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
     restart: unless-stopped
@@ -72,51 +83,14 @@ services:
       redis:
         condition: service_healthy
     environment:
-      - APP_ENV=${APP_ENV:-dev}
+      - APP_ENV=${APP_ENV:-production}
       - DATABASE_URL=${DATABASE_URL:-mysql://oci:oci@mariadb:3306/oci?charset=utf8mb4}
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
-    restart: unless-stopped
-
-  # ─── Beacon Flush Worker ──────────────────────────────
-  beacon-worker:
-    build:
-      context: .
-      dockerfile: docker/php/Dockerfile
-      target: dev
-    command: ["php", "bin/oci", "ingest:flush"]
-    volumes:
-      - .:/var/www/html
-    depends_on:
-      mariadb:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    environment:
-      - APP_ENV=${APP_ENV:-dev}
-      - DATABASE_URL=${DATABASE_URL:-mysql://oci:oci@mariadb:3306/oci?charset=utf8mb4}
-      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
-    restart: unless-stopped
-
-  # ─── Cookie Scanner ────────────────────────────────────
-  scanner:
-    build:
-      context: ./docker/scanner
-      dockerfile: Dockerfile
-    ports:
-      - "8300:8300"
-    environment:
-      - PORT=8300
-      - SCANNER_API_KEY=${SCANNER_API_KEY:-dev-scanner-key}
-      - MAX_CONCURRENT=3
-      - SCAN_TIMEOUT=60000
-    shm_size: '256m'
     restart: unless-stopped
 
   # ─── MariaDB ─────────────────────────────────────────────
   mariadb:
     image: mariadb:latest
-    ports:
-      - "8101:3306"
     volumes:
       - oci-db-data:/var/lib/mysql
     environment:
@@ -134,8 +108,6 @@ services:
   # ─── Redis ───────────────────────────────────────────────
   redis:
     image: redis:latest
-    ports:
-      - "8102:6379"
     volumes:
       - oci-redis-data:/data
     command: ["redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
@@ -144,48 +116,6 @@ services:
       interval: 10s
       timeout: 3s
       retries: 3
-    restart: unless-stopped
-
-  # ─── Mailpit (dev only — catches all outbound email) ────
-  mailpit:
-    image: axllent/mailpit:latest
-    ports:
-      - "8103:8025"   # Web UI
-      - "8104:1025"   # SMTP
-    restart: unless-stopped
-
-  # ─── Test Site (dev only — cookie banner test page) ────
-  testsite:
-    image: nginx:alpine
-    ports:
-      - "8106:80"
-    volumes:
-      - ./docker/testsite:/usr/share/nginx/html:ro
-    restart: unless-stopped
-
-  # ─── WWW Marketing Site (dev only — getconzent.com) ────
-  www:
-    image: nginx:alpine
-    ports:
-      - "8250:80"
-    volumes:
-      - ./www/dist:/usr/share/nginx/html:ro
-      - ./www/docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
-    restart: unless-stopped
-
-  # ─── phpMyAdmin (dev only — DB GUI) ────────────────────
-  phpmyadmin:
-    image: phpmyadmin:latest
-    ports:
-      - "8105:80"
-    environment:
-      PMA_HOST: mariadb
-      PMA_PORT: 3306
-      PMA_ARBITRARY: 1
-      UPLOAD_LIMIT: 512M
-    depends_on:
-      mariadb:
-        condition: service_healthy
     restart: unless-stopped
 
 volumes:
