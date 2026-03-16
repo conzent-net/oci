@@ -509,6 +509,10 @@ clone_repo() {
         if [ -d "$INSTALL_DIR/.git" ]; then
             warn "Directory '$INSTALL_DIR' already exists"
             cd "$INSTALL_DIR"
+            # Fix ownership if Docker created root-owned files
+            if [ "$(id -u)" -ne 0 ] && ! [ -w "." ]; then
+                run_root chown -R "$(id -u):$(id -g)" . 2>/dev/null || true
+            fi
             run_with_spinner "Pulling latest changes" git pull origin "$BRANCH" --ff-only \
                 || fatal "Failed to update. Resolve conflicts manually."
             return 0
@@ -818,8 +822,8 @@ uninstall() {
     fi
 
     if check_command docker; then
-        if docker compose version > /dev/null 2>&1; then
-            _compose="docker compose"
+        if run_docker docker compose version > /dev/null 2>&1; then
+            _compose="compose"
         elif check_command docker-compose; then
             _compose="docker-compose"
         else
@@ -827,13 +831,19 @@ uninstall() {
         fi
 
         if [ -n "$_compose" ] && [ -f "docker-compose.yml" ]; then
-            run_with_spinner "Stopping containers and removing volumes" \
-                $_compose down -v --remove-orphans 2>/dev/null || true
+            if [ "$_compose" = "compose" ]; then
+                run_with_spinner "Stopping containers and removing volumes" \
+                    run_docker docker compose down -v --remove-orphans || true
+            else
+                run_with_spinner "Stopping containers and removing volumes" \
+                    $_compose down -v --remove-orphans || true
+            fi
         fi
     fi
 
     cd ..
-    run_with_spinner "Removing installation directory" rm -rf "$INSTALL_DIR"
+    # Docker creates root-owned files (volumes, build cache), so use sudo
+    run_root_with_spinner "Removing installation directory" rm -rf "$INSTALL_DIR"
 
     printf "\n"
     printf "  ${GREEN}${BOLD}Conzent OCI has been uninstalled.${RESET}\n"
