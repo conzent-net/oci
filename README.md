@@ -227,7 +227,17 @@ For bug reports and feature requests, use [GitHub Issues](https://github.com/con
 
 ## Cloud Edition
 
-Looking for a managed solution? [Conzent Cloud](https://getconzent.com) offers a fully managed version with additional features including A/B testing, agency management, billing, and priority support.
+Looking for a managed solution? [Conzent Cloud](https://getconzent.com) offers a fully managed version with additional features not available in the open-source edition:
+
+- **A/B Testing** — Test different banner designs and copy to optimize consent rates
+- **Revenue Impact Analysis** — Measure how consent rates affect your ad revenue and analytics data
+- **Agency Management** — Multi-tenant agency tools with customer management and commission tracking
+- **Managed Billing** — Built-in subscription and payment handling
+- **Priority Support** — Dedicated support from the Conzent team
+
+## Branding
+
+The "Powered by Conzent" branding must remain visible in the consent banner. Removing or hiding the Conzent branding is not permitted under the license terms.
 
 ## License
 

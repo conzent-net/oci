@@ -1530,7 +1530,7 @@ final class ScriptGenerationService
         $notice['custom_logo'] = $noticeCustomLogo;
 
         // Branding
-        $brandingHtml = 'Powered by&nbsp;<a href="https://conzent.net/getconzent" target="_blank" rel="nofollow"><img src="' . $this->webRoot . 'media/branding_logo.png" alt="Conzent"></a>';
+        $brandingHtml = 'Powered by&nbsp;<a href="https://getconzent.com" target="_blank" rel="nofollow"><img src="' . $this->webRoot . 'media/branding_logo.png" alt="Conzent"></a>';
         if (isset($gdpr['cookie_notice']['disable_branding']) && $this->checkFeature('custom_branding', $planFeatures)) {
             $brandingHtml = '';
         }
@@ -1699,7 +1699,7 @@ final class ScriptGenerationService
         }
 
         // Branding
-        $disableBranding = 'Powered by&nbsp;<a href="https://conzent.net/getconzent" target="_blank" rel="nofollow"><img alt="Conzent" src="' . $this->webRoot . 'media/branding_logo.png"></a>';
+        $disableBranding = 'Powered by&nbsp;<a href="https://getconzent.com" target="_blank" rel="nofollow"><img alt="Conzent" src="' . $this->webRoot . 'media/branding_logo.png"></a>';
         if (isset($ccpa['cookie_notice']['disable_branding']) && $this->checkFeature('custom_branding', $planFeatures)) {
             $disableBranding = '';
         }

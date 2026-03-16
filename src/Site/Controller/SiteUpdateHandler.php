@@ -93,6 +93,15 @@ final class SiteUpdateHandler implements RequestHandlerInterface
             $data['status'] = $status;
         }
 
+        if (isset($body['banner_type'])) {
+            $allowedTypes = ['gdpr', 'ccpa', 'both'];
+            $bannerType = (string) $body['banner_type'];
+            if (!\in_array($bannerType, $allowedTypes, true)) {
+                return ApiResponse::error('Invalid banner type. Allowed: ' . implode(', ', $allowedTypes), 422);
+            }
+            $data['display_banner_type'] = $bannerType;
+        }
+
         if (array_key_exists('gcm_config_status', $body)) {
             $data['gcm_config_status'] = $body['gcm_config_status'] !== null
                 ? json_encode($body['gcm_config_status'], \JSON_THROW_ON_ERROR)
@@ -118,9 +127,11 @@ final class SiteUpdateHandler implements RequestHandlerInterface
             $this->syncLanguages($siteId, array_map('intval', $body['language_ids']));
         }
 
-        // Regenerate consent script when GTM settings change
-        $gtmChanged = array_key_exists('gtm_container_id', $body) || array_key_exists('gtm_data_layer', $body);
-        if ($gtmChanged) {
+        // Regenerate consent script when GTM settings or banner type change
+        $scriptAffected = array_key_exists('gtm_container_id', $body)
+            || array_key_exists('gtm_data_layer', $body)
+            || isset($body['banner_type']);
+        if ($scriptAffected) {
             try {
                 $this->scriptService->generate($siteId);
             } catch (\Throwable) {

@@ -437,7 +437,7 @@ final class LayoutService
                 . '</div>'
                 . '</div>'
                 . '</div>',
-            'branding_html' => 'Powered by&nbsp;<a href="https://conzent.net/getconzent" target="_blank" rel="nofollow" style="display:flex;align-items:center;"><img src="/media/branding_logo.png" alt="Conzent" style="max-height:15px;"></a>',
+            'branding_html' => 'Powered by&nbsp;<a href="https://getconzent.com" target="_blank" rel="nofollow" style="display:flex;align-items:center;"><img src="/media/branding_logo.png" alt="Conzent" style="max-height:15px;"></a>',
             'logo_html' => '<img src="/media/logo_icon.png" alt="Conzent" style="max-height:24px;vertical-align:middle;">',
             'close_button_html' => '<svg width="14" height="14" viewBox="0 0 14 14" style="cursor:pointer;"><path d="M1 1l12 12M13 1L1 13" stroke="currentColor" stroke-width="2"/></svg>',
             'privacy_policy_link' => '<a href="#" class="cnz-privacy-policy" rel="nofollow" style="color:#0d6efd;">Cookie Policy</a>',

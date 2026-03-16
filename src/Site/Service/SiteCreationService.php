@@ -79,7 +79,7 @@ final class SiteCreationService
             'consent_sharing_enabled' => 1,
             'gcm_enabled' => 1,
             'tag_fire_enabled' => 1,
-            'display_banner_type' => 'gdpr',
+            'display_banner_type' => $input->bannerType,
             'banner_delay_ms' => 2000,
             'include_all_languages' => 1,
             'privacy_policy_url' => $input->privacyPolicyUrl,

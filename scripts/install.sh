@@ -15,6 +15,8 @@ REPO_URL="https://github.com/conzent-net/oci.git"
 INSTALL_DIR="conzent"
 BRANCH="main"
 SKIP_START=false
+UPDATE_MODE=false
+EXISTING_INSTALL=false
 UNINSTALL=false
 SHOW_CONFIG=false
 ADMIN_EMAIL=""
@@ -145,6 +147,7 @@ while [ $# -gt 0 ]; do
         --admin-email)    ADMIN_EMAIL="$2"; shift 2 ;;
         --admin-password) ADMIN_PASSWORD="$2"; shift 2 ;;
         --no-start)       SKIP_START=true; shift ;;
+        --update)         UPDATE_MODE=true; shift ;;
         --uninstall)      UNINSTALL=true; shift ;;
         --config)         SHOW_CONFIG=true; shift ;;
         --help|-h)
@@ -157,6 +160,7 @@ while [ $# -gt 0 ]; do
             printf "    --branch NAME          Git branch to clone (default: main)\n"
             printf "    --admin-email EMAIL    Admin account email (prompted if omitted)\n"
             printf "    --admin-password PASS  Admin account password (auto-generated if omitted)\n"
+            printf "    --update               Update an existing installation (preserves data)\n"
             printf "    --no-start             Clone and configure only, don't start containers\n"
             printf "    --config               Show saved admin credentials and app URL\n"
             printf "    --uninstall            Stop containers and remove the installation\n"
@@ -507,7 +511,8 @@ clone_repo() {
 
     if [ -d "$INSTALL_DIR" ]; then
         if [ -d "$INSTALL_DIR/.git" ]; then
-            warn "Directory '$INSTALL_DIR' already exists"
+            EXISTING_INSTALL=true
+            warn "Directory '$INSTALL_DIR' already exists — updating"
             cd "$INSTALL_DIR"
             # Fix ownership if Docker created root-owned files
             if [ "$(id -u)" -ne 0 ] && ! [ -w "." ]; then
@@ -561,13 +566,23 @@ start_services() {
         return 0
     fi
 
-    step "Starting services"
+    # Detect if this is a fresh install or an update
+    IS_FRESH=true
+    if [ "$EXISTING_INSTALL" = true ] || [ "$UPDATE_MODE" = true ]; then
+        IS_FRESH=false
+    fi
 
-    # Clean up any stale containers/volumes from previous installs
-    # (e.g. MariaDB volume with old password after rm -rf without docker compose down)
-    # Always run down -v — even if no containers are running, orphaned volumes
-    # from a previous install (with different DB credentials) will cause auth failures
-    compose down -v --remove-orphans > /dev/null 2>&1 || true
+    if [ "$IS_FRESH" = true ]; then
+        step "Starting services (fresh install)"
+
+        # Clean up any orphaned volumes from a previous rm -rf without docker compose down
+        compose down -v --remove-orphans > /dev/null 2>&1 || true
+    else
+        step "Updating services"
+
+        # Stop containers but KEEP volumes (preserves database)
+        compose down --remove-orphans > /dev/null 2>&1 || true
+    fi
 
     run_with_spinner "Building containers (this may take a few minutes)" \
         compose up -d --build
@@ -604,12 +619,16 @@ start_services() {
     done
     spinner_stop 2>/dev/null
 
-    # Run migrations
+    # Run migrations (safe to run on existing DB — only applies new ones)
     run_with_spinner "Running database migrations" \
         compose exec -T app php bin/oci migrations:migrate
 
-    # Create admin account
-    create_admin_account
+    # Only create admin on fresh install
+    if [ "$IS_FRESH" = true ]; then
+        create_admin_account
+    else
+        success "Data preserved — skipping admin creation"
+    fi
 
     # Health check
     spinner_start "Running health check"
@@ -775,7 +794,11 @@ print_success() {
     printf "\n"
     printf "${GREEN}  ╔═══════════════════════════════════════════════╗${RESET}\n"
     printf "${GREEN}  ║                                               ║${RESET}\n"
-    printf "${GREEN}  ║${RESET}   ${BOLD}${GREEN}✓ Conzent OCI installed successfully!${RESET}      ${GREEN}║${RESET}\n"
+    if [ "$EXISTING_INSTALL" = true ] || [ "$UPDATE_MODE" = true ]; then
+        printf "${GREEN}  ║${RESET}   ${BOLD}${GREEN}✓ Conzent OCI updated successfully!${RESET}       ${GREEN}║${RESET}\n"
+    else
+        printf "${GREEN}  ║${RESET}   ${BOLD}${GREEN}✓ Conzent OCI installed successfully!${RESET}      ${GREEN}║${RESET}\n"
+    fi
     printf "${GREEN}  ║                                               ║${RESET}\n"
     printf "${GREEN}  ╚═══════════════════════════════════════════════╝${RESET}\n"
 
@@ -791,10 +814,12 @@ print_success() {
         if [ -n "$LAN_URL" ]; then
         printf "    ${DIM}From your network:${RESET} ${CYAN}%s${RESET}\n" "$LAN_URL"
         fi
-        printf "\n"
-        printf "  ${BOLD}Your credentials:${RESET}\n"
-        printf "    ${DIM}Email:${RESET}     %s\n" "$ADMIN_EMAIL"
-        printf "    ${DIM}Password:${RESET}  ${CYAN}%s${RESET}\n" "$ADMIN_PASSWORD"
+        if [ "$EXISTING_INSTALL" != true ] && [ "$UPDATE_MODE" != true ]; then
+            printf "\n"
+            printf "  ${BOLD}Your credentials:${RESET}\n"
+            printf "    ${DIM}Email:${RESET}     %s\n" "$ADMIN_EMAIL"
+            printf "    ${DIM}Password:${RESET}  ${CYAN}%s${RESET}\n" "$ADMIN_PASSWORD"
+        fi
     fi
 
     printf "\n"
@@ -808,7 +833,7 @@ print_success() {
     printf "    ${DIM}docker compose ps${RESET}                 Check status\n"
     printf "    ${DIM}docker compose down${RESET}               Stop services\n"
     printf "    ${DIM}docker compose up -d${RESET}              Start services\n"
-    printf "    ${DIM}bash scripts/deploy.sh${RESET}            Deploy updates\n"
+    printf "    ${DIM}bash scripts/install.sh --update${RESET}   Update to latest\n"
     printf "    ${DIM}bash scripts/install.sh --config${RESET}  Show credentials\n"
     printf "\n"
     printf "  ${BOLD}Docs:${RESET}    ${DIM}https://getconzent.com/docs/${RESET}\n"

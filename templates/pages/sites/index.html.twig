@@ -310,7 +310,7 @@
                 <button class="delete" aria-label="close" @click="editModal.open = false"></button>
             </header>
             <section class="modal-card-body">
-                {{ ui.wizardSteps(['Website', 'Languages'], 'editModal.step') }}
+                {{ ui.wizardSteps(['Website', 'Languages', 'Banner Type'], 'editModal.step') }}
 
                 {# ── Step 1: Website Info ── #}
                 <div x-show="editModal.step === 1" x-transition>
@@ -358,6 +358,16 @@
                         If none selected, English will be used as default.
                     </p>
                 </div>
+
+                {# ── Step 3: Banner Type ── #}
+                <div x-show="editModal.step === 3" x-transition>
+                    <p class="mb-3 has-text-grey">Choose the type of consent banner for your site.</p>
+                    <div class="oci-template-grid" style="grid-template-columns:repeat(3,1fr)">
+                        {{ ui.templateCard('editModal.bannerType', 'gdpr', 'GDPR', 'EU General Data Protection Regulation', 'shield-halved', '#3273dc', false) }}
+                        {{ ui.templateCard('editModal.bannerType', 'ccpa', 'US Privacy', 'CCPA / US State Privacy Laws', 'flag-usa', '#ff3860', false) }}
+                        {{ ui.templateCard('editModal.bannerType', 'both', 'Combined', 'GDPR + US Privacy (recommended)', 'globe', '#23d160', false) }}
+                    </div>
+                </div>
             </section>
             <footer class="modal-card-foot" style="justify-content:space-between">
                 <div>
@@ -368,12 +378,12 @@
                 </div>
                 <div class="buttons">
                     <button class="button" @click="editModal.open = false">Cancel</button>
-                    <button class="button is-primary" x-show="editModal.step < 2"
+                    <button class="button is-primary" x-show="editModal.step < 3"
                             @click="nextEditStep()">
                         <span>Next</span>
                         <span class="icon"><i class="fas fa-arrow-right"></i></span>
                     </button>
-                    <button class="button is-success" x-show="editModal.step === 2"
+                    <button class="button is-success" x-show="editModal.step === 3"
                             :class="{ 'is-loading': editModal.saving }"
                             @click="saveSiteEdit()">
                         <span class="icon"><i class="fas fa-check"></i></span>
@@ -438,7 +448,7 @@ function sitesPage() {
             bannerType: 'gdpr', languageIds: [],
             errors: {}
         },
-        editModal: { open: false, saving: false, step: 1, siteId: 0, siteName: '', domain: '', privacyPolicyUrl: '', languageIds: [], errors: {} },
+        editModal: { open: false, saving: false, step: 1, siteId: 0, siteName: '', domain: '', privacyPolicyUrl: '', bannerType: 'gdpr', languageIds: [], errors: {} },
         deleteModal: { open: false, saving: false, siteId: 0, domain: '' },
         destroyModal: { open: false, saving: false, siteId: 0, domain: '' },
 
@@ -507,6 +517,7 @@ function sitesPage() {
             this.editModal.siteName = site.site_name || '';
             this.editModal.domain = site.domain || '';
             this.editModal.privacyPolicyUrl = site.privacy_policy_url || '';
+            this.editModal.bannerType = site.display_banner_type || 'gdpr';
             this.editModal.languageIds = Array.isArray(site.language_ids) ? [...site.language_ids] : [];
             this.editModal.step = 1;
             this.editModal.errors = {};
@@ -521,7 +532,7 @@ function sitesPage() {
                     return;
                 }
             }
-            if (this.editModal.step < 2) {
+            if (this.editModal.step < 3) {
                 this.editModal.step++;
             }
         },
@@ -546,6 +557,7 @@ function sitesPage() {
                     site_name: this.editModal.siteName,
                     domain: this.editModal.domain,
                     privacy_policy_url: this.editModal.privacyPolicyUrl,
+                    banner_type: this.editModal.bannerType,
                     language_ids: this.editModal.languageIds
                 })
             })

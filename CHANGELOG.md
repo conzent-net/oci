@@ -4,6 +4,18 @@ All notable changes to the Conzent OCI core will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/).
 
+## [v2.1.7] - 2026-03-16
+
+### Added
+- **Safe update flow** — running the installer on an existing installation now preserves data (no more `down -v`)
+- **`--update` flag** — explicit update mode that pulls latest code, rebuilds containers, and runs new migrations without data loss
+
+### Fixed
+- Running the one-liner twice no longer wipes the database
+- Admin account creation skipped on updates (existing credentials preserved)
+
+---
+
 ## [v2.1.6] - 2026-03-16
 
 ### Fixed
