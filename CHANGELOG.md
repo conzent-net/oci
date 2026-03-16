@@ -4,6 +4,13 @@ All notable changes to the Conzent OCI core will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/).
 
+## [v2.1.5] - 2026-03-16
+
+### Fixed
+- OCI self-hosted: resolved missing Monetization module dependency (moved PlanRepositoryInterface to Shared, added NullPlanRepository for unlimited self-hosted mode)
+
+---
+
 ## [v2.1.4] - 2026-03-16
 
 ### Changed

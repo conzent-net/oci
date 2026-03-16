@@ -6,7 +6,7 @@ namespace OCI\Site\Service;
 
 use OCI\Banner\Repository\BannerRepositoryInterface;
 use OCI\Cookie\Repository\CookieCategoryRepositoryInterface;
-use OCI\Monetization\Repository\PlanRepositoryInterface;
+use OCI\Shared\Repository\PlanRepositoryInterface;
 use OCI\Monetization\Service\SubscriptionService;
 use OCI\Scanning\Repository\ScanRepositoryInterface;
 use OCI\Site\DTO\CreateSiteInput;

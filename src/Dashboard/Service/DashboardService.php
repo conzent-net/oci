@@ -10,7 +10,7 @@ use OCI\Consent\Repository\ConsentRepositoryInterface;
 use OCI\Dashboard\DTO\AgencyDashboardData;
 use OCI\Dashboard\DTO\ConsentReportData;
 use OCI\Dashboard\DTO\CustomerDashboardData;
-use OCI\Monetization\Repository\PlanRepositoryInterface;
+use OCI\Shared\Repository\PlanRepositoryInterface;
 use OCI\Monetization\Service\PricingService;
 use OCI\Monetization\Service\SubscriptionService;
 use OCI\Scanning\Repository\ScanRepositoryInterface;

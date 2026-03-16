@@ -6,7 +6,7 @@ namespace OCI\Site\Controller;
 
 use OCI\Http\Handler\RequestHandlerInterface;
 use OCI\Http\Response\ApiResponse;
-use OCI\Monetization\Repository\PlanRepositoryInterface;
+use OCI\Shared\Repository\PlanRepositoryInterface;
 use OCI\Monetization\Service\SubscriptionService;
 use OCI\Shared\Service\EditionService;
 use OCI\Site\Repository\LanguageRepositoryInterface;

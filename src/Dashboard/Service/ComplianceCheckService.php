@@ -6,7 +6,7 @@ namespace OCI\Dashboard\Service;
 
 use OCI\Agency\Repository\AgencyRepositoryInterface;
 use OCI\Banner\Repository\BannerRepositoryInterface;
-use OCI\Monetization\Repository\PlanRepositoryInterface;
+use OCI\Shared\Repository\PlanRepositoryInterface;
 use OCI\Monetization\Service\PricingService;
 use OCI\Monetization\Service\SubscriptionService;
 use OCI\Site\Repository\LanguageRepositoryInterface;

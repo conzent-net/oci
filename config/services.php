@@ -25,6 +25,7 @@ use Twig\Loader\FilesystemLoader;
 
 use function DI\autowire;
 use function DI\get;
+use function DI\value;
 
 return [
 
@@ -107,7 +108,9 @@ return [
     OCI\Policy\Repository\PolicyRepositoryInterface::class => autowire(OCI\Policy\Repository\PolicyRepository::class),
     OCI\Scanning\Repository\ScanRepositoryInterface::class => autowire(OCI\Scanning\Repository\ScanRepository::class),
     OCI\Agency\Repository\AgencyRepositoryInterface::class => autowire(OCI\Agency\Repository\AgencyRepository::class),
-    OCI\Monetization\Repository\PlanRepositoryInterface::class => autowire(OCI\Monetization\Repository\PlanRepository::class),
+    OCI\Shared\Repository\PlanRepositoryInterface::class => class_exists(OCI\Monetization\Repository\PlanRepository::class)
+        ? autowire(OCI\Monetization\Repository\PlanRepository::class)
+        : autowire(OCI\Shared\Repository\NullPlanRepository::class),
     OCI\Banner\Repository\BannerRepositoryInterface::class => autowire(OCI\Banner\Repository\BannerRepository::class),
     OCI\Banner\Service\LayoutService::class => static function (ContainerInterface $c): OCI\Banner\Service\LayoutService {
         return new OCI\Banner\Service\LayoutService(
@@ -126,6 +129,14 @@ return [
             $c->get('config.base_path') . '/config/conzent-compliance-checklists.json',
         );
     },
+
+    // ── Monetization (null when module not installed) ──────
+    OCI\Monetization\Service\PricingService::class => class_exists(OCI\Monetization\Service\PricingService::class)
+        ? autowire(OCI\Monetization\Service\PricingService::class)
+        : value(null),
+    OCI\Monetization\Service\SubscriptionService::class => class_exists(OCI\Monetization\Service\SubscriptionService::class)
+        ? autowire(OCI\Monetization\Service\SubscriptionService::class)
+        : value(null),
 
     // ── Monetization (swap via env var) ─────────────────────
     // OCI\Monetization\Service\MonetizationServiceInterface::class => static function (ContainerInterface $c) {
