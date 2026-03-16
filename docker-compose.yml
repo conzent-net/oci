@@ -6,7 +6,7 @@ services:
       - "${APP_PORT:-8100}:80"
     volumes:
       - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
-      - ./public:/var/www/html/public:ro
+      - app-public:/var/www/html/public:ro
     depends_on:
       app:
         condition: service_healthy
@@ -17,9 +17,11 @@ services:
     build:
       context: .
       dockerfile: docker/php/Dockerfile
-      target: dev
+      target: prod
     volumes:
-      - .:/var/www/html
+      - app-public:/var/www/html/public
+      - app-sites-data:/var/www/html/public/sites_data
+      - app-var:/var/www/html/var
     depends_on:
       mariadb:
         condition: service_healthy
@@ -53,10 +55,11 @@ services:
     build:
       context: .
       dockerfile: docker/php/Dockerfile
-      target: dev
+      target: prod
     command: ["php", "bin/oci", "queue:work"]
     volumes:
-      - .:/var/www/html
+      - app-var:/var/www/html/var
+      - app-sites-data:/var/www/html/public/sites_data
     depends_on:
       mariadb:
         condition: service_healthy
@@ -73,10 +76,11 @@ services:
     build:
       context: .
       dockerfile: docker/php/Dockerfile
-      target: dev
+      target: prod
     command: ["php", "bin/oci", "schedule:run"]
     volumes:
-      - .:/var/www/html
+      - app-var:/var/www/html/var
+      - app-sites-data:/var/www/html/public/sites_data
     depends_on:
       mariadb:
         condition: service_healthy
@@ -122,4 +126,10 @@ volumes:
   oci-db-data:
     driver: local
   oci-redis-data:
+    driver: local
+  app-public:
+    driver: local
+  app-var:
+    driver: local
+  app-sites-data:
     driver: local
