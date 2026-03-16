@@ -1338,39 +1338,23 @@ if (typeof window._cnzMainLoaded === "undefined") {
       },
 
       clearallCookies: function () {
+        var conzentCookies = [
+          "conzentConsent",
+          "conzentConsentPrefs",
+          "conzent_id",
+          "lastRenewedDate",
+          "euconsent-v2",
+        ];
+
         let allcookies = this.getallcookies();
 
-        var newt = allcookies;
-        var fetched_cookie = CNZ_config.settings.cookiesList;
-
         for (var i = 0; i < Object.keys(allcookies).length; i++) {
-          cookie_name = Object.keys(allcookies)[i].split("=")[0];
+          var cookie_name = Object.keys(allcookies)[i].split("=")[0];
 
-          if (Object.keys(fetched_cookie).length > 0) {
-            for (var jk = 0; jk < Object.keys(fetched_cookie).length; jk++) {
-              var cc_list = Object.keys(fetched_cookie)[jk];
-
-              if (fetched_cookie[cc_list].length > 0) {
-                for (var jm = 0; jm < fetched_cookie[cc_list].length; jm++) {
-                  if (cookie_name == fetched_cookie[cc_list][jm].name) {
-                    if (
-                      CNZ_config.settings.allowed_cookies.indexOf(
-                        cookie_name,
-                      ) !== -1
-                    ) {
-                    } else {
-                      this.erase(cookie_name, "");
-                    }
-                  }
-                }
-              }
-            }
+          if (conzentCookies.indexOf(cookie_name) === -1) {
+            this.erase(cookie_name, "");
           }
         }
-
-        //localStorage.clear();
-
-        //sessionStorage.clear();
       },
 
       blockMissedCookie: function () {
@@ -1490,44 +1474,8 @@ if (typeof window._cnzMainLoaded === "undefined") {
       },
 
       onConsentReject: () => {
-        // This code will run on cookie reject/decline
-
-        // remove all cookies before reloading the page
-
-        var same_site = "https:" === window.location.protocol ? ";secure" : "";
-        var wp_cookies = [
-          "wp_consent_functional",
-          "wp_consent_marketing",
-          "wp_consent_preferences",
-          "wp_consent_statistics",
-          "wp_consent_statistics-anonymous",
-        ];
-        var cnz_cookies = [
-          "conzentConsent",
-          "conzentConsentPrefs",
-          "conzent_id",
-          "lastRenewedDate",
-        ];
-        document.cookie.split(";").forEach(function (c) {
-          var ck_name = c.replace(/^ +/, "").split("=")[0];
-          if (
-            wp_cookies.includes(ck_name) == false &&
-            cnz_cookies.includes(ck_name) == false
-          ) {
-            document.cookie = c
-              .replace(/^ +/, "")
-              .replace(
-                /=.*/,
-                "=;expires=" + new Date().toUTCString() + ";path=/" + same_site,
-              );
-          }
-        });
-
-        //localStorage.clear();
-
-        //sessionStorage.clear();
-
-        //console.log("Consent Rejected!");
+        // Remove all cookies except Conzent's own preferences
+        Conzent_Cookie.clearallCookies();
 
         injectScripts();
       },
@@ -2968,10 +2916,6 @@ if (typeof window._cnzMainLoaded === "undefined") {
               setup_amazon_consent();
 
               consentFun.onConsentReject.call(this);
-
-              Conzent_Cookie.clearallCookies();
-
-              //Conzent_Cookie.blockMissedCookie();
 
               if (current_settings.reload_on == 1) {
                 window.location.reload(true);

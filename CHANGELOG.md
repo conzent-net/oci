@@ -4,6 +4,14 @@ All notable changes to the Conzent OCI core will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/).
 
+## [v2.1.1] - 2026-03-16
+
+### Fixed
+- Reject-all button now properly deletes cookies on consent withdrawal
+- Installer script improvements for reliability on fresh systems
+
+---
+
 ## [v2.1.0] - 2026-03-16
 
 ### Added
