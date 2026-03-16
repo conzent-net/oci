@@ -563,6 +563,12 @@ start_services() {
 
     step "Starting services"
 
+    # Clean up any stale containers/volumes from previous installs
+    # (e.g. MariaDB volume with old password after rm -rf without docker compose down)
+    if compose ps -q > /dev/null 2>&1; then
+        compose down -v --remove-orphans > /dev/null 2>&1 || true
+    fi
+
     run_with_spinner "Building containers (this may take a few minutes)" \
         compose up -d --build
 
