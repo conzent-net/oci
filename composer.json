@@ -2,7 +2,7 @@
     "name": "conzent/oci",
     "description": "Open Consent Infrastructure — IAB & Google Certified Consent Management Platform",
     "type": "project",
-    "license": "BSL-1.1",
+    "license": "proprietary",
     "minimum-stability": "stable",
     "prefer-stable": true,
     "require": {
@@ -35,8 +35,28 @@
     },
     "autoload": {
         "psr-4": {
-            "OCI\\": "src/"
+            "OCI\\": "src/",
+            "OCI\\Modules\\": "src/Modules/"
         }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "phpunit",
+        "test:unit": "phpunit --testsuite Unit",
+        "test:integration": "phpunit --testsuite Integration",
+        "analyse": "phpstan analyse --no-progress",
+        "cs:check": "php-cs-fixer fix --dry-run --diff",
+        "cs:fix": "php-cs-fixer fix",
+        "rector": "rector process",
+        "ci": [
+            "@cs:check",
+            "@analyse",
+            "@test"
+        ]
     },
     "config": {
         "sort-packages": true,

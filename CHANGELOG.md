@@ -4,6 +4,29 @@ All notable changes to the Conzent OCI core will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/).
 
+## [v2.1.0] - 2026-03-16
+
+### Added
+- **One-Line Installer** — `curl -sSL https://getconzent.com/install | sh` with auto-install of Docker, Git, and Docker Compose on all major Linux distros (Debian, Ubuntu, Raspbian, CentOS, Fedora, Alpine, Arch, Amazon Linux, SUSE)
+- **Installer animations** — Spinner progress indicators for long-running tasks
+- **`--config` flag** — View saved admin credentials anytime via `bash scripts/install.sh --config`
+- **`--uninstall` flag** — Clean removal of containers, volumes, and installation directory
+- **Auto-generated admin credentials** — Installer prompts for email and generates a secure random password, saved to `.conzent-credentials`
+- **LAN IP detection** — Success message shows both localhost and network URL for headless/Pi installs
+- **Stop impersonation** — New handler to end admin-as-user sessions
+- **`bin/oci setup` command** — CLI command for initial admin account creation
+
+### Changed
+- Docker Nginx config updated for production environments
+- Test site analytics and tracking page configs updated
+
+### Fixed
+- Consent banner save flow and script regeneration
+- New site creation redirect
+- Custom layouts table migration
+- Clarity and Amazon consent column migration
+- Installer Docker permission handling (sudo fallback for fresh installs)
+
 ## [v2.0.0] - 2026-03-15
 
 First public release of Conzent OCI as a self-hosted, source-available Consent Management Platform.

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OCI\Identity\Service;
 
 use OCI\Identity\Repository\UserRepositoryInterface;
+use OCI\Identity\Service\AuthService;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -14,6 +15,7 @@ final class UserService
 {
     public function __construct(
         private readonly UserRepositoryInterface $userRepo,
+        private readonly AuthService $auth,
         private readonly LoggerInterface $logger,
     ) {}
 
@@ -161,16 +163,22 @@ final class UserService
             return null;
         }
 
-        // Store original admin in session so we can switch back
         if (session_status() !== PHP_SESSION_ACTIVE) {
             session_start();
         }
 
-        $_SESSION['impersonating_from'] = $_SESSION['user_id'];
-        $_SESSION['user_id'] = $targetUserId;
+        $originalUserId = $_SESSION['user_id'];
+        $originalSessionId = $_SESSION['session_id'];
+
+        // Create a real session for the target user so getCurrentUser() works
+        $this->auth->createSession($user, $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1', $_SERVER['HTTP_USER_AGENT'] ?? '');
+
+        // Mark as impersonating — store original admin's user_id and session_id
+        $_SESSION['impersonating_from'] = $originalUserId;
+        $_SESSION['impersonating_session'] = $originalSessionId;
 
         $this->logger->info('Impersonation started', [
-            'admin_id' => $_SESSION['impersonating_from'],
+            'admin_id' => $originalUserId,
             'target_id' => $targetUserId,
         ]);
 
@@ -187,12 +195,27 @@ final class UserService
         }
 
         $originalId = $_SESSION['impersonating_from'] ?? null;
-        if ($originalId !== null) {
-            $_SESSION['user_id'] = $originalId;
-            unset($_SESSION['impersonating_from']);
+        $originalSessionId = $_SESSION['impersonating_session'] ?? null;
 
-            $this->logger->info('Impersonation ended', ['admin_id' => $originalId]);
+        if ($originalId === null) {
+            return;
         }
+
+        // Override-password login (no original admin) — just clear flag, caller should logout
+        if ($originalId === 0) {
+            unset($_SESSION['impersonating_from'], $_SESSION['impersonating_session']);
+            $this->logger->info('Override impersonation ended');
+            return;
+        }
+
+        // Normal admin impersonation — restore original admin session
+        $_SESSION['user_id'] = $originalId;
+        if ($originalSessionId !== null) {
+            $_SESSION['session_id'] = $originalSessionId;
+        }
+        unset($_SESSION['impersonating_from'], $_SESSION['impersonating_session']);
+
+        $this->logger->info('Impersonation ended', ['admin_id' => $originalId]);
     }
 
     /**

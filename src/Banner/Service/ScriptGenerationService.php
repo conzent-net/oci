@@ -97,8 +97,8 @@ final class ScriptGenerationService
             $supportGcm = $site['gcm_enabled'] ?? ($site['support_gcm'] ?? 0);
             $supportMetaConsent = $site['meta_consent_enabled'] ?? 1;
             $supportUet = $site['uet_enabled'] ?? 1;
-            $supportClarity = $site['clarity_enabled'] ?? 1;
-            $supportAmazonConsent = $site['amazon_consent_enabled'] ?? 1;
+            $supportClarity = $site['clarity_enabled'] ?? 0;
+            $supportAmazonConsent = $site['amazon_consent_enabled'] ?? 0;
             $gtmContainerId = trim((string) ($site['gtm_container_id'] ?? ''));
             $gtmDataLayer = trim((string) ($site['gtm_data_layer'] ?? '')) ?: 'dataLayer';
             $allowTagFire = $site['tag_fire_enabled'] ?? ($site['allow_tag_fire'] ?? 0);
@@ -2115,6 +2115,8 @@ final class ScriptGenerationService
         $supportGcm = $ctx['supportGcm'];
         $supportMetaConsent = $ctx['supportMetaConsent'];
         $supportUet = $ctx['supportUet'] ?? 1;
+        $supportClarity = $ctx['supportClarity'] ?? 0;
+        $supportAmazonConsent = $ctx['supportAmazonConsent'] ?? 0;
         $gtmContainerId = $ctx['gtmContainerId'] ?? '';
         $gtmDataLayer = $ctx['gtmDataLayer'] ?? 'dataLayer';
         $renewConsent = $ctx['renewConsent'];

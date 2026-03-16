@@ -5,9 +5,5 @@
 /var/
 node_modules/
 .phpunit.cache/
-.php-cs-fixer.cache
 public/sites_data/
-.DS_Store
-Thumbs.db
-*.swp
-*.swo
+/backups/

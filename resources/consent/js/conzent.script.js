@@ -1986,8 +1986,8 @@ if (typeof window._cnzMainLoaded === "undefined") {
 
         setup_gcm();
         setup_meta_consent();
-        setup_msconsent();
-        setup_clarity_consent();
+        setup_msconsent("update");
+        setup_clarity_consent("update");
         setup_amazon_consent();
         syncConzentWithShoplift();
         cnzEvent("conzentck_consent_update", getCnzConsent());
@@ -2964,7 +2964,7 @@ if (typeof window._cnzMainLoaded === "undefined") {
               // Always set GCM so security_storage is granted even on reject
               setup_gcm();
               setup_meta_consent();
-              setup_clarity_consent();
+              setup_clarity_consent("update");
               setup_amazon_consent();
 
               consentFun.onConsentReject.call(this);
@@ -2999,7 +2999,7 @@ if (typeof window._cnzMainLoaded === "undefined") {
 
           setup_gcm();
           setup_meta_consent();
-          setup_clarity_consent();
+          setup_clarity_consent("update");
           setup_amazon_consent();
         }
 
@@ -3256,7 +3256,7 @@ if (typeof window._cnzMainLoaded === "undefined") {
 
       setup_gcm();
       setup_meta_consent();
-      setup_clarity_consent();
+      setup_clarity_consent("update");
       setup_amazon_consent();
 
       Conzent_Blocker.runScripts();

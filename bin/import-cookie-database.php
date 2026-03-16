@@ -159,7 +159,7 @@ $conzentCookies = [
         'description' => 'Stores whether the user has given consent. Set by the Conzent consent management platform.',
         'expiry_duration' => '365 days',
         'data_controller' => 'Conzent',
-        'privacy_url' => 'https://conzent.net/privacy-policy/',
+        'privacy_url' => 'https://getconzent.com/privacy-policy/',
         'wildcard_match' => 0,
     ],
     [
@@ -171,7 +171,7 @@ $conzentCookies = [
         'description' => 'Stores the user\'s consent preferences per cookie category. Set by the Conzent consent management platform.',
         'expiry_duration' => '365 days',
         'data_controller' => 'Conzent',
-        'privacy_url' => 'https://conzent.net/privacy-policy/',
+        'privacy_url' => 'https://getconzent.com/privacy-policy/',
         'wildcard_match' => 0,
     ],
     [
@@ -183,7 +183,7 @@ $conzentCookies = [
         'description' => 'Unique session identifier for consent tracking. Used to link consent actions to a specific visitor session.',
         'expiry_duration' => '365 days',
         'data_controller' => 'Conzent',
-        'privacy_url' => 'https://conzent.net/privacy-policy/',
+        'privacy_url' => 'https://getconzent.com/privacy-policy/',
         'wildcard_match' => 0,
     ],
     [
@@ -195,7 +195,7 @@ $conzentCookies = [
         'description' => 'IAB TCF v2.2 consent string. Stores the user\'s vendor and purpose consent choices in IAB Transparency & Consent Framework format.',
         'expiry_duration' => '365 days',
         'data_controller' => 'Conzent',
-        'privacy_url' => 'https://conzent.net/privacy-policy/',
+        'privacy_url' => 'https://getconzent.com/privacy-policy/',
         'wildcard_match' => 0,
     ],
     [
@@ -207,7 +207,7 @@ $conzentCookies = [
         'description' => 'Timestamp of the last consent renewal. Used to determine when to re-prompt for consent.',
         'expiry_duration' => '365 days',
         'data_controller' => 'Conzent',
-        'privacy_url' => 'https://conzent.net/privacy-policy/',
+        'privacy_url' => 'https://getconzent.com/privacy-policy/',
         'wildcard_match' => 0,
     ],
 ];

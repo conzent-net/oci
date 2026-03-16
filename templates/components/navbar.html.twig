@@ -54,7 +54,7 @@
                     {% endif %}
                     {% if current_user.role == 'admin' %}
                         <div class="menu-divider"></div>
-                        <a href="/admin/">
+                        <a href="/admin">
                             <span class="icon is-small"><i class="fas fa-screwdriver-wrench"></i></span>
                             Admin Panel
                         </a>
@@ -87,10 +87,9 @@
     <i class="fas fa-user-secret"></i>
     Viewing as <strong>{{ current_user.email }}</strong>
     <button class="button is-small is-dark" onclick="
-        fetch('/admin/users/0/action', {
+        fetch('/app/stop-impersonation', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-            body: JSON.stringify({ action: 'stop_impersonate' })
         }).then(function(r) { return r.json(); }).then(function(d) {
             window.location.href = d.data && d.data.redirect ? d.data.redirect : '/admin/users';
         });

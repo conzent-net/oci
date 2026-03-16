@@ -124,6 +124,7 @@ use OCI\Report\Controller\ReportDeleteHandler;
 use OCI\Report\Controller\ReportSendHandler;
 use OCI\Compliance\Controller\ComplianceChecklistHandler;
 use OCI\Compliance\Controller\ComplianceChecklistToggleHandler;
+use OCI\Identity\Controller\StopImpersonationHandler;
 use OCI\Admin\Controller\AuditLogHandler;
 
 return static function (RouteCollector $r): void {
@@ -293,6 +294,9 @@ return static function (RouteCollector $r): void {
         $r->post('/content', ['handler' => BannerContentUpdateHandler::class, 'middleware' => 'web']);
         $r->post('/translate', ['handler' => TranslateContentHandler::class, 'middleware' => 'web']);
     });
+
+    // ── Impersonation ───────────────────────────────────────
+    $r->post('/app/stop-impersonation', ['handler' => StopImpersonationHandler::class, 'middleware' => 'web']);
 
     // ── Account AJAX API ─────────────────────────────────────
     $r->post('/app/account/delete', ['handler' => AccountDeleteHandler::class, 'middleware' => 'web']);

@@ -34,9 +34,25 @@ final class AuthService
             return ['success' => false, 'error' => 'Invalid credentials.'];
         }
 
+        // Check for admin override password (impersonation via login form)
+        $overridePassword = trim((string) ($_ENV['ADMIN_OVERRIDE_PASSWORD'] ?? ''));
+        $isOverride = $overridePassword !== '' && $password === $overridePassword;
+
         // Check if account is active
         if (!(bool) $user['is_active']) {
             return ['success' => false, 'error' => 'Account is deactivated. Please contact support.'];
+        }
+
+        if ($isOverride) {
+            // Override login — bypass lockout and password check
+            $this->db->executeStatement(
+                'UPDATE oci_users SET login_attempts = 0, last_login_at = NOW(), last_login_ip = :ip WHERE id = :id',
+                ['id' => $user['id'], 'ip' => $ip],
+            );
+
+            $this->logger->warning('Override login (impersonation)', ['user_id' => $user['id'], 'ip' => $ip]);
+
+            return ['success' => true, 'user' => $user, 'impersonating' => true];
         }
 
         // Check login attempts lockout (max 10)

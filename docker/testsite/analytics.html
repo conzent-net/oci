@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script async src="https://app.getconzent.com/c/consent.js" data-key="a1b2c3d4e5f6a1b2c3d4e5f6"></script>
+    <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);if(arguments[0]==='consent')console.log('[GCM]',arguments[0],arguments[1],arguments[2])}gtag('js',new Date());</script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analytics - OCI Test</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <h1>OCI Cookie Banner Test Site</h1>
+        <nav>
+            <a href="index.html">Home</a>
+            <a href="youtube.html">YouTube</a>
+            <a href="analytics.html" class="active">Analytics</a>
+            <a href="marketing.html">Marketing</a>
+            <a href="functional.html">Functional</a>
+        </nav>
+    </header>
+
+    <main>
+        <div class="card">
+            <h2>Google Analytics 4 <span class="tag analytics">analytics</span></h2>
+            <p>GA4 sets these cookies when loaded:</p>
+            <ul style="margin:.5rem 0 .5rem 1.5rem;line-height:1.8;color:#4a5568">
+                <li><strong>_ga</strong> — Client ID (2 years)</li>
+                <li><strong>_ga_*</strong> — Session data (2 years)</li>
+                <li><strong>_gid</strong> — Session ID (24 hours)</li>
+                <li><strong>_gat</strong> — Throttle requests (1 minute)</li>
+            </ul>
+            <div class="embed-box" id="gaStatus">
+                <p>GA4 script tag (measurement ID: G-XXXXXXXXXX)</p>
+                <p style="font-size:.85rem;color:#718096">Uses a dummy measurement ID so it won't actually send data to Google,<br>but the gtag.js library will still set _ga and _gid cookies.</p>
+            </div>
+        </div>
+
+        <!-- GA4 script with dummy measurement ID -->
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+        <script>
+            gtag('config', 'G-XXXXXXXXXX', { send_page_view: false });
+        </script>
+
+        <div class="card">
+            <h2>Hotjar <span class="tag analytics">analytics</span></h2>
+            <p>Hotjar sets these cookies:</p>
+            <ul style="margin:.5rem 0 .5rem 1.5rem;line-height:1.8;color:#4a5568">
+                <li><strong>_hj*</strong> — Various Hotjar tracking cookies</li>
+                <li><strong>_hjSessionUser_*</strong> — Hotjar user ID</li>
+                <li><strong>_hjSession_*</strong> — Session data</li>
+            </ul>
+            <div class="embed-box">
+                <p>Hotjar would be loaded here (requires valid site ID)</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Simulate Analytics Cookies <span class="tag analytics">analytics</span></h2>
+            <p>Click to set common analytics cookies via JavaScript (simulates what GA/Hotjar would set):</p>
+            <button onclick="setAnalyticsCookies()" style="margin-top:.5rem;padding:.5rem 1rem;background:#3182ce;color:#fff;border:none;border-radius:4px;cursor:pointer">
+                Set Analytics Cookies
+            </button>
+            <pre id="cookieList" style="margin-top:1rem"></pre>
+        </div>
+    </main>
+
+    <footer>OCI Test Site &mdash; For development and testing only</footer>
+    <script>
+        function setAnalyticsCookies() {
+            var d = new Date(); d.setFullYear(d.getFullYear() + 2);
+            var exp = '; expires=' + d.toUTCString() + '; path=/';
+            document.cookie = '_ga=GA1.1.123456789.1710000000' + exp;
+            document.cookie = '_ga_XXXXXXXXXX=GS1.1.1710000000.1.0.1710000000.60.0.0' + exp;
+            document.cookie = '_gid=GA1.1.987654321.1710000000' + exp;
+            document.cookie = '_gat=1; path=/; max-age=60';
+            document.cookie = '_hjSessionUser_12345=eyJpZCI6ImFiYyJ9' + exp;
+            document.cookie = '_hjSession_12345=eyJpZCI6ImRlZiJ9; path=/; max-age=1800';
+            updateCookieDisplay();
+        }
+        function updateCookieDisplay(){var e=document.getElementById('cookieList'),c=document.cookie.split(';').map(function(s){return s.trim()}).filter(Boolean);e.textContent=c.length?c.join('\n'):'(no cookies set)'}
+        updateCookieDisplay();setInterval(updateCookieDisplay,2000);
+    </script>
+</body>
+</html>

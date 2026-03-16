@@ -10,6 +10,7 @@
  *   php bin/oci <command> [options]
  *
  * Commands:
+ *   setup                           First-run setup: create admin account
  *   health                         Check application health
  *   migrations:migrate             Run database migrations
  *   legacy:migrate <domain|all>    Migrate legacy data to oci_* tables
@@ -46,6 +47,111 @@ $container = $app->getContainer();
 $command = $argv[1] ?? 'help';
 
 match ($command) {
+    'setup' => (function () use ($container, $argv) {
+        echo "╔══════════════════════════════════════════╗\n";
+        echo "║   Conzent OCI — First-Run Setup          ║\n";
+        echo "╚══════════════════════════════════════════╝\n\n";
+
+        $db = $container->get(\Doctrine\DBAL\Connection::class);
+
+        // Check if users table exists (migrations must run first)
+        $tableExists = (bool) $db->fetchOne(
+            "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'oci_users'",
+        );
+        if (!$tableExists) {
+            echo "ERROR: Database tables not found. Run migrations first:\n";
+            echo "  php bin/oci migrations:migrate\n\n";
+            exit(1);
+        }
+
+        // Check if any users already exist
+        $userCount = (int) $db->fetchOne('SELECT COUNT(*) FROM oci_users');
+        if ($userCount > 0) {
+            echo "Setup already completed ({$userCount} user(s) exist).\n";
+            echo "Log in at: " . ($_ENV['APP_URL'] ?? 'http://localhost:8100') . "\n";
+            exit(0);
+        }
+
+        // Parse CLI arguments: --email=x --password=x
+        $email = null;
+        $password = null;
+        foreach ($argv as $arg) {
+            if (str_starts_with($arg, '--email=')) {
+                $email = substr($arg, 8);
+            }
+            if (str_starts_with($arg, '--password=')) {
+                $password = substr($arg, 11);
+            }
+        }
+
+        // Interactive mode if arguments not provided
+        if ($email === null) {
+            if (!defined('STDIN') || !posix_isatty(STDIN)) {
+                echo "ERROR: No --email provided and no interactive terminal available.\n";
+                echo "Usage: php bin/oci setup --email=admin@example.com --password=yourpassword\n\n";
+                exit(1);
+            }
+            echo "Admin email: ";
+            $email = trim(fgets(STDIN));
+        }
+
+        if ($password === null) {
+            if (!defined('STDIN') || !posix_isatty(STDIN)) {
+                echo "ERROR: No --password provided and no interactive terminal available.\n";
+                echo "Usage: php bin/oci setup --email=admin@example.com --password=yourpassword\n\n";
+                exit(1);
+            }
+            echo "Admin password (min 8 chars): ";
+            // Attempt to hide input on Unix
+            if (function_exists('readline')) {
+                system('stty -echo 2>/dev/null');
+                $password = trim(fgets(STDIN));
+                system('stty echo 2>/dev/null');
+                echo "\n";
+            } else {
+                $password = trim(fgets(STDIN));
+            }
+        }
+
+        // Validate
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            echo "ERROR: Invalid email address: {$email}\n";
+            exit(1);
+        }
+        if (\strlen($password) < 8) {
+            echo "ERROR: Password must be at least 8 characters.\n";
+            exit(1);
+        }
+
+        // Create admin user via UserService
+        $userService = $container->get(\OCI\Identity\Service\UserService::class);
+        $result = $userService->createUser([
+            'email' => $email,
+            'username' => $email,
+            'first_name' => 'Admin',
+            'last_name' => '',
+            'password' => $password,
+            'role' => 'admin',
+            'is_active' => 1,
+        ]);
+
+        if (!$result['success']) {
+            echo "ERROR: Failed to create admin user.\n";
+            foreach ($result['errors'] ?? [] as $field => $msg) {
+                echo "  {$field}: {$msg}\n";
+            }
+            exit(1);
+        }
+
+        $appUrl = $_ENV['APP_URL'] ?? 'http://localhost:8100';
+
+        echo "\n";
+        echo "✓ Admin account created successfully!\n\n";
+        echo "  Email:    {$email}\n";
+        echo "  Role:     admin\n\n";
+        echo "  Log in at: {$appUrl}\n\n";
+    })(),
+
     'health' => (function () use ($container, $app) {
         try {
             $db = $container->get(\Doctrine\DBAL\Connection::class);
@@ -341,6 +447,7 @@ match ($command) {
             echo "Unknown command: {$command}\n\n";
         }
         echo "Available commands:\n";
+        echo "  setup                          First-run setup: create admin account\n";
         echo "  health                         Check application health\n";
         echo "  migrations:migrate             Run Doctrine schema migrations\n";
         echo "  legacy:migrate <domain|all>    Migrate legacy data to oci_* tables\n";

@@ -44,7 +44,19 @@ Conzent OCI is a production-grade, self-hosted cookie consent management platfor
 
 ## Quick Start
 
-### Using Docker (recommended)
+### One-Line Install (recommended)
+
+```bash
+curl -sSL https://getconzent.com/install | sh
+```
+
+This clones the repository, generates secure credentials, starts all containers, and runs database migrations automatically. Customize the install directory with:
+
+```bash
+curl -sSL https://getconzent.com/install | sh -s -- --dir /opt/conzent
+```
+
+### Using Docker
 
 ```bash
 git clone https://github.com/conzent-net/oci.git

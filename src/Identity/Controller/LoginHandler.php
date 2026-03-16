@@ -57,6 +57,11 @@ final class LoginHandler implements RequestHandlerInterface
         // Create session
         $this->auth->createSession($result['user'], $ip, $userAgent, $remember);
 
+        // Mark session as impersonating if override password was used
+        if (!empty($result['impersonating'])) {
+            $_SESSION['impersonating_from'] = 0; // no original admin user — direct override login
+        }
+
         // Redirect to intended URL or dashboard
         $redirectTo = $_SESSION['intended_url'] ?? '/';
         unset($_SESSION['intended_url']);

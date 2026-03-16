@@ -33,6 +33,17 @@ abstract class Migration
     }
 
     /**
+     * Check if a table exists in the current database.
+     */
+    protected function tableExists(string $table): bool
+    {
+        return (bool) $this->db->fetchOne(
+            "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?",
+            [$table],
+        );
+    }
+
+    /**
      * Drop a table if it exists.
      */
     protected function dropIfExists(string $table): void
