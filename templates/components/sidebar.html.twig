@@ -6,7 +6,7 @@
     {% if modules is defined %}
         {% for item in modules.getMenuItemsBySection()[section_name] ?? [] %}
             {% set show = true %}
-            {% if item.role is defined and (current_user is not defined or current_user.role != item.role) %}
+            {% if item.role is defined and (current_user is not defined or (item.role is iterable ? (current_user.role not in item.role) : (current_user.role != item.role))) %}
                 {% set show = false %}
             {% endif %}
             {% if show and item.edition is defined and edition is defined and not attribute(edition, item.edition) %}
@@ -154,7 +154,7 @@
                 {% set section_visible = false %}
                 {% for item in items %}
                     {% set show = true %}
-                    {% if item.role is defined and (current_user is not defined or current_user.role != item.role) %}
+                    {% if item.role is defined and (current_user is not defined or (item.role is iterable ? (current_user.role not in item.role) : (current_user.role != item.role))) %}
                         {% set show = false %}
                     {% endif %}
                     {% if show and item.edition is defined and edition is defined and not attribute(edition, item.edition) %}
@@ -168,7 +168,7 @@
                 <ul class="menu-list">
                     {% for item in items %}
                         {% set show = true %}
-                        {% if item.role is defined and (current_user is not defined or current_user.role != item.role) %}
+                        {% if item.role is defined and (current_user is not defined or (item.role is iterable ? (current_user.role not in item.role) : (current_user.role != item.role))) %}
                             {% set show = false %}
                         {% endif %}
                         {% if show and item.edition is defined and edition is defined and not attribute(edition, item.edition) %}

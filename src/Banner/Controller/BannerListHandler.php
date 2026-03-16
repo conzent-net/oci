@@ -142,6 +142,7 @@ final class BannerListHandler implements RequestHandlerInterface
             'disableOnPagesText' => $disableOnPagesText,
             'websiteKey' => (string) ($currentSite['website_key'] ?? ''),
             'customLayouts' => $this->layoutService->getCustomLayouts($siteId),
+            'systemLayouts' => $this->layoutService->getSystemLayouts('gdpr'),
         ]);
 
         return ApiResponse::html($html);

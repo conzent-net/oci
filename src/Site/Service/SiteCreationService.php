@@ -7,6 +7,7 @@ namespace OCI\Site\Service;
 use OCI\Banner\Repository\BannerRepositoryInterface;
 use OCI\Cookie\Repository\CookieCategoryRepositoryInterface;
 use OCI\Shared\Repository\PlanRepositoryInterface;
+use OCI\Shared\Service\EditionService;
 use OCI\Monetization\Service\SubscriptionService;
 use OCI\Scanning\Repository\ScanRepositoryInterface;
 use OCI\Site\DTO\CreateSiteInput;
@@ -30,6 +31,7 @@ final class SiteCreationService
         private readonly BannerRepositoryInterface $bannerRepo,
         private readonly PlanRepositoryInterface $planRepo,
         private readonly ScanRepositoryInterface $scanRepo,
+        private readonly EditionService $edition,
         private readonly ?SubscriptionService $subscriptionService = null,
     ) {}
 
@@ -57,8 +59,11 @@ final class SiteCreationService
             throw new \RuntimeException('Domain already exists in system');
         }
 
-        // ── Step 3: Check plan limits ────────────────────
-        $this->checkPlanLimits($userId);
+        // ── Step 3: Check plan limits (only domain count, not subscription) ──
+        $this->checkDomainLimit($userId);
+
+        // ── Step 3b: Determine initial status ──────────────
+        $needsSuspend = $this->shouldSuspendNewSite($userId);
 
         // ── Step 4: Resolve defaults ─────────────────────
         $defaultLang = $this->resolveDefaultLanguage();
@@ -73,7 +78,8 @@ final class SiteCreationService
             'site_name' => $siteName,
             'domain' => $domain,
             'website_key' => $websiteKey,
-            'status' => 'active',
+            'status' => $needsSuspend ? 'suspended' : 'active',
+            'suspended_reason' => $needsSuspend ? 'no_subscription' : null,
             'setup_status' => 0,
             'consent_log_enabled' => 1,
             'consent_sharing_enabled' => 1,
@@ -97,8 +103,10 @@ final class SiteCreationService
         // ── Step 8: Create default banner settings ───────
         $this->createDefaultBannerSettings($siteId, $languageId);
 
-        // ── Step 9: Initiate first scan ──────────────────
-        $this->initiateFirstScan($siteId, $domain, $userId);
+        // ── Step 9: Initiate first scan (skip for suspended sites) ──
+        if (!$needsSuspend) {
+            $this->initiateFirstScan($siteId, $domain, $userId);
+        }
 
         // ── Step 10: Fetch and return the created site ───
         $site = $this->siteRepo->findById($siteId);
@@ -136,7 +144,7 @@ final class SiteCreationService
         }
 
         $userId = (int) $user['id'];
-        $limitError = $this->getPlanLimitError($userId);
+        $limitError = $this->getDomainLimitError($userId);
         if ($limitError !== null) {
             $errors['plan'] = $limitError;
         }
@@ -235,34 +243,39 @@ final class SiteCreationService
     }
 
     /**
-     * @throws \RuntimeException If plan limits exceeded
+     * @throws \RuntimeException If domain limit exceeded (but NOT for missing subscription)
      */
-    private function checkPlanLimits(int $userId): void
+    private function checkDomainLimit(int $userId): void
     {
-        $error = $this->getPlanLimitError($userId);
+        $error = $this->getDomainLimitError($userId);
         if ($error !== null) {
             throw new \RuntimeException($error);
         }
     }
 
-    private function getPlanLimitError(int $userId): ?string
+    /**
+     * Check only the domain count limit (not subscription existence).
+     * Users without a subscription can still create sites — they'll be suspended.
+     */
+    private function getDomainLimitError(int $userId): ?string
     {
-        $isEnterprise = $this->planRepo->isEnterprise($userId);
+        if (!$this->edition->arePlanLimitsEnforced()) {
+            return null;
+        }
 
-        // Enterprise accounts have unlimited domains
+        $isEnterprise = $this->planRepo->isEnterprise($userId);
         if ($isEnterprise) {
             return null;
         }
 
-        // Check active subscription via SubscriptionService (new billing system)
         if ($this->subscriptionService !== null) {
             if (!$this->subscriptionService->hasActiveAccess($userId)) {
-                return 'Please subscribe to add a site';
+                // No subscription — allow creation (site will be suspended)
+                return null;
             }
 
             $maxDomains = $this->subscriptionService->getAllowedDomainCount($userId);
 
-            // max_domains = 0 means unlimited
             if ($maxDomains <= 0) {
                 return null;
             }
@@ -276,14 +289,28 @@ final class SiteCreationService
             return null;
         }
 
-        // Fallback: legacy plan check
-        $userPlan = $this->planRepo->getUserPlan($userId);
+        return null;
+    }
 
-        if ($userPlan === null) {
-            return 'Please upgrade your plan to add a site';
+    /**
+     * Determine if a newly created site should start as suspended (no active subscription).
+     */
+    private function shouldSuspendNewSite(int $userId): bool
+    {
+        if (!$this->edition->arePlanLimitsEnforced()) {
+            return false;
         }
 
-        return null;
+        if ($this->planRepo->isEnterprise($userId)) {
+            return false;
+        }
+
+        if ($this->subscriptionService !== null) {
+            return !$this->subscriptionService->hasActiveAccess($userId);
+        }
+
+        // Legacy: no plan = suspend
+        return $this->planRepo->getUserPlan($userId) === null;
     }
 
     /**

@@ -12,6 +12,40 @@ final class AgencyRepository implements AgencyRepositoryInterface
         private readonly Connection $db,
     ) {}
 
+    public function findOrCreateByUserId(int $userId, string $email): array
+    {
+        $agency = $this->findByUserId($userId);
+        if ($agency !== null) {
+            return $agency;
+        }
+
+        $now = (new \DateTimeImmutable())->format('Y-m-d H:i:s');
+        $this->db->insert('oci_agencies', [
+            'user_id' => $userId,
+            'name' => $email,
+            'contact_email' => $email,
+            'agency_type' => 'agency',
+            'is_active' => 1,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        return $this->findByUserId($userId);
+    }
+
+    public function findAll(): array
+    {
+        $sql = <<<'SQL'
+            SELECT a.*, u.email AS owner_email, u.first_name AS owner_first_name, u.last_name AS owner_last_name,
+                   (SELECT COUNT(*) FROM oci_agency_customers AS ac WHERE ac.agency_id = a.id) AS customer_count
+            FROM oci_agencies AS a
+            INNER JOIN oci_users AS u ON u.id = a.user_id
+            ORDER BY a.created_at DESC
+        SQL;
+
+        return $this->db->fetchAllAssociative($sql);
+    }
+
     public function findByUserId(int $userId): ?array
     {
         $row = $this->db->fetchAssociative(
@@ -203,6 +237,38 @@ final class AgencyRepository implements AgencyRepositoryInterface
     {
         $hashedToken = hash('sha256', $token);
         $this->db->update('oci_agency_invites', ['status' => 'declined'], ['token' => $hashedToken]);
+    }
+
+    public function acceptInviteById(int $inviteId, int $userId): bool
+    {
+        $invite = $this->db->fetchAssociative(
+            'SELECT * FROM oci_agency_invites WHERE id = :id AND target_user_id = :userId AND status = :status AND expires_at > NOW()',
+            ['id' => $inviteId, 'userId' => $userId, 'status' => 'pending'],
+        );
+
+        if ($invite === false) {
+            return false;
+        }
+
+        $this->db->update('oci_agency_invites', ['status' => 'accepted'], ['id' => $inviteId]);
+
+        $this->db->insert('oci_agency_customers', [
+            'agency_id' => $invite['agency_id'],
+            'customer_user_id' => $invite['target_user_id'],
+            'date_from' => (new \DateTimeImmutable())->format('Y-m-d H:i:s'),
+        ]);
+
+        return true;
+    }
+
+    public function declineInviteById(int $inviteId, int $userId): bool
+    {
+        $affected = $this->db->executeStatement(
+            'UPDATE oci_agency_invites SET status = :status WHERE id = :id AND target_user_id = :userId AND status = :pending AND expires_at > NOW()',
+            ['status' => 'declined', 'id' => $inviteId, 'userId' => $userId, 'pending' => 'pending'],
+        );
+
+        return $affected > 0;
     }
 
     public function getPendingInvitesForUser(int $userId): array

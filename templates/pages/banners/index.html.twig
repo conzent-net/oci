@@ -179,12 +179,9 @@
                 <label class="label">Active Layout</label>
                 <div class="select">
                     <select x-model="layoutKey" @change="layoutChanged()">
-                        <option value="gdpr/classic">Classic (Default)</option>
-                        <option value="gdpr/minimal">Minimal</option>
-                        <option value="gdpr/stacked">Stacked</option>
-                        <option value="gdpr/card">Card</option>
-                        <option value="gdpr/sidebar">Sidebar</option>
-                        <option value="gdpr/hero">Hero</option>
+                        {% for slug, layout in systemLayouts|default({}) %}
+                        <option value="gdpr/{{ slug }}">{{ layout.name }}{{ layout.default|default(false) ? ' (Default)' : '' }}</option>
+                        {% endfor %}
                         {% for cl in customLayouts|default([]) %}
                         <option value="custom:{{ cl.id }}">{{ cl.layout_name }}</option>
                         {% endfor %}

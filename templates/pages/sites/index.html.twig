@@ -42,8 +42,37 @@
                     </div>
                 {% endif %}
             </div>
+            {% if not hasSubscription %}
+            <div class="level-item">
+                <a href="/billing" class="button is-warning is-light">
+                    <span class="icon"><i class="fas fa-credit-card"></i></span>
+                    <span>Subscribe</span>
+                </a>
+            </div>
+            {% endif %}
         </div>
     </div>
+
+    {# ── Subscription Required Banner ─────────────────── #}
+    {% if not hasSubscription %}
+    <div class="notification is-warning is-light mb-4">
+        <div class="columns is-vcentered">
+            <div class="column">
+                <p class="has-text-weight-semibold">
+                    <span class="icon"><i class="fas fa-exclamation-triangle"></i></span>
+                    Subscription required
+                </p>
+                <p class="mt-1">Your sites are suspended because you don't have an active subscription. Subscribe to a plan to activate your sites and start collecting consent.</p>
+            </div>
+            <div class="column is-narrow">
+                <a href="/billing" class="button is-warning">
+                    <span class="icon"><i class="fas fa-credit-card"></i></span>
+                    <span>Choose a Plan</span>
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 
     {# ── Status Filter Tabs ────────────────────────────── #}
     <div class="tabs is-boxed mb-4">

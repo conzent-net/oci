@@ -42,6 +42,7 @@ final class SessionMiddleware implements MiddlewareInterface
 
         // Impersonation state — show warning bar in navbar
         $this->twig->addGlobal('is_impersonating', isset($_SESSION['impersonating_from']));
+        $this->twig->addGlobal('impersonator_role', $_SESSION['impersonating_role'] ?? null);
 
         // Flash messages
         $flash = $_SESSION['_flash'] ?? [];

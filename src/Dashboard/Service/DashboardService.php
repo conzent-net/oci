@@ -308,7 +308,7 @@ final class DashboardService
         $sites = $this->siteRepo->findAllByUser($userId, 'active');
 
         if (empty($sites)) {
-            // Check if user has any sites at all (including inactive)
+            // Check if user has any sites at all (including inactive/suspended)
             $allSites = $this->siteRepo->findAllByUser($userId);
             $company = $this->planRepo->getUserCompany($userId);
 
@@ -320,6 +320,7 @@ final class DashboardService
                 return ['siteId' => 0, 'sites' => [], 'redirect' => '/sites'];
             }
 
+            // Redirect to /sites — user will see their suspended sites with subscription banner
             return ['siteId' => 0, 'sites' => $allSites, 'redirect' => '/sites'];
         }
 

@@ -34,11 +34,20 @@ final class StopImpersonationHandler implements RequestHandlerInterface
         }
 
         $wasOverride = $_SESSION['impersonating_from'] === 0;
+        $originalRole = $_SESSION['impersonating_role'] ?? 'admin';
         $this->userService->stopImpersonation();
+
+        if ($wasOverride) {
+            $redirect = '/logout';
+        } elseif ($originalRole === 'agency') {
+            $redirect = '/agency/customers';
+        } else {
+            $redirect = '/admin/users';
+        }
 
         return ApiResponse::success([
             'message' => 'Impersonation ended.',
-            'redirect' => $wasOverride ? '/logout' : '/admin/users',
+            'redirect' => $redirect,
         ]);
     }
 }

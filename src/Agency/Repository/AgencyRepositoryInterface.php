@@ -7,11 +7,26 @@ namespace OCI\Agency\Repository;
 interface AgencyRepositoryInterface
 {
     /**
+     * Get all agencies with their owner info and customer counts.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function findAll(): array;
+
+    /**
      * Get agency info by the agency's user_id.
      *
      * @return array<string, mixed>|null
      */
     public function findByUserId(int $userId): ?array;
+
+    /**
+     * Find or create an agency profile for a user.
+     * Auto-creates a minimal agency record if one doesn't exist yet.
+     *
+     * @return array<string, mixed>
+     */
+    public function findOrCreateByUserId(int $userId, string $email): array;
 
     /**
      * Check which agency owns this customer.
@@ -89,6 +104,16 @@ interface AgencyRepositoryInterface
      * @return array<int, array<string, mixed>>
      */
     public function getPendingInvitesForUser(int $userId): array;
+
+    /**
+     * Accept an invite by ID (verifying it belongs to the given user).
+     */
+    public function acceptInviteById(int $inviteId, int $userId): bool;
+
+    /**
+     * Decline an invite by ID (verifying it belongs to the given user).
+     */
+    public function declineInviteById(int $inviteId, int $userId): bool;
 
     /**
      * Get customer health data for the agency dashboard.

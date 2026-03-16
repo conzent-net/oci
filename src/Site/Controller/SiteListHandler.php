@@ -72,9 +72,9 @@ final class SiteListHandler implements RequestHandlerInterface
                 $hasSubscription = $this->subscriptionService->hasActiveAccess($userId);
                 $maxDomains = $this->subscriptionService->getAllowedDomainCount($userId);
 
-                if (!$hasSubscription) {
-                    $canAddSite = false;
-                } elseif ($maxDomains > 0) {
+                // Allow adding sites even without subscription (they'll be suspended).
+                // Only block when user has a subscription but hit the domain limit.
+                if ($hasSubscription && $maxDomains > 0) {
                     $activeSiteCount = $this->siteRepository->countByUser($userId);
                     $canAddSite = $activeSiteCount < $maxDomains;
                 }

@@ -4,6 +4,24 @@ All notable changes to the Conzent OCI core will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/).
 
+## [v2.1.8] - 2026-03-16
+
+### Added
+- **Agency domain** — Repository layer for agency management (customer lists, invitations, health data)
+- **Sidebar role arrays** — Menu items can now target multiple roles (e.g. `['agency', 'admin']`)
+- **Impersonation role awareness** — "Return to Agency/Admin" button text and redirect now match the original user's role
+- **Session impersonator role** — Stores originating role during impersonation for correct return routing
+
+### Changed
+- Agency users now see the standard customer dashboard at `/` instead of the legacy commission dashboard
+- Site creation onboarding improved with guided first-site flow
+
+### Fixed
+- Impersonation stop redirect now correctly returns agency users to `/agency/customers` instead of `/admin/users`
+- Banner list handler edge cases
+
+---
+
 ## [v2.1.7] - 2026-03-16
 
 ### Added

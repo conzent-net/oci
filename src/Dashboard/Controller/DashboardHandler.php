@@ -40,10 +40,9 @@ final class DashboardHandler implements RequestHandlerInterface
 
         $role = (string) ($user['role'] ?? 'customer');
 
-        return match ($role) {
-            'agency', 'reseller' => $this->renderAgencyDashboard($user),
-            default => $this->renderCustomerDashboard($request, $user),
-        };
+        // All users (including agency) get the standard customer dashboard.
+        // Agency-specific management lives at /agency.
+        return $this->renderCustomerDashboard($request, $user);
     }
 
     /**
