@@ -4,6 +4,15 @@ All notable changes to the Conzent OCI core will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/).
 
+## [v2.1.6] - 2026-03-16
+
+### Fixed
+- Include `oci_reports` and `oci_user_checklist_items` table migrations (used by core code)
+- Guard A/B test routes with `class_exists` so they're skipped when the module isn't installed
+- Prevent 500 errors from missing cloud module classes in self-hosted edition
+
+---
+
 ## [v2.1.5] - 2026-03-16
 
 ### Fixed

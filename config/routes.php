@@ -175,9 +175,11 @@ return static function (RouteCollector $r): void {
     $r->get('/layouts', ['handler' => LayoutListHandler::class, 'middleware' => 'web']);
     $r->get('/layouts/{id:\d+}/edit', ['handler' => LayoutEditorHandler::class, 'middleware' => 'web']);
 
-    // ── A/B Tests ──────────────────────────────────────
-    $r->get('/ab-tests', ['handler' => ExperimentListHandler::class, 'middleware' => 'web']);
-    $r->get('/ab-tests/{id:\d+}', ['handler' => ExperimentDetailHandler::class, 'middleware' => 'web']);
+    // ── A/B Tests (cloud module — only registered when installed) ──
+    if (class_exists(ExperimentListHandler::class)) {
+        $r->get('/ab-tests', ['handler' => ExperimentListHandler::class, 'middleware' => 'web']);
+        $r->get('/ab-tests/{id:\d+}', ['handler' => ExperimentDetailHandler::class, 'middleware' => 'web']);
+    }
 
     // ── Policies ──────────────────────────────────────────
     $r->get('/policies', ['handler' => PolicyListHandler::class, 'middleware' => 'web']);
@@ -206,7 +208,9 @@ return static function (RouteCollector $r): void {
         $r->post('/script-check', ['handler' => ScriptCheckHandler::class, 'middleware' => 'web']);
         $r->post('/apply-template', ['handler' => ApplyTemplateHandler::class, 'middleware' => 'web']);
         $r->get('/recommendations', ['handler' => RecommendationsHandler::class, 'middleware' => 'web']);
-        $r->get('/ab-summary', ['handler' => ABTestDashboardHandler::class, 'middleware' => 'web']);
+        if (class_exists(ABTestDashboardHandler::class)) {
+            $r->get('/ab-summary', ['handler' => ABTestDashboardHandler::class, 'middleware' => 'web']);
+        }
     });
 
     // ── Public API (v1) ─────────────────────────────────
@@ -325,19 +329,21 @@ return static function (RouteCollector $r): void {
         $r->post('/{id:\d+}/send', ['handler' => ReportSendHandler::class, 'middleware' => 'web']);
     });
 
-    // ── A/B Test AJAX API ────────────────────────────────────
-    $r->addGroup('/app/ab-tests', static function (RouteCollector $r): void {
-        $r->post('', ['handler' => ExperimentCreateHandler::class, 'middleware' => 'web']);
-        $r->put('/{id:\d+}', ['handler' => ExperimentUpdateHandler::class, 'middleware' => 'web']);
-        $r->delete('/{id:\d+}', ['handler' => ExperimentDeleteHandler::class, 'middleware' => 'web']);
-        $r->post('/{id:\d+}/{action:start|pause|complete}', ['handler' => ExperimentActionHandler::class, 'middleware' => 'web']);
-        $r->post('/{id:\d+}/variants', ['handler' => VariantHandler::class, 'middleware' => 'web']);
-        $r->delete('/{id:\d+}/variants/{variantId:\d+}', ['handler' => VariantDeleteHandler::class, 'middleware' => 'web']);
-        $r->get('/{id:\d+}/impact', ['handler' => RevenueImpactHandler::class, 'middleware' => 'web']);
-        $r->get('/{id:\d+}/impact/export', ['handler' => ImpactExportHandler::class, 'middleware' => 'web']);
-        $r->get('/signals', ['handler' => CustomerSignalsHandler::class, 'middleware' => 'web']);
-        $r->post('/signals', ['handler' => CustomerSignalsHandler::class, 'middleware' => 'web']);
-    });
+    // ── A/B Test AJAX API (cloud module) ───────────────────
+    if (class_exists(ExperimentCreateHandler::class)) {
+        $r->addGroup('/app/ab-tests', static function (RouteCollector $r): void {
+            $r->post('', ['handler' => ExperimentCreateHandler::class, 'middleware' => 'web']);
+            $r->put('/{id:\d+}', ['handler' => ExperimentUpdateHandler::class, 'middleware' => 'web']);
+            $r->delete('/{id:\d+}', ['handler' => ExperimentDeleteHandler::class, 'middleware' => 'web']);
+            $r->post('/{id:\d+}/{action:start|pause|complete}', ['handler' => ExperimentActionHandler::class, 'middleware' => 'web']);
+            $r->post('/{id:\d+}/variants', ['handler' => VariantHandler::class, 'middleware' => 'web']);
+            $r->delete('/{id:\d+}/variants/{variantId:\d+}', ['handler' => VariantDeleteHandler::class, 'middleware' => 'web']);
+            $r->get('/{id:\d+}/impact', ['handler' => RevenueImpactHandler::class, 'middleware' => 'web']);
+            $r->get('/{id:\d+}/impact/export', ['handler' => ImpactExportHandler::class, 'middleware' => 'web']);
+            $r->get('/signals', ['handler' => CustomerSignalsHandler::class, 'middleware' => 'web']);
+            $r->post('/signals', ['handler' => CustomerSignalsHandler::class, 'middleware' => 'web']);
+        });
+    }
 
     // ── Compliance Checklist AJAX API ─────────────────────
     $r->addGroup('/app/compliance', static function (RouteCollector $r): void {
