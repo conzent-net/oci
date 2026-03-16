@@ -4,6 +4,13 @@ All notable changes to the Conzent OCI core will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/).
 
+## [v2.1.2] - 2026-03-16
+
+### Fixed
+- Installer now always cleans stale Docker volumes before starting (fixes DB auth failure on reinstall)
+
+---
+
 ## [v2.1.1] - 2026-03-16
 
 ### Fixed
