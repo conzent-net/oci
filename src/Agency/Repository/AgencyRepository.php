@@ -285,6 +285,33 @@ final class AgencyRepository implements AgencyRepositoryInterface
         return $this->db->fetchAllAssociative($sql, ['userId' => $userId]);
     }
 
+    public function getPendingInvitesByAgency(int $agencyUserId): array
+    {
+        $sql = <<<'SQL'
+            SELECT ai.id, ai.status, ai.created_at, ai.expires_at,
+                   u.email AS target_email, u.first_name AS target_first_name, u.last_name AS target_last_name
+            FROM oci_agency_invites AS ai
+            INNER JOIN oci_agencies AS a ON a.id = ai.agency_id
+            INNER JOIN oci_users AS u ON u.id = ai.target_user_id
+            WHERE a.user_id = :userId AND ai.status = 'pending' AND ai.expires_at > NOW()
+            ORDER BY ai.created_at DESC
+        SQL;
+
+        return $this->db->fetchAllAssociative($sql, ['userId' => $agencyUserId]);
+    }
+
+    public function withdrawInvite(int $inviteId, int $agencyUserId): bool
+    {
+        $affected = $this->db->executeStatement(
+            'UPDATE oci_agency_invites SET status = :status
+             WHERE id = :id AND status = :pending AND expires_at > NOW()
+               AND agency_id IN (SELECT id FROM oci_agencies WHERE user_id = :userId)',
+            ['status' => 'withdrawn', 'id' => $inviteId, 'pending' => 'pending', 'userId' => $agencyUserId],
+        );
+
+        return $affected > 0;
+    }
+
     public function getCustomerHealthData(int $agencyId): array
     {
         // Get all customers with their site health data in a single efficient query

@@ -22,11 +22,12 @@
           crossorigin="anonymous" referrerpolicy="no-referrer" />
 
     {# OCI custom styles #}
-    <link rel="stylesheet" href="/assets/css/app.css?v=2">
+    <link rel="stylesheet" href="/assets/css/app.css?v=3">
 
-    {# Alpine.js + htmx #}
+    {# Alpine.js + htmx + marked.js (for notification markdown) #}
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
     {% block head %}{% endblock %}
 </head>
@@ -73,6 +74,77 @@
     {% block footer %}
         {% include 'components/footer.html.twig' %}
     {% endblock %}
+
+    {# Notification bell Alpine component #}
+    <script>
+    function notificationBell() {
+        return {
+            open: false,
+            notifications: [],
+            unreadCount: 0,
+            modalOpen: false,
+            modalTitle: '',
+            modalBody: '',
+
+            async load() {
+                try {
+                    const res = await fetch('/app/notifications');
+                    const json = await res.json();
+                    if (json.success) {
+                        this.notifications = json.data.notifications;
+                        this.unreadCount = json.data.unread_count;
+                    }
+                } catch (e) {
+                    // silently fail — notifications are non-critical
+                }
+            },
+
+            toggle() {
+                this.open = !this.open;
+            },
+
+            async openNotification(n) {
+                if (!n.is_read) {
+                    fetch('/app/notifications/read', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ slug: n.slug }),
+                    });
+                    n.is_read = true;
+                    this.unreadCount = Math.max(0, this.unreadCount - 1);
+                }
+
+                try {
+                    const res = await fetch('/app/notifications/' + encodeURIComponent(n.slug));
+                    const json = await res.json();
+                    if (json.success) {
+                        this.modalTitle = json.data.title;
+                        this.modalBody = marked.parse(json.data.body);
+                        this.modalOpen = true;
+                        this.open = false;
+                    }
+                } catch (e) {
+                    // fallback: show excerpt
+                    this.modalTitle = n.title;
+                    this.modalBody = '<p>' + n.excerpt + '</p>';
+                    this.modalOpen = true;
+                    this.open = false;
+                }
+            },
+
+            async markAllRead() {
+                try {
+                    await fetch('/app/notifications/read-all', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                    });
+                    this.notifications.forEach(n => n.is_read = true);
+                    this.unreadCount = 0;
+                } catch (e) {}
+            }
+        };
+    }
+    </script>
 
     {# Page-specific scripts #}
     {% block scripts %}{% endblock %}

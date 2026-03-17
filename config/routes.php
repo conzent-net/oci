@@ -124,6 +124,11 @@ use OCI\Report\Controller\ReportDeleteHandler;
 use OCI\Report\Controller\ReportSendHandler;
 use OCI\Compliance\Controller\ComplianceChecklistHandler;
 use OCI\Compliance\Controller\ComplianceChecklistToggleHandler;
+use OCI\Notification\Controller\NotificationListHandler;
+use OCI\Notification\Controller\NotificationDetailHandler;
+use OCI\Notification\Controller\NotificationMarkReadHandler;
+use OCI\Notification\Controller\NotificationMarkAllReadHandler;
+use OCI\Identity\Controller\OnboardingCompleteHandler;
 use OCI\Identity\Controller\StopImpersonationHandler;
 use OCI\Admin\Controller\AuditLogHandler;
 
@@ -304,6 +309,7 @@ return static function (RouteCollector $r): void {
 
     // ── Account AJAX API ─────────────────────────────────────
     $r->post('/app/account/delete', ['handler' => AccountDeleteHandler::class, 'middleware' => 'web']);
+    $r->post('/app/onboarding/complete', ['handler' => OnboardingCompleteHandler::class, 'middleware' => 'web']);
 
     // ── Consent AJAX API ─────────────────────────────────────
     $r->addGroup('/app/consents', static function (RouteCollector $r): void {
@@ -348,6 +354,14 @@ return static function (RouteCollector $r): void {
     // ── Compliance Checklist AJAX API ─────────────────────
     $r->addGroup('/app/compliance', static function (RouteCollector $r): void {
         $r->post('/toggle', ['handler' => ComplianceChecklistToggleHandler::class, 'middleware' => 'web']);
+    });
+
+    // ── Notification AJAX API ─────────────────────────────
+    $r->addGroup('/app/notifications', static function (RouteCollector $r): void {
+        $r->get('', ['handler' => NotificationListHandler::class, 'middleware' => 'web']);
+        $r->get('/{slug}', ['handler' => NotificationDetailHandler::class, 'middleware' => 'web']);
+        $r->post('/read', ['handler' => NotificationMarkReadHandler::class, 'middleware' => 'web']);
+        $r->post('/read-all', ['handler' => NotificationMarkAllReadHandler::class, 'middleware' => 'web']);
     });
 
     // ── Admin ─────────────────────────────────────────────

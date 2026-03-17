@@ -374,6 +374,15 @@ b {
   border-color: var(--oci-primary);
 }
 
+/* ── Onboarding tour trigger pulse ── */
+.tour-trigger-pulse {
+  animation: tour-pulse 2s ease-in-out 3;
+}
+@keyframes tour-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(46,158,94,0.4); }
+  50% { box-shadow: 0 0 0 6px rgba(46,158,94,0); }
+}
+
 /* ── User dropdown ── */
 .oci-user-dropdown {
   position: relative;
@@ -443,6 +452,152 @@ b {
 }
 [data-theme="dark"] .oci-user-menu {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+/* ── Notification bell ── */
+.oci-notif-bell {
+  position: relative;
+  flex-shrink: 0;
+}
+.oci-notif-bell > .oci-notif-trigger {
+  all: unset;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--oci-border);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.75rem;
+  color: var(--oci-text-light);
+  transition: color 0.15s, border-color 0.15s;
+  position: relative;
+}
+.oci-notif-bell > .oci-notif-trigger:hover {
+  color: var(--oci-primary);
+  border-color: var(--oci-primary);
+}
+.oci-notif-bell > .oci-notif-trigger.has-unread {
+  color: hsl(348, 100%, 61%);
+  border-color: hsl(348, 80%, 75%);
+}
+.oci-notif-bell > .oci-notif-trigger.has-unread:hover {
+  color: hsl(348, 100%, 50%);
+  border-color: hsl(348, 100%, 50%);
+}
+.oci-notif-badge {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  background: hsl(348, 100%, 61%);
+  color: #fff;
+  font-size: 0.5rem;
+  font-weight: 700;
+  min-width: 13px;
+  height: 13px;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 2px;
+  line-height: 1;
+  pointer-events: none;
+}
+.oci-notif-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 260px;
+  max-height: 340px;
+  overflow-y: auto;
+  background-color: #ffffff;
+  border: 1px solid var(--oci-border);
+  border-top: 2px solid var(--oci-primary);
+  border-radius: 0 0 8px 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  z-index: 9999;
+  font-family: inherit;
+  padding: 0;
+  margin: 0;
+}
+[data-theme="dark"] .oci-notif-panel {
+  background-color: #1e293b;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+.oci-notif-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--oci-border);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--oci-text);
+  margin: 0;
+}
+.oci-notif-panel-head .oci-notif-mark-all {
+  all: unset;
+  cursor: pointer;
+  color: var(--oci-primary);
+  font-size: 10px;
+  font-weight: 500;
+}
+.oci-notif-panel-head .oci-notif-mark-all:hover {
+  text-decoration: underline;
+}
+.oci-notif-row {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--oci-border);
+  cursor: pointer;
+  transition: background 0.1s;
+  margin: 0;
+}
+.oci-notif-row:last-child {
+  border-bottom: none;
+}
+.oci-notif-row:hover {
+  background: var(--oci-hover-bg);
+}
+.oci-notif-row.is-unread {
+  border-left: 3px solid var(--oci-primary);
+}
+.oci-notif-row-title {
+  font-weight: 600;
+  font-size: 11px;
+  color: var(--oci-text);
+  line-height: 1.3;
+}
+.oci-notif-row-date {
+  font-size: 10px;
+  color: var(--oci-text-light);
+  margin-top: 1px;
+}
+.oci-notif-row-excerpt {
+  font-size: 10px;
+  color: var(--oci-text-light);
+  margin-top: 2px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.4;
+}
+.oci-notif-empty {
+  padding: 20px 10px;
+  text-align: center;
+  color: var(--oci-text-light);
+  font-size: 11px;
+}
+.oci-notif-empty i {
+  font-size: 16px;
+  margin-bottom: 4px;
+  display: block;
+}
+.oci-notif-modal-body {
+  font-size: 13px;
+  line-height: 1.6;
 }
 
 /* ── Responsive: collapse brand column on mobile ── */

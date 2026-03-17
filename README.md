@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://getconzent.com/assets/images/logo.svg" alt="Conzent OCI" width="200">
+  <img src="public/media/primary-light.png" alt="Conzent OCI" width="280">
 </p>
 
 <h1 align="center">Conzent OCI</h1>
@@ -33,6 +33,22 @@ Conzent OCI is a production-grade, self-hosted cookie consent management platfor
 - **Associated Domains** — Share consent state across related domains
 - **Compliance Checklists** — Guided setup for GDPR, GCM, CCPA, IAB/TCF, and more
 - **Module System** — Extensible architecture for custom integrations
+
+## Screenshots
+
+<p align="center">
+  <img src="public/media/screenshots/dashboard.png" alt="Dashboard" width="800">
+</p>
+
+<details>
+<summary>More screenshots</summary>
+
+| | |
+|---|---|
+| ![Banner Settings](public/media/screenshots/banner-settings.png) | ![Consent Logs](public/media/screenshots/consent-logs.png) |
+| ![Cookie Scanner](public/media/screenshots/cookie-scanner.png) | ![Policy Generator](public/media/screenshots/policy-generator.png) |
+
+</details>
 
 ## Requirements
 

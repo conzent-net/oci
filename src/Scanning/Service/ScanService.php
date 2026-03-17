@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace OCI\Scanning\Service;
 
+use OCI\Monetization\Service\PricingService;
 use OCI\Scanning\Repository\ScanRepositoryInterface;
+use OCI\Shared\Repository\PlanRepositoryInterface;
 use OCI\Site\Repository\SiteRepositoryInterface;
 use Predis\Client as RedisClient;
 use Psr\Log\LoggerInterface;
@@ -21,6 +23,8 @@ final class ScanService
     public function __construct(
         private readonly ScanRepositoryInterface $scanRepo,
         private readonly SiteRepositoryInterface $siteRepo,
+        private readonly PlanRepositoryInterface $planRepo,
+        private readonly PricingService $pricingService,
         private readonly RedisClient $redis,
         private readonly LoggerInterface $logger,
     ) {}
@@ -60,6 +64,12 @@ final class ScanService
         $urls = $this->resolveUrls($siteId, $site, $includeUrls, $excludeUrls);
         if (empty($urls)) {
             throw new \RuntimeException('No URLs to scan. Add pages to your site first.');
+        }
+
+        // Enforce plan page limit
+        $scanLimit = $this->resolveScanLimit($userId);
+        if ($scanLimit > 0 && \count($urls) > $scanLimit) {
+            $urls = \array_slice($urls, 0, $scanLimit);
         }
 
         // Find a scanner server
@@ -494,6 +504,15 @@ final class ScanService
                 continue;
             }
 
+            // Enforce plan page limit for scheduled scans
+            $siteOwner = $site['user_id'] ?? 0;
+            if ($siteOwner > 0) {
+                $scanLimit = $this->resolveScanLimit((int) $siteOwner);
+                if ($scanLimit > 0 && \count($urls) > $scanLimit) {
+                    $urls = \array_slice($urls, 0, $scanLimit);
+                }
+            }
+
             // Assign server
             $server = $this->scanRepo->getActiveScanServer();
 
@@ -791,6 +810,26 @@ final class ScanService
             $this->logger->error("Scanner API returned invalid JSON: {$e->getMessage()}");
             return null;
         }
+    }
+
+    private function resolveScanLimit(int $userId): int
+    {
+        if ($this->planRepo->isEnterprise($userId)) {
+            return 0;
+        }
+
+        $userPlan = $this->planRepo->getUserPlan($userId);
+        if ($userPlan === null) {
+            return 100;
+        }
+
+        $planKey = $userPlan['plan_key'] ?? null;
+        if ($planKey !== null) {
+            $limit = $this->pricingService->getLimit($planKey, 'pages_per_scan');
+            return $limit > 0 ? $limit : 0;
+        }
+
+        return 100;
     }
 
     private function enqueue(int $scanId): void

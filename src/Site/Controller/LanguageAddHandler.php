@@ -7,6 +7,8 @@ namespace OCI\Site\Controller;
 use OCI\Banner\Repository\BannerRepositoryInterface;
 use OCI\Http\Handler\RequestHandlerInterface;
 use OCI\Http\Response\ApiResponse;
+use OCI\Monetization\Service\PricingService;
+use OCI\Shared\Repository\PlanRepositoryInterface;
 use OCI\Site\Repository\LanguageRepositoryInterface;
 use OCI\Site\Repository\SiteRepositoryInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -21,6 +23,8 @@ final class LanguageAddHandler implements RequestHandlerInterface
         private readonly SiteRepositoryInterface $siteRepo,
         private readonly LanguageRepositoryInterface $languageRepo,
         private readonly BannerRepositoryInterface $bannerRepo,
+        private readonly PlanRepositoryInterface $planRepo,
+        private readonly PricingService $pricingService,
     ) {}
 
     public function handle(ServerRequestInterface $request): ResponseInterface
@@ -49,7 +53,18 @@ final class LanguageAddHandler implements RequestHandlerInterface
             return ApiResponse::json(['success' => false, 'error' => 'Language not found'], 404);
         }
 
-        $isDefault = $this->languageRepo->countSiteLanguages($siteId) === 0;
+        // Enforce plan language limit
+        $currentCount = $this->languageRepo->countSiteLanguages($siteId);
+        $maxLangs = $this->resolveLimit($userId, 'max_languages');
+
+        if ($maxLangs > 0 && $currentCount >= $maxLangs) {
+            return ApiResponse::json([
+                'success' => false,
+                'error' => "Maximum {$maxLangs} languages allowed in your current plan. Please upgrade to add more.",
+            ], 422);
+        }
+
+        $isDefault = $currentCount === 0;
         $this->languageRepo->addSiteLanguage($siteId, $languageId, $isDefault);
 
         // Copy default banner translations for the new language
@@ -62,5 +77,29 @@ final class LanguageAddHandler implements RequestHandlerInterface
         }
 
         return ApiResponse::json(['success' => true]);
+    }
+
+    /**
+     * Resolve a numeric plan limit for a user.
+     * Returns 0 for unlimited (enterprise or self-hosted).
+     */
+    private function resolveLimit(int $userId, string $limitKey): int
+    {
+        if ($this->planRepo->isEnterprise($userId)) {
+            return 0;
+        }
+
+        $userPlan = $this->planRepo->getUserPlan($userId);
+        if ($userPlan === null) {
+            return 0;
+        }
+
+        // New pricing system: plan_key is available
+        $planKey = $userPlan['plan_key'] ?? null;
+        if ($planKey !== null) {
+            return $this->pricingService->getLimit($planKey, $limitKey);
+        }
+
+        return 0;
     }
 }

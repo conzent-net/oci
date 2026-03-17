@@ -5,7 +5,7 @@
     {# ── Col 1: Brand / Logo ── #}
     <div class="oci-navbar-brand">
         <a href="/" style="display:flex;align-items:center;gap:0.375rem;text-decoration:none">
-            <img src="/media/primary-light.png" alt="Conzent" class="brand-logo-full" style="height:22px;display:block">
+            <img :src="theme === 'dark' ? '/media/primary-dark.png' : '/media/primary-light.png'" alt="Conzent" class="brand-logo-full" style="height:22px;display:block">
         </a>
     </div>
 
@@ -21,6 +21,21 @@
 
     {# ── Col 3: Theme toggle + user dropdown ── #}
     <div class="oci-navbar-end">
+        {# Guided tour trigger #}
+        {% if current_user is defined and current_user %}
+        <button class="theme-toggle" id="oci-tour-trigger"
+                @click="
+                    if (window.__ociTourReady) {
+                        window.dispatchEvent(new CustomEvent('oci:start-tour'));
+                    } else {
+                        window.location.href = '/?tour=1';
+                    }
+                "
+                title="Guided tour">
+            <i class="fas fa-route"></i>
+        </button>
+        {% endif %}
+
         {# Dark / light toggle #}
         <button class="theme-toggle" @click="
             theme = theme === 'light' ? 'dark' : 'light';
@@ -31,6 +46,56 @@
         </button>
 
         {% if current_user is defined and current_user %}
+            {# Notification bell #}
+            <div class="oci-notif-bell" x-data="notificationBell()" x-init="load()" @click.outside="open = false">
+                <button class="oci-notif-trigger" :class="{ 'has-unread': unreadCount > 0 }" @click="toggle()">
+                    <i class="fas fa-bell"></i>
+                    <span class="oci-notif-badge" x-show="unreadCount > 0" x-text="unreadCount" x-cloak></span>
+                </button>
+
+                <div class="oci-notif-panel" x-show="open" x-transition.opacity x-cloak>
+                    <div class="oci-notif-panel-head">
+                        <span>Notifications</span>
+                        <button class="oci-notif-mark-all" x-show="unreadCount > 0" @click.stop="markAllRead()" x-cloak>
+                            Mark all read
+                        </button>
+                    </div>
+
+                    <div>
+                        <template x-if="notifications.length === 0">
+                            <div class="oci-notif-empty">
+                                <i class="fas fa-bell-slash"></i>
+                                <p>No notifications</p>
+                            </div>
+                        </template>
+                        <template x-for="n in notifications" :key="n.slug">
+                            <div class="oci-notif-row" :class="{ 'is-unread': !n.is_read }"
+                                 @click="openNotification(n)">
+                                <div class="oci-notif-row-title" x-text="n.title"></div>
+                                <div class="oci-notif-row-date" x-text="n.date"></div>
+                                <div class="oci-notif-row-excerpt" x-text="n.excerpt"></div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                {# Modal teleported to body so it escapes navbar stacking context #}
+                <template x-teleport="body">
+                    <div class="modal" :class="{ 'is-active': modalOpen }" x-show="modalOpen" x-cloak>
+                        <div class="modal-background" @click="modalOpen = false"></div>
+                        <div class="modal-card" style="max-width:600px">
+                            <header class="modal-card-head">
+                                <p class="modal-card-title" x-text="modalTitle" style="font-size:0.9375rem"></p>
+                                <button class="delete" @click="modalOpen = false"></button>
+                            </header>
+                            <section class="modal-card-body">
+                                <div class="content oci-notif-modal-body" x-html="modalBody"></div>
+                            </section>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
             {# User dropdown #}
             <div class="oci-user-dropdown" x-data="{ open: false }" @click.outside="open = false">
                 <button class="oci-user-trigger" @click="open = !open">

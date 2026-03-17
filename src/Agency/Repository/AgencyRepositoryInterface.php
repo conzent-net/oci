@@ -116,6 +116,18 @@ interface AgencyRepositoryInterface
     public function declineInviteById(int $inviteId, int $userId): bool;
 
     /**
+     * Get pending invites sent by this agency.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function getPendingInvitesByAgency(int $agencyUserId): array;
+
+    /**
+     * Withdraw (cancel) a pending invite by ID (verifying it belongs to the agency).
+     */
+    public function withdrawInvite(int $inviteId, int $agencyUserId): bool;
+
+    /**
      * Get customer health data for the agency dashboard.
      *
      * Returns per-customer site health info: site counts, last scan, banner/policy status, beacon counts.

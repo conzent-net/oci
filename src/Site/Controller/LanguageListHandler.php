@@ -6,6 +6,7 @@ namespace OCI\Site\Controller;
 
 use OCI\Http\Handler\RequestHandlerInterface;
 use OCI\Http\Response\ApiResponse;
+use OCI\Monetization\Service\PricingService;
 use OCI\Shared\Repository\PlanRepositoryInterface;
 use OCI\Site\Repository\LanguageRepositoryInterface;
 use OCI\Site\Repository\SiteRepositoryInterface;
@@ -22,6 +23,7 @@ final class LanguageListHandler implements RequestHandlerInterface
         private readonly SiteRepositoryInterface $siteRepo,
         private readonly LanguageRepositoryInterface $languageRepo,
         private readonly PlanRepositoryInterface $planRepo,
+        private readonly PricingService $pricingService,
         private readonly TwigEnvironment $twig,
     ) {}
 
@@ -61,16 +63,8 @@ final class LanguageListHandler implements RequestHandlerInterface
         $allLanguages = $this->languageRepo->getAllLanguages();
 
         // Plan limits
-        $maxLangs = 0;
+        $maxLangs = $this->resolveLimit($userId, 'max_languages');
         $isEnterprise = $this->planRepo->isEnterprise($userId);
-        if (!$isEnterprise) {
-            $userPlan = $this->planRepo->getUserPlan($userId);
-            if ($userPlan !== null) {
-                $planFeatures = $this->planRepo->getPlanFeatures((int) $userPlan['plan_id']);
-                $maxLangs = (int) ($planFeatures['max_lang'] ?? 0);
-            }
-        }
-
         $canAddLang = $maxLangs === 0 || $isEnterprise || \count($siteLanguages) < $maxLangs;
 
         // Filter out languages already added
@@ -95,5 +89,24 @@ final class LanguageListHandler implements RequestHandlerInterface
         ]);
 
         return ApiResponse::html($html);
+    }
+
+    private function resolveLimit(int $userId, string $limitKey): int
+    {
+        if ($this->planRepo->isEnterprise($userId)) {
+            return 0;
+        }
+
+        $userPlan = $this->planRepo->getUserPlan($userId);
+        if ($userPlan === null) {
+            return 0;
+        }
+
+        $planKey = $userPlan['plan_key'] ?? null;
+        if ($planKey !== null) {
+            return $this->pricingService->getLimit($planKey, $limitKey);
+        }
+
+        return 0;
     }
 }

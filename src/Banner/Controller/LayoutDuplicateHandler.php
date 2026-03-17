@@ -8,6 +8,8 @@ use OCI\Admin\Service\AuditLogService;
 use OCI\Banner\Service\LayoutService;
 use OCI\Http\Handler\RequestHandlerInterface;
 use OCI\Http\Response\ApiResponse;
+use OCI\Monetization\Service\PricingService;
+use OCI\Shared\Repository\PlanRepositoryInterface;
 use OCI\Site\Repository\SiteRepositoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -21,6 +23,8 @@ final class LayoutDuplicateHandler implements RequestHandlerInterface
         private readonly SiteRepositoryInterface $siteRepo,
         private readonly LayoutService $layoutService,
         private readonly AuditLogService $auditLogService,
+        private readonly PlanRepositoryInterface $planRepo,
+        private readonly PricingService $pricingService,
     ) {}
 
     public function handle(ServerRequestInterface $request): ResponseInterface
@@ -48,6 +52,19 @@ final class LayoutDuplicateHandler implements RequestHandlerInterface
             return ApiResponse::error('Forbidden', 403);
         }
 
+        // Enforce plan layout limit
+        $maxLayouts = $this->resolveLimit($userId, 'max_layouts');
+
+        if ($maxLayouts > 0) {
+            $currentLayouts = $this->layoutService->getCustomLayouts($siteId);
+            if (\count($currentLayouts) >= $maxLayouts) {
+                return ApiResponse::error(
+                    "Maximum {$maxLayouts} custom layouts allowed in your current plan. Please upgrade to add more.",
+                    422,
+                );
+            }
+        }
+
         $layoutId = $this->layoutService->duplicateLayout($siteId, $baseLayoutKey, $name);
 
         $this->auditLogService->log(
@@ -64,5 +81,24 @@ final class LayoutDuplicateHandler implements RequestHandlerInterface
             'id' => $layoutId,
             'redirect' => '/layouts/' . $layoutId . '/edit',
         ]);
+    }
+
+    private function resolveLimit(int $userId, string $limitKey): int
+    {
+        if ($this->planRepo->isEnterprise($userId)) {
+            return 0;
+        }
+
+        $userPlan = $this->planRepo->getUserPlan($userId);
+        if ($userPlan === null) {
+            return 0;
+        }
+
+        $planKey = $userPlan['plan_key'] ?? null;
+        if ($planKey !== null) {
+            return $this->pricingService->getLimit($planKey, $limitKey);
+        }
+
+        return 0;
     }
 }

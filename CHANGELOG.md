@@ -4,6 +4,30 @@ All notable changes to the Conzent OCI core will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/).
 
+## [v2.2.0] - 2026-03-17
+
+### Added
+- **Notification system** — In-app notifications with bell icon in navbar, mark-as-read, mark-all-read, and detail view
+- **Onboarding flow** — Persistent onboarding checklist for new users with completion tracking
+- **Layout duplication** — Duplicate existing banner layouts from the layouts page
+- **Agency invite withdrawal** — Agency users can withdraw pending customer invitations
+- **Scan service** — New scan orchestration service layer for cookie scanning
+- **Dashboard enhancements** — Expanded customer dashboard with richer consent stats and recommendations
+- **Banner page improvements** — Enhanced banner list with better status display and inline actions
+- **App screenshots** — Added dashboard, banner settings, consent logs, cookie scanner, and policy generator screenshots
+
+### Changed
+- License page removed from app menu — license information now lives on the public website at [getconzent.com/license](https://getconzent.com/license/)
+- Navbar updated with notification bell and unread count badge
+- Base layout updated with notification CSS and onboarding support
+- Language management handlers improved with better validation
+
+### Fixed
+- Session middleware edge cases
+- Dark mode logo display in navbar
+
+---
+
 ## [v2.1.8] - 2026-03-16
 
 ### Added

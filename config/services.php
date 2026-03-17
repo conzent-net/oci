@@ -129,6 +129,13 @@ return [
             $c->get('config.base_path') . '/config/conzent-compliance-checklists.json',
         );
     },
+    OCI\Notification\Repository\NotificationReadRepositoryInterface::class => autowire(OCI\Notification\Repository\NotificationReadRepository::class),
+    OCI\Notification\Service\NotificationService::class => static function (ContainerInterface $c): OCI\Notification\Service\NotificationService {
+        return new OCI\Notification\Service\NotificationService(
+            $c->get(OCI\Notification\Repository\NotificationReadRepositoryInterface::class),
+            $c->get('config.base_path') . '/notifications',
+        );
+    },
 
     // ── Monetization (null when module not installed) ──────
     OCI\Monetization\Service\PricingService::class => class_exists(OCI\Monetization\Service\PricingService::class)

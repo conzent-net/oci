@@ -6,6 +6,8 @@
 {% block head %}
 {# ApexCharts for consent donut + pageview area chart #}
 <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.52.0"></script>
+{# Driver.js for onboarding tour #}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/driver.js@1.3.1/dist/driver.css">
 <style>
     .compliance-gauge { width: 120px; height: 120px; position: relative; display: inline-block; }
     .compliance-gauge .gauge-bg { fill: none; stroke: #e8e8e8; stroke-width: 14; }
@@ -348,7 +350,7 @@
         {# ── Site Status + Recommendations (right column) ─── #}
         <div class="column is-4">
             {# Site Status Card #}
-            <div class="box mb-4">
+            <div id="site-status" class="box mb-4">
                 <div class="level mb-3">
                     <div class="level-left">
                         <h2 class="title is-5 mb-0">Site Status</h2>
@@ -1273,4 +1275,140 @@ function easyConfig() {
     };
 }
 </script>
+
+{# ── Onboarding Tour (Dashboard) ─────────────────────── #}
+{% if current_user is defined and current_user %}
+<script src="https://cdn.jsdelivr.net/npm/driver.js@1.3.1/dist/driver.js.iife.js"></script>
+<script>
+(function() {
+    var autoStart = {{ (show_onboarding_tour and (dashboard.isSubscribed or dashboard.isEnterprise or monetization_model == 'oci')) ? 'true' : 'false' }};
+    var tourParam = new URLSearchParams(window.location.search).has('tour');
+
+    // Signal that this page has a tour ready
+    window.__ociTourReady = true;
+
+    function markOnboardingComplete() {
+        fetch('/app/onboarding/complete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+        }).catch(function() {});
+    }
+
+    function startDashboardTour() {
+        // Clean up ?tour param from URL
+        if (tourParam) {
+            var url = new URL(window.location);
+            url.searchParams.delete('tour');
+            history.replaceState(null, '', url.pathname + url.search);
+        }
+        var driverObj = window.driver.js.driver({
+            showProgress: true,
+            animate: true,
+            overlayColor: 'rgba(0,0,0,0.5)',
+            popoverClass: 'oci-tour-popover',
+            nextBtnText: 'Next',
+            prevBtnText: 'Back',
+            doneBtnText: 'Done',
+            steps: [
+                {
+                    element: '.oci-wizard-steps',
+                    popover: {
+                        title: 'Quick Configuration Wizard',
+                        description: 'These 4 steps guide you through setting up your consent banner. Follow them in order for the fastest setup.',
+                        side: 'bottom',
+                        align: 'center'
+                    }
+                },
+                {
+                    element: '.oci-wizard-step:nth-child(1)',
+                    popover: {
+                        title: 'Step 1: Apply Template',
+                        description: 'Choose a compliance template (GCM Basic, Advanced, TCF, or CCPA) to pre-configure your banner with best-practice defaults.',
+                        side: 'bottom',
+                        align: 'start'
+                    }
+                },
+                {
+                    element: '.oci-wizard-step:nth-child(2)',
+                    popover: {
+                        title: 'Step 2: Customize Banner',
+                        description: 'Fine-tune your banner\'s layout, colors, content, and translations on the Banner Settings page.',
+                        side: 'bottom',
+                        align: 'center'
+                    }
+                },
+                {
+                    element: '.oci-wizard-step:nth-child(3)',
+                    popover: {
+                        title: 'Step 3: Install Script',
+                        description: 'Copy the generated script tag and paste it into your website\'s HTML &lt;head&gt;, or use the GTM wizard.',
+                        side: 'bottom',
+                        align: 'center'
+                    }
+                },
+                {
+                    element: '.oci-wizard-step:nth-child(4)',
+                    popover: {
+                        title: 'Step 4: Verify',
+                        description: 'Run automated checks to confirm your banner loads correctly, detects consent, and meets compliance requirements.',
+                        side: 'bottom',
+                        align: 'end'
+                    }
+                },
+                {
+                    element: '#site-status',
+                    popover: {
+                        title: 'Site Status',
+                        description: 'Monitor your compliance score and see actionable recommendations to improve your consent setup.',
+                        side: 'left',
+                        align: 'start'
+                    }
+                }
+            ].concat(
+                document.querySelector('.oci-select') ? [{
+                    element: '.oci-select',
+                    popover: {
+                        title: 'Site Selector',
+                        description: 'Switch between your websites here. Each site has its own banner, cookies, and consent settings.',
+                        side: 'bottom',
+                        align: 'end'
+                    }
+                }] : []
+            ).concat([{
+                element: 'a[href="/banners"]',
+                popover: {
+                    title: 'Banner Settings',
+                    description: 'Head to Banners next to configure your layout, colors, content, and translations. A guided tour will continue there!',
+                    side: 'right',
+                    align: 'start'
+                },
+                onHighlightStarted: function() {
+                    // Ensure sidebar is visible on mobile
+                    var html = document.documentElement;
+                    if (html._x_dataStack && html._x_dataStack[0]) {
+                        html._x_dataStack[0].sidebarOpen = true;
+                    }
+                }
+            }]),
+            onDestroyed: function() {
+                if (autoStart) {
+                    markOnboardingComplete();
+                }
+            }
+        });
+        driverObj.drive();
+    }
+
+    // Auto-start on first visit or when ?tour param is present
+    if (autoStart || tourParam) {
+        setTimeout(startDashboardTour, 800);
+        var btn = document.getElementById('oci-tour-trigger');
+        if (btn) btn.classList.add('tour-trigger-pulse');
+    }
+
+    // Replay on navbar button click
+    window.addEventListener('oci:start-tour', startDashboardTour);
+})();
+</script>
+{% endif %}
 {% endblock %}

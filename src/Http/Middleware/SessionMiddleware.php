@@ -40,6 +40,9 @@ final class SessionMiddleware implements MiddlewareInterface
         // Make user available in all Twig templates
         $this->twig->addGlobal('current_user', $user);
 
+        // Onboarding tour: show if user has not completed the guided tour
+        $this->twig->addGlobal('show_onboarding_tour', $user !== null && empty($user['onboarding_completed_at']));
+
         // Impersonation state — show warning bar in navbar
         $this->twig->addGlobal('is_impersonating', isset($_SESSION['impersonating_from']));
         $this->twig->addGlobal('impersonator_role', $_SESSION['impersonating_role'] ?? null);
