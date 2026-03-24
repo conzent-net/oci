@@ -22,8 +22,8 @@ final class LayoutListHandler implements RequestHandlerInterface
     public function __construct(
         private readonly DashboardService $dashboardService,
         private readonly LayoutService $layoutService,
-        private readonly PricingService $pricingService,
         private readonly TwigEnvironment $twig,
+        private readonly ?PricingService $pricingService = null,
         private readonly ?SubscriptionService $subscriptionService = null,
     ) {}
 
@@ -50,8 +50,8 @@ final class LayoutListHandler implements RequestHandlerInterface
         $userId = (int) $user['id'];
         $isCloud = $this->subscriptionService !== null;
         $planKey = $this->subscriptionService?->getPlanKey($userId);
-        $maxLayouts = $planKey !== null ? $this->pricingService->getLimit($planKey, 'max_layouts') : 0;
-        $hasCustomLayouts = !$isCloud || ($planKey !== null && $this->pricingService->hasFeature($planKey, 'custom_layouts'));
+        $maxLayouts = ($planKey !== null && $this->pricingService !== null) ? $this->pricingService->getLimit($planKey, 'max_layouts') : 0;
+        $hasCustomLayouts = !$isCloud || ($planKey !== null && ($this->pricingService === null || $this->pricingService->hasFeature($planKey, 'custom_layouts')));
         $canDuplicate = $hasCustomLayouts && ($maxLayouts === 0 || \count($customLayouts) < $maxLayouts);
 
         $html = $this->twig->render('pages/layouts/list.html.twig', [

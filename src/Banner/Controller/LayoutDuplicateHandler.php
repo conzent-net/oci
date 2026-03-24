@@ -23,7 +23,7 @@ final class LayoutDuplicateHandler implements RequestHandlerInterface
         private readonly SiteRepositoryInterface $siteRepo,
         private readonly LayoutService $layoutService,
         private readonly AuditLogService $auditLogService,
-        private readonly PricingService $pricingService,
+        private readonly ?PricingService $pricingService = null,
         private readonly ?SubscriptionService $subscriptionService = null,
     ) {}
 
@@ -57,7 +57,7 @@ final class LayoutDuplicateHandler implements RequestHandlerInterface
         // Cloud with no/personal plan: blocked
         $isCloud = $this->subscriptionService !== null;
         $planKey = $this->subscriptionService?->getPlanKey($userId);
-        if ($isCloud && ($planKey === null || !$this->pricingService->hasFeature($planKey, 'custom_layouts'))) {
+        if ($isCloud && ($planKey === null || ($this->pricingService !== null && !$this->pricingService->hasFeature($planKey, 'custom_layouts')))) {
             return ApiResponse::error(
                 'Custom layouts are available on the Agencies and E-commerce plan. Please upgrade to create custom layouts.',
                 422,
@@ -65,7 +65,7 @@ final class LayoutDuplicateHandler implements RequestHandlerInterface
         }
 
         // Enforce plan layout limit
-        $maxLayouts = $planKey !== null ? $this->pricingService->getLimit($planKey, 'max_layouts') : 0;
+        $maxLayouts = ($planKey !== null && $this->pricingService !== null) ? $this->pricingService->getLimit($planKey, 'max_layouts') : 0;
 
         if ($maxLayouts > 0) {
             $currentLayouts = $this->layoutService->getCustomLayouts($siteId);

@@ -24,7 +24,7 @@ final class LanguageAddHandler implements RequestHandlerInterface
         private readonly LanguageRepositoryInterface $languageRepo,
         private readonly BannerRepositoryInterface $bannerRepo,
         private readonly PlanRepositoryInterface $planRepo,
-        private readonly PricingService $pricingService,
+        private readonly ?PricingService $pricingService = null,
     ) {}
 
     public function handle(ServerRequestInterface $request): ResponseInterface
@@ -97,7 +97,7 @@ final class LanguageAddHandler implements RequestHandlerInterface
         // New pricing system: plan_key is available
         $planKey = $userPlan['plan_key'] ?? null;
         if ($planKey !== null) {
-            return $this->pricingService->getLimit($planKey, $limitKey);
+            return $this->pricingService !== null ? $this->pricingService->getLimit($planKey, $limitKey) : 0;
         }
 
         return 0;

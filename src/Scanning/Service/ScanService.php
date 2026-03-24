@@ -24,9 +24,9 @@ final class ScanService
         private readonly ScanRepositoryInterface $scanRepo,
         private readonly SiteRepositoryInterface $siteRepo,
         private readonly PlanRepositoryInterface $planRepo,
-        private readonly PricingService $pricingService,
         private readonly RedisClient $redis,
         private readonly LoggerInterface $logger,
+        private readonly ?PricingService $pricingService = null,
     ) {}
 
     // ── Public API (called by handlers) ──────────────────
@@ -825,7 +825,7 @@ final class ScanService
 
         $planKey = $userPlan['plan_key'] ?? null;
         if ($planKey !== null) {
-            $limit = $this->pricingService->getLimit($planKey, 'pages_per_scan');
+            $limit = $this->pricingService !== null ? $this->pricingService->getLimit($planKey, 'pages_per_scan') : 0;
             return $limit > 0 ? $limit : 0;
         }
 

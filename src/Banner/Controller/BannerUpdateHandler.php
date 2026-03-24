@@ -31,7 +31,7 @@ final class BannerUpdateHandler implements RequestHandlerInterface
         private readonly SiteRepositoryInterface $siteRepo,
         private readonly ScriptGenerationService $scriptService,
         private readonly AuditLogService $auditLogService,
-        private readonly PricingService $pricingService,
+        private readonly ?PricingService $pricingService = null,
         private readonly ?SubscriptionService $subscriptionService = null,
     ) {}
 
@@ -69,7 +69,7 @@ final class BannerUpdateHandler implements RequestHandlerInterface
             $canRemoveBranding = true;
             if ($this->subscriptionService !== null) {
                 $planKey = $this->subscriptionService->getPlanKey($userId);
-                $canRemoveBranding = $planKey !== null && $this->pricingService->hasFeature($planKey, 'custom_branding');
+                $canRemoveBranding = $planKey !== null && ($this->pricingService === null || $this->pricingService->hasFeature($planKey, 'custom_branding'));
             }
             if (!$canRemoveBranding) {
                 unset($body['content_setting']['disable_branding']);

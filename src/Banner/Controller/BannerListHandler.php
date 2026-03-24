@@ -37,7 +37,7 @@ final class BannerListHandler implements RequestHandlerInterface
         private readonly TwigEnvironment $twig,
         private readonly PrivacyFrameworkRepositoryInterface $frameworkRepo,
         private readonly PrivacyFrameworkService $frameworkService,
-        private readonly PricingService $pricingService,
+        private readonly ?PricingService $pricingService = null,
         private readonly ?SubscriptionService $subscriptionService = null,
     ) {}
 
@@ -156,7 +156,7 @@ final class BannerListHandler implements RequestHandlerInterface
         $canRemoveBranding = true;
         if ($this->subscriptionService !== null) {
             $planKey = $this->subscriptionService->getPlanKey($userId);
-            $canRemoveBranding = $planKey !== null && $this->pricingService->hasFeature($planKey, 'custom_branding');
+            $canRemoveBranding = $planKey !== null && ($this->pricingService === null || $this->pricingService->hasFeature($planKey, 'custom_branding'));
         }
 
         $html = $this->twig->render('pages/banners/index.html.twig', [

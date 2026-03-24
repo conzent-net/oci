@@ -184,9 +184,21 @@ return [
     },
 
     // ── Monetization ──────────────────────────────────────
-    // PricingService and SubscriptionService are registered by the Billing module
-    // (src/Modules/Billing/config/services.php). No core fallback needed — the
-    // DashboardService constructor accepts them as nullable.
+    // PricingService: core fallback for OCI edition (all features unlimited).
+    // The Billing module overrides this with Stripe-aware wiring when loaded.
+    \OCI\Monetization\Service\PricingService::class => static function (ContainerInterface $c): \OCI\Monetization\Service\PricingService {
+        $edition = $c->get(\OCI\Shared\Service\EditionService::class);
+        $configDir = \dirname(__DIR__) . '/config';
+        $pricingPath = file_exists($configDir . '/pricing.json')
+            ? $configDir . '/pricing.json'
+            : $configDir . '/pricing.oci.json';
+
+        return new \OCI\Monetization\Service\PricingService(
+            pricingJsonPath: $pricingPath,
+            stripeMode: $_ENV['STRIPE_MODE'] ?? 'test',
+            edition: $edition,
+        );
+    },
 
     // ── Monetization (swap via env var) ─────────────────────
     // OCI\Monetization\Service\MonetizationServiceInterface::class => static function (ContainerInterface $c) {

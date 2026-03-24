@@ -23,8 +23,8 @@ final class LanguageListHandler implements RequestHandlerInterface
         private readonly SiteRepositoryInterface $siteRepo,
         private readonly LanguageRepositoryInterface $languageRepo,
         private readonly PlanRepositoryInterface $planRepo,
-        private readonly PricingService $pricingService,
         private readonly TwigEnvironment $twig,
+        private readonly ?PricingService $pricingService = null,
     ) {}
 
     public function handle(ServerRequestInterface $request): ResponseInterface
@@ -104,7 +104,7 @@ final class LanguageListHandler implements RequestHandlerInterface
 
         $planKey = $userPlan['plan_key'] ?? null;
         if ($planKey !== null) {
-            return $this->pricingService->getLimit($planKey, $limitKey);
+            return $this->pricingService !== null ? $this->pricingService->getLimit($planKey, $limitKey) : 0;
         }
 
         return 0;
