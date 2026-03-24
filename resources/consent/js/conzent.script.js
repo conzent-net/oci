@@ -1,16 +1,16 @@
-window._cnzVersion = "12.05";
+window._cnzVersion = "12.06";
 
 if (typeof window.is_consent_loaded === "undefined") {
   /**
-   * ── Early Iframe/Script Blocker ──────────────────────────────────────
+   * -- Early Iframe/Script Blocker --------------------------------------
    * Runs immediately during HTML parsing (before <body> is fully parsed).
    * Intercepts iframes and third-party scripts as the parser adds them to
    * the DOM, BEFORE the browser fetches their src. No HTML changes needed.
    *
    * Flow:
    *   1. MutationObserver catches elements as parser adds them
-   *   2. iframe src → saved to data-cnz-src, src set to about:blank, hidden
-   *   3. third-party scripts → type changed to text/plain (prevents execution)
+   *   2. iframe src -> saved to data-cnz-src, src set to about:blank, hidden
+   *   3. third-party scripts -> type changed to text/plain (prevents execution)
    *   4. After consent, Conzent_Blocker.runScripts() restores them
    */
   window._cnzBlockedEls = [];
@@ -20,17 +20,22 @@ if (typeof window.is_consent_loaded === "undefined") {
     var ownOrigin = location.hostname;
     var ownScript = document.currentScript ? document.currentScript.src : "";
 
-    // Google tag scripts must NOT be blocked — GCM consent defaults
-    // handle data collection. Blocking gtag prevents GCM from working.
-    var _cnzGoogleHosts = [
-      "www.googletagmanager.com",
-      "googletagmanager.com",
-      "www.google-analytics.com",
-      "google-analytics.com",
-      "www.googleadservices.com",
-      "googleads.g.doubleclick.net",
-      "pagead2.googlesyndication.com",
-    ];
+    // In Advanced Consent Mode (allow_tag_fire=1), Google tag scripts are
+    // whitelisted — they load immediately with consent defaults set to
+    // 'denied' and send cookieless pings until consent is granted.
+    // In Basic mode (allow_tag_fire=0), Google scripts are blocked like
+    // any other third-party script until consent is given.
+    var _cnzGoogleHosts = "__GOOGLE_HOSTS__";
+
+    // User-defined script whitelist — populated from version.json by loader
+    window._cnzAllowedScripts = window._cnzAllowedScripts || [];
+
+    function _cnzIsAllowed(src) {
+      for (var i = 0; i < window._cnzAllowedScripts.length; i++) {
+        if (src.indexOf(window._cnzAllowedScripts[i]) !== -1) return true;
+      }
+      return false;
+    }
 
     function isThirdParty(src) {
       if (!src || src === "" || src === "about:blank") return false;
@@ -40,10 +45,12 @@ if (typeof window.is_consent_loaded === "undefined") {
         if (url.hostname === ownOrigin || url.hostname === "") return false;
         // Don't block the OCI script itself
         if (ownScript && src.indexOf(ownScript) !== -1) return false;
-        // Allow Google tag scripts — GCM consent state controls their behavior
+        // Allow Google tag scripts -- GCM consent state controls their behavior
         for (var g = 0; g < _cnzGoogleHosts.length; g++) {
           if (url.hostname === _cnzGoogleHosts[g]) return false;
         }
+        // Allow user-defined whitelisted scripts
+        if (_cnzIsAllowed(src)) return false;
         return true;
       } catch (e) {
         return false;
@@ -106,7 +113,7 @@ if (typeof window.is_consent_loaded === "undefined") {
       }
     });
 
-    // Start observing immediately — catches elements as the HTML parser adds them
+    // Start observing immediately -- catches elements as the HTML parser adds them
     observer.observe(document.documentElement, {
       childList: true,
       subtree: true,
@@ -117,7 +124,7 @@ if (typeof window.is_consent_loaded === "undefined") {
   })();
 }
 
-// ── Cookie-name blocker ────────────────────────────────────────────
+// -- Cookie-name blocker --------------------------------------------
 // Intercepts document.cookie writes to prevent known tracking cookies
 // (e.g. _fbp, _ga) from being set by inline scripts before consent.
 // Blocked writes are queued and replayed after consent if the category
@@ -143,9 +150,7 @@ if (typeof window._cnzCookieBlockerLoaded === "undefined") {
             var name = val.split("=")[0].trim();
             for (var i = 0; i < _cnzBlockedCookiePatterns.length; i++) {
               try {
-                if (
-                  new RegExp(_cnzBlockedCookiePatterns[i].p).test(name)
-                ) {
+                if (new RegExp(_cnzBlockedCookiePatterns[i].p).test(name)) {
                   window._cnzBlockedCookies.push({
                     v: val,
                     c: _cnzBlockedCookiePatterns[i].c,
@@ -153,7 +158,7 @@ if (typeof window._cnzCookieBlockerLoaded === "undefined") {
                   return; // silently block
                 }
               } catch (e) {
-                // invalid regex — skip
+                // invalid regex -- skip
               }
             }
           }
@@ -162,7 +167,7 @@ if (typeof window._cnzCookieBlockerLoaded === "undefined") {
         configurable: true,
       });
 
-      // Replay blocked cookies after consent — called from cnz._AcceptAll / cnz._Accept
+      // Replay blocked cookies after consent -- called from cnz._AcceptAll / cnz._Accept
       window._cnzReplayBlockedCookies = function (grantedCategories) {
         if (!window._cnzBlockedCookies.length) return;
         var remaining = [];
@@ -179,16 +184,17 @@ if (typeof window._cnzCookieBlockerLoaded === "undefined") {
     }
   }
 }
-// ── End cookie-name blocker ────────────────────────────────────────
+// -- End cookie-name blocker ----------------------------------------
 
-// ── End early blocker guard ──────────────────────────────────────
+// -- End early blocker guard --------------------------------------
 // Main consent script runs regardless of whether the early blocker ran
 // (the CMP loader sets is_consent_loaded before this script loads)
 
 if (typeof window._cnzMainLoaded === "undefined") {
   window._cnzMainLoaded = true;
 
-  [IAB2_STUB](() => {
+  [IAB2_STUB]
+  (() => {
     [IAB2_SCRIPT];
 
     window.is_consent_loaded = true;
@@ -234,7 +240,25 @@ if (typeof window._cnzMainLoaded === "undefined") {
       cross_domain: [CROSS_DOMAINS],
     };
 
-    // Ensure conzent_id cookie exists — used for consent tracking + A/B variant selection
+    // Guard: ensure settings is always an object with required arrays/defaults
+    if (!CNZ_config.settings || Array.isArray(CNZ_config.settings)) {
+      CNZ_config.settings = {};
+    }
+    var _sd = CNZ_config.settings;
+    if (!_sd.allowed_scripts) _sd.allowed_scripts = [];
+    if (!_sd.allowed_categories) _sd.allowed_categories = ["necessary"];
+    if (!_sd.allowed_cookies) _sd.allowed_cookies = [];
+    if (!_sd.cookieTypes) _sd.cookieTypes = [];
+    if (!_sd.beaconsList) _sd.beaconsList = [];
+    if (!_sd.cookiesList) _sd.cookiesList = [];
+    if (!_sd.geo_target_selected) _sd.geo_target_selected = [];
+    if (!_sd.allowedVendors) _sd.allowedVendors = [];
+    if (!_sd.allowedGoogleVendors) _sd.allowedGoogleVendors = [];
+
+    // Privacy framework rules map — geo-aware behaviour per visitor country
+    var _cnzFrameworkRules = [FRAMEWORK_RULES];
+
+    // Ensure conzent_id cookie exists -- used for consent tracking + A/B variant selection
     var _cnzCid =
       (document.cookie.match(/(?:^|;\s*)conzent_id=([^;]*)/) || [])[1] || "";
     if (!_cnzCid) {
@@ -246,7 +270,7 @@ if (typeof window._cnzMainLoaded === "undefined") {
         "conzent_id=" + _cnzCid + ";path=/;max-age=31536000;SameSite=Lax";
     }
 
-    // A/B variant selection — deterministic based on conzent_id hash
+    // A/B variant selection -- deterministic based on conzent_id hash
     var _cnzAbVariants = [AB_VARIANTS];
     window._cnzVariantId = "";
     if (_cnzAbVariants.length > 1) {
@@ -414,7 +438,9 @@ if (typeof window._cnzMainLoaded === "undefined") {
       }),
       (cnz._getSavedConsent = function (field) {
         var preferences_val = accessCookie("conzentConsentPrefs"),
-          preferences_item = preferences_val ? JSON.parse(preferences_val) : null;
+          preferences_item = preferences_val
+            ? JSON.parse(preferences_val)
+            : null;
 
         if (preferences_item) {
           return preferences_item.includes(field) ? field : "";
@@ -665,7 +691,7 @@ if (typeof window._cnzMainLoaded === "undefined") {
     )
       throw new Error(
         showConsoleError(
-          "Looks like your website URL has changed. To ensure the proper functioning of your banner, update the registered URL on your Conzent App account. Then, reload this page to retry. If the issue persists, please contact us at https://conzent.net/installation-guide/.",
+          "Looks like your website URL has changed. To ensure the proper functioning of your banner, update the registered URL on your Conzent App account. Then, reload this page to retry. If the issue persists, please contact us at https://getconzent.com/installation-guide/.",
         ),
       );
 
@@ -1650,11 +1676,23 @@ if (typeof window._cnzMainLoaded === "undefined") {
     };
 
     const ConzentFN = function (event) {
+      var current_settings = CNZ_config.settings;
+
+      _cnzDebug("info", "ConzentFN called with event: " + (event || "(empty — initial load)"));
+
+      // No banner config loaded (e.g. framework/template mismatch) — nothing to render
+      if (!current_settings.html) {
+        _cnzDebug("hide", "ConzentFN: settings.html is missing — banner HTML template not loaded. Cannot render banner.");
+        _showDebugState();
+        if (typeof Conzent_Blocker !== "undefined" && Conzent_Blocker.runScripts) {
+          Conzent_Blocker.runScripts();
+        }
+        return;
+      }
+
       var domain_name = window.location.host;
 
       var url_param = window.location.href;
-
-      var current_settings = CNZ_config.settings;
 
       var currentLang = _getLang();
 
@@ -1898,7 +1936,12 @@ if (typeof window._cnzMainLoaded === "undefined") {
         var conzent_id = accessCookie("conzent_id");
         if (!conzent_id || conzent_id === "false") {
           conzent_id = conzentRandomKey();
-          Conzent_Cookie.set("conzent_id", conzent_id, CNZ_config.settings.expires, 1);
+          Conzent_Cookie.set(
+            "conzent_id",
+            conzent_id,
+            CNZ_config.settings.expires,
+            1,
+          );
         }
 
         params_form.append("conzent_id", conzent_id);
@@ -1935,6 +1978,8 @@ if (typeof window._cnzMainLoaded === "undefined") {
         setup_msconsent("update");
         setup_clarity_consent("update");
         setup_amazon_consent();
+        // In Basic mode, GTM wasn't injected on load — inject now after consent
+        setup_gtm_inject();
         syncConzentWithShoplift();
         cnzEvent("conzentck_consent_update", getCnzConsent());
 
@@ -2042,10 +2087,11 @@ if (typeof window._cnzMainLoaded === "undefined") {
           Conzent_Blocker.runScripts();
         }
       };
+      _cnzDebug("info", "ConzentFN: Rendering banner HTML (delay: " + (current_settings.delay || 0) + "ms)");
       setTimeout(() => {
         _QE("body").insertAdjacentHTML("beforeend", cookieNotice);
 
-        // Consent ID display — small shield icon in banner footer
+        // Consent ID display -- small shield icon in banner footer
         (function () {
           var cid = accessCookie("conzent_id") || "";
           if (!cid || cid.length < 8) return;
@@ -2058,7 +2104,7 @@ if (typeof window._cnzMainLoaded === "undefined") {
           el.className = "cnz-consent-id";
           el.setAttribute(
             "style",
-            "position:fixed;bottom:8px;left:8px;z-index:2147483646;opacity:0.6;cursor:pointer;font-size:10px;font-family:monospace;color:#888;background:rgba(255,255,255,0.9);padding:2px 6px;border-radius:3px;border:1px solid #ddd;transition:opacity 0.2s;",
+            "position:fixed;bottom:8px;left:8px;z-index:2147483646;opacity:0.6;cursor:pointer;font-size:10px;font-family:monospace;color:#888;background:rgba(255,255,255,0.9);padding:2px 6px;border-radius:3px;border:1px solid #ddd;transition:opacity 0.2s;display:none;",
           );
           el.textContent = "\uD83D\uDEE1 " + short;
           el.title = "Your consent reference ID";
@@ -2108,7 +2154,7 @@ if (typeof window._cnzMainLoaded === "undefined") {
           window._cnzBlockedEls.forEach(function (el) {
             if (el.tagName.toLowerCase() !== "iframe") return;
             if (
-              (el.parentNode && !el.previousElementSibling) ||
+              !el.previousElementSibling ||
               !el.previousElementSibling.classList.contains(
                 "cnz-iframe-placeholder",
               )
@@ -2292,13 +2338,13 @@ if (typeof window._cnzMainLoaded === "undefined") {
             _QE(".conzent-footer-wrapper"),
           );
 
-          _QE("#preCloseBtn").remove();
+          if (_QE("#preCloseBtn")) _QE("#preCloseBtn").remove();
 
-          _QE(".conzent-modal").remove();
+          if (_QE(".conzent-modal")) _QE(".conzent-modal").remove();
 
-          _QE("#Conzent").classList.add("push_down");
+          if (_QE("#Conzent")) _QE("#Conzent").classList.add("push_down");
 
-          _QE(".conzent-preference-center").setAttribute("style", box_style);
+          if (_QE(".conzent-preference-center")) _QE(".conzent-preference-center").setAttribute("style", box_style);
         }
 
         current_settings.cookieTypes.forEach((field) => {
@@ -2419,12 +2465,14 @@ if (typeof window._cnzMainLoaded === "undefined") {
           });
         }
 
-        // ── Policy content injection ──
+        // -- Policy content injection --
         if (_QE(".cnz-cookie-policy")) {
-          _QE(".cnz-cookie-policy").innerHTML = current_settings.cookie_policy_html || '';
+          _QE(".cnz-cookie-policy").innerHTML =
+            current_settings.cookie_policy_html || "";
         }
         if (_QE(".cnz-audit-privacy-policy")) {
-          _QE(".cnz-audit-privacy-policy").innerHTML = current_settings.privacy_policy_html || '';
+          _QE(".cnz-audit-privacy-policy").innerHTML =
+            current_settings.privacy_policy_html || "";
         }
 
         //_QE("#Conzent").style.opacity =0;
@@ -2456,7 +2504,7 @@ if (typeof window._cnzMainLoaded === "undefined") {
                   elm_box.style.display = "none";
                 }
 
-                _QE("#Conzent").classList.remove("expand-box");
+                if (_QE("#Conzent")) _QE("#Conzent").classList.remove("expand-box");
               }
             }
 
@@ -2533,7 +2581,7 @@ if (typeof window._cnzMainLoaded === "undefined") {
             function () {
               hideCookieBanner(true, current_settings.expires);
 
-              if (
+              if (_QE(".conzent-modal") &&
                 _QE(".conzent-modal").classList.contains("cnz-modal-open") ===
                 true
               ) {
@@ -2544,7 +2592,7 @@ if (typeof window._cnzMainLoaded === "undefined") {
 
               let prefs = [];
 
-              if (_QE("#donotsell_checkbox").checked == true) {
+              if (_QE("#donotsell_checkbox") && _QE("#donotsell_checkbox").checked == true) {
                 current_settings.cookieTypes.forEach((field) => {
                   if (!prefs.includes(field.value)) {
                     prefs.push(field.value);
@@ -2619,7 +2667,7 @@ if (typeof window._cnzMainLoaded === "undefined") {
                   elm_box.style.display = "none";
                 }
 
-                _QE("#Conzent").classList.remove("expand-box");
+                if (_QE("#Conzent")) _QE("#Conzent").classList.remove("expand-box");
               } else {
                 hideCookieBanner(true, current_settings.expires);
 
@@ -2690,9 +2738,9 @@ if (typeof window._cnzMainLoaded === "undefined") {
 
         if (_QE("#donotselllink")) {
           _QE("#donotselllink").addEventListener("click", function (event) {
-            _QE("#Conzent").classList.add("cnz-hide");
+            if (_QE("#Conzent")) _QE("#Conzent").classList.add("cnz-hide");
 
-            _QE(".conzent-modal").classList.add("cnz-modal-open");
+            if (_QE(".conzent-modal")) _QE(".conzent-modal").classList.add("cnz-modal-open");
           });
         }
 
@@ -2725,7 +2773,7 @@ if (typeof window._cnzMainLoaded === "undefined") {
         if (_QE("#cookieSettings")) {
           _QE("#cookieSettings").addEventListener("click", function (event) {
             if (current_settings.preference_type == "push_down") {
-              _QE("#Conzent").classList.add("expand-box");
+              if (_QE("#Conzent")) _QE("#Conzent").classList.add("expand-box");
 
               if (
                 _QE(
@@ -2743,9 +2791,9 @@ if (typeof window._cnzMainLoaded === "undefined") {
                 }
               }
             } else {
-              _QE("#Conzent").classList.add("cnz-hide");
+              if (_QE("#Conzent")) _QE("#Conzent").classList.add("cnz-hide");
 
-              _QE(".conzent-modal").classList.add("cnz-modal-open");
+              if (_QE(".conzent-modal")) _QE(".conzent-modal").classList.add("cnz-modal-open");
             }
 
             if (event === "open") {
@@ -2779,7 +2827,7 @@ if (typeof window._cnzMainLoaded === "undefined") {
         if (_QE("#closeIcon")) {
           _QE("#closeIcon").addEventListener("click", function (event) {
             if (current_settings.preference_type == "push_down") {
-              _QE("#Conzent").classList.add("expand-box");
+              if (_QE("#Conzent")) _QE("#Conzent").classList.add("expand-box");
 
               if (
                 _QE(
@@ -2820,7 +2868,7 @@ if (typeof window._cnzMainLoaded === "undefined") {
           _QE("#preCloseBtn").addEventListener("click", function (event) {
             conzentOpenBox();
 
-            _QE(".conzent-modal").classList.remove("cnz-modal-open");
+            if (_QE(".conzent-modal")) _QE(".conzent-modal").classList.remove("cnz-modal-open");
           });
         }
 
@@ -2832,14 +2880,14 @@ if (typeof window._cnzMainLoaded === "undefined") {
               if (selCat) {
                 var cookieTable = _QE("#cnzCategory" + selCat);
 
-                cookieTable.classList.toggle("cnz-active");
+                if (cookieTable) cookieTable.classList.toggle("cnz-active");
               } else {
                 var selCat = this.getAttribute("data-tab");
 
                 if (selCat) {
                   var cookieTable = _QE("#" + selCat);
 
-                  cookieTable.classList.toggle("cnz-active");
+                  if (cookieTable) cookieTable.classList.toggle("cnz-active");
                 }
               }
             });
@@ -2910,6 +2958,7 @@ if (typeof window._cnzMainLoaded === "undefined") {
               // Always set GCM so security_storage is granted even on reject
               setup_gcm();
               setup_meta_consent();
+              setup_msconsent("update");
               setup_clarity_consent("update");
               setup_amazon_consent();
 
@@ -2941,6 +2990,7 @@ if (typeof window._cnzMainLoaded === "undefined") {
 
           setup_gcm();
           setup_meta_consent();
+          setup_msconsent("update");
           setup_clarity_consent("update");
           setup_amazon_consent();
         }
@@ -2950,7 +3000,7 @@ if (typeof window._cnzMainLoaded === "undefined") {
         if (_QE(".cnz-inner-text")) {
           _QE(".cnz-inner-text").addEventListener("click", function (event) {
             if (current_settings.preference_type == "push_down") {
-              _QE("#Conzent").classList.remove("expand-box");
+              if (_QE("#Conzent")) _QE("#Conzent").classList.remove("expand-box");
 
               if (
                 _QE(
@@ -2969,6 +3019,7 @@ if (typeof window._cnzMainLoaded === "undefined") {
 
         if (conzentConsentExists == true || event == "open") {
           if (conzentConsentExists == true) {
+            _cnzDebug("hide", "ConzentFN: conzentConsent cookie exists — hiding banner (user already consented)");
             if (_QE("#Conzent")) {
               _QE("#Conzent").classList.add("cnz-hide");
             }
@@ -2979,6 +3030,7 @@ if (typeof window._cnzMainLoaded === "undefined") {
               );
             }
           } else {
+            _cnzDebug("show", "ConzentFN: event='open' and no consent cookie — opening banner");
             conzentOpenBox();
           }
         }
@@ -2986,6 +3038,7 @@ if (typeof window._cnzMainLoaded === "undefined") {
         // If already consent is accepted, inject preferences
         else {
           if (preferences) {
+            _cnzDebug("hide", "ConzentFN: conzentConsentPrefs cookie exists (but no conzentConsent) — hiding banner, injecting scripts", preferences);
             preferences.forEach((field) => {
               if (field != "necessary") {
                 if (!current_settings.allowed_categories.includes(field)) {
@@ -3012,6 +3065,10 @@ if (typeof window._cnzMainLoaded === "undefined") {
           injectScripts();
 
           //conzentCloseBox();
+
+          if (!preferences) {
+            _cnzDebug("show", "ConzentFN: First visit — no consent, no preferences — banner is visible");
+          }
         }
 
         cnzPageViewLog("banner_view");
@@ -3027,7 +3084,10 @@ if (typeof window._cnzMainLoaded === "undefined") {
         var new_setting = CNZ_config.settings;
         var new_lang = _getLang();
         if (_QE(".cnz-cookie-table")) {
-          if (_QE(".cnz-cookie-table").innerHTML.trim() === "" || _QE(".cnz-cookie-table").innerHTML.trim() === "&nbsp;") {
+          if (
+            _QE(".cnz-cookie-table").innerHTML.trim() === "" ||
+            _QE(".cnz-cookie-table").innerHTML.trim() === "&nbsp;"
+          ) {
             if (_QE(".cnz-category-table")) {
               _QE(".cnz-cookie-table").innerHTML = _QE(
                 ".cnz-category-table",
@@ -3041,14 +3101,14 @@ if (typeof window._cnzMainLoaded === "undefined") {
                     if (selCat) {
                       var cookieTable = _QE("#cnzCategory" + selCat);
 
-                      cookieTable.classList.toggle("cnz-active");
+                      if (cookieTable) cookieTable.classList.toggle("cnz-active");
                     } else {
                       var selCat = this.getAttribute("data-tab");
 
                       if (selCat) {
                         var cookieTable = _QE("#" + selCat);
 
-                        cookieTable.classList.toggle("cnz-active");
+                        if (cookieTable) cookieTable.classList.toggle("cnz-active");
                       }
                     }
                   });
@@ -3081,12 +3141,20 @@ if (typeof window._cnzMainLoaded === "undefined") {
       observer_new.observe(targetNode, config_new);
       cnzAuditTable();
 
-      // ── Policy content injection (deferred) ──
-      if (_QE(".cnz-cookie-policy") && _QE(".cnz-cookie-policy").innerHTML === "") {
-        _QE(".cnz-cookie-policy").innerHTML = CNZ_config.settings.cookie_policy_html || '';
+      // -- Policy content injection (deferred) --
+      if (
+        _QE(".cnz-cookie-policy") &&
+        _QE(".cnz-cookie-policy").innerHTML === ""
+      ) {
+        _QE(".cnz-cookie-policy").innerHTML =
+          CNZ_config.settings.cookie_policy_html || "";
       }
-      if (_QE(".cnz-audit-privacy-policy") && _QE(".cnz-audit-privacy-policy").innerHTML === "") {
-        _QE(".cnz-audit-privacy-policy").innerHTML = CNZ_config.settings.privacy_policy_html || '';
+      if (
+        _QE(".cnz-audit-privacy-policy") &&
+        _QE(".cnz-audit-privacy-policy").innerHTML === ""
+      ) {
+        _QE(".cnz-audit-privacy-policy").innerHTML =
+          CNZ_config.settings.privacy_policy_html || "";
       }
     };
 
@@ -3198,6 +3266,7 @@ if (typeof window._cnzMainLoaded === "undefined") {
 
       setup_gcm();
       setup_meta_consent();
+      setup_msconsent("update");
       setup_clarity_consent("update");
       setup_amazon_consent();
 
@@ -3381,7 +3450,9 @@ if (typeof window._cnzMainLoaded === "undefined") {
       removeCookieByCategory: function () {
         // If consent is not accepted
         let cookiePrefsValue_new = accessCookie("conzentConsentPrefs");
-        var preferences_new = cookiePrefsValue_new ? JSON.parse(cookiePrefsValue_new) : null;
+        var preferences_new = cookiePrefsValue_new
+          ? JSON.parse(cookiePrefsValue_new)
+          : null;
         if (preferences_new) {
           preferences_new.forEach((field) => {
             if (field != "necessary") {
@@ -3513,7 +3584,7 @@ if (typeof window._cnzMainLoaded === "undefined") {
               // Replay cookie writes that were blocked before consent
               if (typeof window._cnzReplayBlockedCookies === "function") {
                 window._cnzReplayBlockedCookies(
-                  CNZ_config.settings.allowed_categories || []
+                  CNZ_config.settings.allowed_categories || [],
                 );
               }
               window._cnzBlockedEls.forEach(function (el) {
@@ -3559,7 +3630,7 @@ if (typeof window._cnzMainLoaded === "undefined") {
                     }
                   }
                 } else if (tag === "iframe" && el.parentNode) {
-                  // Category not accepted — create placeholder for blocked iframe
+                  // Category not accepted -- create placeholder for blocked iframe
                   if (
                     el.previousElementSibling &&
                     el.previousElementSibling.classList.contains(
@@ -4059,6 +4130,7 @@ if (typeof window._cnzMainLoaded === "undefined") {
                 htmlElm.setAttribute("src", htmlElemSrc);
 
                 if (
+                  htmlElm.previousElementSibling &&
                   htmlElm.previousElementSibling.classList.contains(
                     "cnz-iframe-placeholder",
                   ) === true
@@ -4110,6 +4182,7 @@ if (typeof window._cnzMainLoaded === "undefined") {
 
     function fadeInEffect() {
       var fadeTarget = _QE("#Conzent");
+      if (!fadeTarget) return;
 
       fadeTarget.classList.remove("cnz-hide");
 
@@ -4130,6 +4203,7 @@ if (typeof window._cnzMainLoaded === "undefined") {
 
     function fadeOutEffect() {
       var fadeTarget = _QE("#Conzent");
+      if (!fadeTarget) return;
 
       var fadeEffect = setInterval(function () {
         if (!fadeTarget.style.opacity) {
@@ -4180,7 +4254,7 @@ if (typeof window._cnzMainLoaded === "undefined") {
       if (CNZ_config.settings.ms_consent == 1) {
         window.uetq = window.uetq || [];
         window.uetq.push("consent", default_mode, {
-          ad_storage: checkAllowedCookie("marketing") ? "granted" : "denied",
+          ad_storage: checkAllowedCookie("marketing"),
         });
       }
     }
@@ -4188,20 +4262,73 @@ if (typeof window._cnzMainLoaded === "undefined") {
       if (CNZ_config.settings.clarity_consent == 1) {
         if (typeof window.clarity === "function") {
           if (default_mode == "default") {
-            window.clarity("consent", false);
+            window.clarity("consentv2", {
+              ad_Storage: "denied",
+              analytics_Storage: "denied",
+            });
           } else {
+            var marketing = checkAllowedCookie("marketing");
             var analytics = checkAllowedCookie("analytics");
-            window.clarity("consent", analytics === "granted");
+            window.clarity("consentv2", {
+              ad_Storage: marketing,
+              analytics_Storage: analytics,
+            });
           }
         }
       }
     }
+    // Load the Amazon Consent Signal (ACS) library once.
+    // The library defaults all consent to DENIED on load.
+    // https://advertising.amazon.co.uk/help/GKJQ7E8SE9BRG73Q
+    var _amznConsentLibLoaded = false;
+    var _amznConsentPending = null;
+    function _loadAmznConsentLib(onReady) {
+      if (typeof window.amznConsent === "function") {
+        if (onReady) onReady();
+        return;
+      }
+      if (_amznConsentLibLoaded) {
+        // Already loading — queue the callback
+        if (onReady) _amznConsentPending = onReady;
+        return;
+      }
+      _amznConsentLibLoaded = true;
+      if (onReady) _amznConsentPending = onReady;
+      var s = document.createElement("script");
+      s.src = "https://c.amazon-adsystem.com/aat/amzn-consent.js";
+      s.async = true;
+      s.onload = function () {
+        if (_amznConsentPending) {
+          _amznConsentPending();
+          _amznConsentPending = null;
+        }
+      };
+      (document.head || document.documentElement).appendChild(s);
+    }
+
+    function _callAmznConsent(granted, country) {
+      if (typeof window.amznConsent !== "function") return;
+      var builder = window.amznConsent()
+        .setEnableAdStorage(granted)
+        .setEnableUserData(granted);
+      if (country && country !== "ALL" && country.length === 2) {
+        builder.setCountryCode(country);
+      }
+      builder.build();
+    }
+
     function setup_amazon_consent() {
       if (CNZ_config.settings.amazon_consent == 1) {
         var marketing = checkAllowedCookie("marketing");
         var granted = marketing === "granted";
+        var country = (CNZ_config.currentTarget || "").toUpperCase();
 
-        // Amazon Publisher Services (APS / TAM / UAM)
+        // Amazon Consent Signal (ACS)
+        _loadAmznConsentLib(function () {
+          _callAmznConsent(granted, country);
+        });
+
+        // Amazon Publisher Services (APS) — legacy fallback
         if (typeof window.apstag !== "undefined") {
           window.apstag.setConsent({
             gdpr: {
@@ -4211,7 +4338,7 @@ if (typeof window._cnzMainLoaded === "undefined") {
           });
         }
 
-        // Amazon Ads Tag consent signal
+        // Amazon Ads Tag — legacy global
         window.amzn_assoc_ad_consent = granted ? "granted" : "denied";
       }
     }
@@ -4357,7 +4484,10 @@ if (typeof window._cnzMainLoaded === "undefined") {
             showConsoleLog(e_str);
           }, 1000);
         }
-        if (window.Shopify && (window.Shopify.trackingConsent || window.Shopify.customerPrivacy)) {
+        if (
+          window.Shopify &&
+          (window.Shopify.trackingConsent || window.Shopify.customerPrivacy)
+        ) {
           console.log("Debugging Shopify Customer Privacy API:\n");
           setTimeout(function () {
             var s_str = "\n";
@@ -4383,35 +4513,41 @@ if (typeof window._cnzMainLoaded === "undefined") {
     }
 
     function setup_gtm_inject() {
-      var i = CNZ_config.settings.gtm_id;
-      if (!i || document.getElementById("cnz-gtm-script")) return;
-      var l = CNZ_config.settings.gtm_dl || "dataLayer";
-      // Google Tag Manager — matches Google's official snippet exactly
-      window[l] = window[l] || [];
-      window[l].push({ "gtm.start": new Date().getTime(), event: "gtm.js" });
-      // Use the original createElement to bypass Conzent's own script blocker.
-      // The monkey-patched createElement intercepts src/type setters on script elements.
-      // Using the backed-up original returns a clean, unpatched element.
-      var _create = cnz._CreateElementBackup || document.createElement;
-      var j = _create.call(document, "script");
-      var dln = l != "dataLayer" ? "&l=" + l : "";
-      j.async = true;
-      j.id = "cnz-gtm-script";
-      j.src = "https://www.googletagmanager.com/gtm.js?id=" + i + dln;
-      var f = document.getElementsByTagName("script")[0];
-      if (f && f.parentNode) {
-        f.parentNode.insertBefore(j, f);
-      } else {
-        (document.head || document.documentElement).appendChild(j);
-      }
-      // Google Tag Manager (noscript) — injected into body for completeness
-      if (document.body) {
-        var ns = document.createElement("noscript");
-        ns.innerHTML =
-          '<iframe src="https://www.googletagmanager.com/ns.html?id=' +
-          i +
-          '" height="0" width="0" style="display:none;visibility:hidden"></iframe>';
-        document.body.insertBefore(ns, document.body.firstChild);
+      try {
+        var i = CNZ_config.settings.gtm_id;
+        if (!i || document.getElementById("cnz-gtm-script")) return;
+        var l = CNZ_config.settings.gtm_dl || "dataLayer";
+        // Google Tag Manager -- matches Google's official snippet exactly
+        window[l] = window[l] || [];
+        window[l].push({ "gtm.start": new Date().getTime(), event: "gtm.js" });
+        // Use the original createElement to bypass Conzent's own script blocker.
+        // The monkey-patched createElement intercepts src/type setters on script elements.
+        // Using the backed-up original returns a clean, unpatched element.
+        var _create = cnz._CreateElementBackup || document.createElement;
+        var j = _create.call(document, "script");
+        var dln = l != "dataLayer" ? "&l=" + l : "";
+        j.async = true;
+        j.id = "cnz-gtm-script";
+        // Set src directly via setAttribute to avoid any property descriptor interception
+        j.setAttribute("src", "https://www.googletagmanager.com/gtm.js?id=" + i + dln);
+        var f = document.getElementsByTagName("script")[0];
+        if (f && f.parentNode) {
+          f.parentNode.insertBefore(j, f);
+        } else {
+          (document.head || document.documentElement).appendChild(j);
+        }
+        showConsoleLog("GTM injected: " + i);
+        // Google Tag Manager (noscript) -- injected into body for completeness
+        if (document.body) {
+          var ns = _create.call(document, "noscript");
+          ns.innerHTML =
+            '<iframe src="https://www.googletagmanager.com/ns.html?id=' +
+            i +
+            '" height="0" width="0" style="display:none;visibility:hidden"></iframe>';
+          document.body.insertBefore(ns, document.body.firstChild);
+        }
+      } catch (e) {
+        showConsoleError("GTM inject failed: " + e.message);
       }
     }
 
@@ -4525,37 +4661,88 @@ if (typeof window._cnzMainLoaded === "undefined") {
 
     function _loadLocation() {
       if (CNZ_config.currentTarget != "all") {
-        var xhr = new XMLHttpRequest();
+        return new Promise(function (resolve) {
+          var xhr = new XMLHttpRequest();
 
-        xhr.onreadystatechange = function () {
-          if (xhr.readyState === 4) {
-            if (xhr.status === 200) {
-              var loc_res = JSON.parse(xhr.responseText);
+          xhr.onreadystatechange = function () {
+            if (xhr.readyState === 4) {
+              if (xhr.status === 200) {
+                try {
+                  var loc_res = JSON.parse(xhr.responseText);
 
-              if (loc_res.hasOwnProperty("country")) {
-                CNZ_config.currentTarget = loc_res.country.toLowerCase();
+                  if (loc_res.hasOwnProperty("country")) {
+                    CNZ_config.currentTarget = loc_res.country.toLowerCase();
 
-                CNZ_config.in_eu = loc_res.in_eu;
+                    CNZ_config.in_eu = loc_res.in_eu;
+
+                    _resolveFrameworkRules();
+                  }
+                } catch (e) {
+                  showConsoleError(e);
+                }
+              } else {
+                showConsoleError(xhr.responseText);
               }
-
-              //success(JSON.parse(xhr.responseText));
-            } else {
-              //error(xhr);
-
-              //console.log(xhr);
-              showConsoleError(xhr.responseText);
+              resolve();
             }
+          };
+
+          xhr.open("GET", "[API_PATH]/geo_ip", true);
+
+          xhr.send();
+        });
+      }
+      return Promise.resolve();
+    }
+
+    /**
+     * Resolve the active privacy framework rules for the current visitor's country.
+     * Sets CNZ_config._fw with the matched framework rules from _cnzFrameworkRules.
+     */
+    function _resolveFrameworkRules() {
+      if (!_cnzFrameworkRules || typeof _cnzFrameworkRules !== "object") return;
+      if (Object.keys(_cnzFrameworkRules).length === 0) return;
+
+      var country = (CNZ_config.currentTarget || "").toUpperCase();
+      var rules = null;
+      if (country) {
+        // Known country: match explicitly, fall back to _default for uncovered countries
+        rules = _cnzFrameworkRules[country] || _cnzFrameworkRules["_default"] || null;
+      } else {
+        // Geolocation failed: fall back to _default
+        rules = _cnzFrameworkRules["_default"] || null;
+      }
+
+      if (rules) {
+        CNZ_config._fw = rules;
+        // Opt-out frameworks (block_none) should not pre-block scripts
+        if (rules.bs === "block_none") {
+          CNZ_config._skipBlocking = true;
+          // Immediately unblock anything the early blocker caught
+          if (typeof Conzent_Blocker !== "undefined" && Conzent_Blocker.runScripts) {
+            Conzent_Blocker.runScripts();
           }
-        };
-
-        xhr.open("GET", "[API_PATH]/geo_ip", true);
-
-        xhr.send();
+          if (typeof window._cnzReplayBlockedCookies === "function") {
+            window._cnzReplayBlockedCookies(["functional", "analytics", "marketing"]);
+          }
+        }
+        // Flag for Do Not Sell link requirement
+        if (rules.dns) {
+          CNZ_config._showDoNotSell = true;
+        }
+        // Flag for GPC signal handling
+        if (rules.gpc && CNZ_config.gpcStatus) {
+          CNZ_config._gpcOptOut = true;
+        }
       }
     }
 
     function _showBanner() {
       var show_banner = 1;
+      _cnzDebugLog = [];
+
+      _cnzDebug("info", "Banner type: " + CNZ_config.displayBanner);
+      _cnzDebug("info", "Visitor country: " + (CNZ_config.currentTarget || "(unknown)"));
 
       if (CNZ_config.settings.geo_target == "selected") {
         if (
@@ -4564,17 +4751,60 @@ if (typeof window._cnzMainLoaded === "undefined") {
           )
         ) {
           show_banner = 1;
+          _cnzDebug("show", "Geo targeting: visitor country '" + CNZ_config.currentTarget + "' is in selected list", CNZ_config.settings.geo_target_selected);
         } else {
           show_banner = 0;
+          _cnzDebug("hide", "Geo targeting: visitor country '" + CNZ_config.currentTarget + "' is NOT in selected list", CNZ_config.settings.geo_target_selected);
         }
+      } else {
+        _cnzDebug("show", "Geo targeting: set to '" + (CNZ_config.settings.geo_target || "all") + "' — no restriction");
       }
+
+      // If visitor's country is known but not covered by any selected framework,
+      // don't show the banner. _default is only for failed geolocation.
+      if (CNZ_config.currentTarget && _cnzFrameworkRules &&
+          Object.keys(_cnzFrameworkRules).length > 0) {
+        var _country = CNZ_config.currentTarget.toUpperCase();
+        var _hasCoverage = _cnzFrameworkRules.hasOwnProperty(_country);
+        // For US visitors, also check state-level entries (US:CA, US:CO, etc.)
+        if (!_hasCoverage && _country === "US") {
+          _hasCoverage = Object.keys(_cnzFrameworkRules).some(function (k) {
+            return k.indexOf("US:") === 0;
+          });
+        }
+        // Fall back to _default rules for uncovered countries
+        if (!_hasCoverage) {
+          _hasCoverage = _cnzFrameworkRules.hasOwnProperty("_default");
+        }
+        if (!_hasCoverage) {
+          show_banner = 0;
+          _cnzDebug("hide", "Framework rules: country '" + _country + "' has no coverage and no _default rule", Object.keys(_cnzFrameworkRules));
+        } else {
+          _cnzDebug("show", "Framework rules: country '" + _country + "' is covered" + (_cnzFrameworkRules[_country] ? " (direct match)" : " (via _default)"));
+        }
+      } else if (!CNZ_config.currentTarget) {
+        _cnzDebug("info", "Framework rules: geolocation not resolved — skipping framework check");
+      } else {
+        _cnzDebug("info", "Framework rules: none configured — no restriction");
+      }
+
       if (
         CNZ_config.user_site.disable_on_pages.includes(window.location.href)
       ) {
         show_banner = 0;
+        _cnzDebug("hide", "Page exclusion: current URL is in disable_on_pages list", window.location.href);
       }
       if (CNZ_config.user_site.status != 1) {
         show_banner = 0;
+        _cnzDebug("hide", "Site status: site is not active (status=" + CNZ_config.user_site.status + ")");
+      } else {
+        _cnzDebug("show", "Site status: active");
+      }
+
+      if (show_banner) {
+        _cnzDebug("show", "RESULT: Banner WILL be shown (all checks passed)");
+      } else {
+        _cnzDebug("hide", "RESULT: Banner will NOT be shown (blocked by one or more checks above)");
       }
 
       return show_banner;
@@ -4596,53 +4826,181 @@ if (typeof window._cnzMainLoaded === "undefined") {
       const ec =
         "\n                display: inline-block;\n                font-size: 14px;\n                background: linear-gradient(to right,rgb(181, 34, 34),rgb(201, 26, 26),rgb(181, 34, 34));\n                color: white;\n                padding: 4px;\n                border-radius: 4px;\n            ";
       let ct = "\n\n";
-      ((ct += "💡 An error has occured with the Conzent Script \n"),
-        (ct += "✉️ Send the below error to support@conzent.net\n"),
-        (ct += "❌ Error:"),
+      ((ct += "[i] An error has occured with the Conzent Script \n"),
+        (ct += "[mail] Send the below error to support@conzent.net\n"),
+        (ct += "[x] Error:"),
         (ct += message),
         (ct += "\n\n"),
         (ct += "Learn more at: https://getconzent.com/\n\n"),
-        console.groupCollapsed("%cConzent.net - Configuration error.", ec),
+        console.groupCollapsed("%cConzent - Configuration error.", ec),
         console.log(`%c${ct}`, "font-size: 14px;"),
         console.groupEnd());
     }
+    var _cnzDebugLog = [];
+    function _cnzDebug(category, message, data) {
+      _cnzDebugLog.push({ cat: category, msg: message, data: data || null });
+    }
+
     function showConsoleLog(message) {
+      if (!window.location.href.includes("?debug=true") && CNZ_config.debug_mode != 1) return;
       const ec =
         "\n                display: inline-block;\n                font-size: 14px;\n                background: linear-gradient(to right, #22b573,rgb(15, 67, 43), #22b573);\n                color: white;\n                padding: 4px;\n                border-radius: 4px;\n            ";
       let ct = "\n\n";
-      ((ct += "💡 Debugging for Conzsent \n"),
-        (ct += "🚀 Log:"),
+      ((ct += "[i] Debugging for Conzent \n"),
+        (ct += "[>] Log:"),
         (ct += message),
         (ct += "\n\n"),
         (ct += "Learn more at: https://getconzent.com/\n\n"),
-        console.groupCollapsed("%cConzent.net - Debug Logging.", ec),
+        console.groupCollapsed("%cConzent - Debug Logging.", ec),
         console.log(`%c${ct}`, "font-size: 14px;"),
         console.groupEnd());
+    }
+
+    function _showDebugState() {
+      if (!window.location.href.includes("?debug=true") && CNZ_config.debug_mode != 1) return;
+
+      var hdr = "display:inline-block;font-size:14px;background:linear-gradient(to right,#22b573,rgb(15,67,43),#22b573);color:white;padding:4px;border-radius:4px;";
+      var sectionStyle = "font-weight:bold;font-size:13px;color:#22b573;";
+      var labelStyle = "font-weight:bold;color:#666;";
+      var valStyle = "color:#333;";
+      var warnStyle = "font-weight:bold;color:#e67e22;";
+      var errStyle = "font-weight:bold;color:#e74c3c;";
+      var okStyle = "font-weight:bold;color:#27ae60;";
+
+      console.group("%cConzent Debug State", hdr);
+
+      // --- Config ---
+      console.group("%c— Configuration", sectionStyle);
+      console.log("%cdisplayBanner:%c " + CNZ_config.displayBanner, labelStyle, valStyle);
+      console.log("%cdebug_mode:%c " + CNZ_config.debug_mode, labelStyle, valStyle);
+      console.log("%ccurrentLang:%c " + CNZ_config.currentLang, labelStyle, valStyle);
+      console.log("%cdefault_lang:%c " + CNZ_config.default_lang, labelStyle, valStyle);
+      console.log("%cmain_lang:%c " + CNZ_config.main_lang, labelStyle, valStyle);
+      console.log("%ccurrentTarget (geo):%c " + (CNZ_config.currentTarget || "(not resolved)"), labelStyle, valStyle);
+      console.log("%cgpcStatus:%c " + CNZ_config.gpcStatus, labelStyle, valStyle);
+      console.log("%cpublisherCountry:%c " + CNZ_config.publisherCountry, labelStyle, valStyle);
+      console.log("%callowed_domains:%c", labelStyle, valStyle, CNZ_config.allowed_domains);
+      console.log("%cblockall_iframe:%c " + CNZ_config.blockall_iframe, labelStyle, valStyle);
+      console.log("%ccross_domain:%c " + CNZ_config.cross_domain, labelStyle, valStyle);
+      console.groupEnd();
+
+      // --- Site ---
+      console.group("%c— Site", sectionStyle);
+      if (CNZ_config.user_site) {
+        console.log("%cstatus:%c " + CNZ_config.user_site.status + (CNZ_config.user_site.status == 1 ? " (active)" : " (inactive)"), labelStyle, CNZ_config.user_site.status == 1 ? valStyle : errStyle);
+        console.log("%cdisable_on_pages:%c", labelStyle, valStyle, CNZ_config.user_site.disable_on_pages || []);
+        var isDisabledPage = CNZ_config.user_site.disable_on_pages && CNZ_config.user_site.disable_on_pages.includes(window.location.href);
+        if (isDisabledPage) {
+          console.log("%c⚠ Current page is in disable_on_pages list", warnStyle);
+        }
+      } else {
+        console.log("%c✗ user_site is not set", errStyle);
+      }
+      console.groupEnd();
+
+      // --- Settings ---
+      console.group("%c— Banner Settings", sectionStyle);
+      var s = CNZ_config.settings || {};
+      console.log("%cgeo_target:%c " + (s.geo_target || "all"), labelStyle, valStyle);
+      if (s.geo_target === "selected") {
+        console.log("%cgeo_target_selected:%c", labelStyle, valStyle, s.geo_target_selected || []);
+      }
+      console.log("%cexpires:%c " + (s.expires || "?") + " days", labelStyle, valStyle);
+      console.log("%crenew_consent:%c " + (s.renew_consent || "?"), labelStyle, valStyle);
+      console.log("%cgoogle_consent:%c " + (s.google_consent || 0), labelStyle, valStyle);
+      console.log("%cgtm_id:%c " + (s.gtm_id || "(none)"), labelStyle, valStyle);
+      console.log("%callow_tag_fire:%c " + (s.allow_tag_fire || 0), labelStyle, valStyle);
+      console.log("%cmeta_consent:%c " + (s.meta_consent || 0), labelStyle, valStyle);
+      console.log("%cdefault_laws:%c " + (s.default_laws || "gdpr"), labelStyle, valStyle);
+      console.log("%callow_gpc:%c " + (s.allow_gpc || 0), labelStyle, valStyle);
+      console.log("%callowed_categories:%c", labelStyle, valStyle, s.allowed_categories || []);
+      console.log("%ccookieTypes:%c " + ((s.cookieTypes || []).length) + " categories", labelStyle, valStyle);
+      console.log("%ccookiesList:%c " + ((s.cookiesList || []).length) + " cookies", labelStyle, valStyle);
+      console.log("%cbeaconsList:%c " + ((s.beaconsList || []).length) + " beacons", labelStyle, valStyle);
+      console.groupEnd();
+
+      // --- Framework Rules ---
+      console.group("%c— Framework Rules", sectionStyle);
+      if (_cnzFrameworkRules && Object.keys(_cnzFrameworkRules).length > 0) {
+        console.log("%cRules defined for:%c " + Object.keys(_cnzFrameworkRules).join(", "), labelStyle, valStyle);
+        if (CNZ_config._fw) {
+          console.log("%cResolved rules for visitor:%c", labelStyle, valStyle, CNZ_config._fw);
+        } else {
+          console.log("%c⚠ No framework rules matched for visitor country", warnStyle);
+        }
+      } else {
+        console.log("%c(no framework rules configured)", labelStyle);
+      }
+      if (CNZ_config._skipBlocking) {
+        console.log("%c→ Blocking is skipped (opt-out framework / block_none)", warnStyle);
+      }
+      if (CNZ_config._showDoNotSell) {
+        console.log("%c→ Do Not Sell link required", warnStyle);
+      }
+      if (CNZ_config._gpcOptOut) {
+        console.log("%c→ GPC signal detected — opt-out active", warnStyle);
+      }
+      console.groupEnd();
+
+      // --- Cookies (consent state) ---
+      console.group("%c— Consent State", sectionStyle);
+      var consentCookie = accessCookie("conzentConsent");
+      var prefsCookie = accessCookie("conzentConsentPrefs");
+      var conzentId = accessCookie("conzent_id");
+      var lastRenewed = accessCookie("lastRenewedDate") || Conzent_Cookie.read("lastRenewedDate");
+      console.log("%cconzentConsent:%c " + (consentCookie || "(not set)"), labelStyle, consentCookie === "true" ? okStyle : warnStyle);
+      console.log("%cconzentConsentPrefs:%c " + (prefsCookie ? decodeURIComponent(prefsCookie) : "(not set)"), labelStyle, prefsCookie ? okStyle : warnStyle);
+      console.log("%cconzent_id:%c " + (conzentId || "(not set)"), labelStyle, valStyle);
+      console.log("%clastRenewedDate:%c " + (lastRenewed || "(not set)"), labelStyle, valStyle);
+      if (lastRenewed && s.renew_consent && parseInt(lastRenewed) < parseInt(s.renew_consent)) {
+        console.log("%c⚠ Consent renewal triggered — lastRenewedDate < renew_consent", warnStyle);
+      }
+      console.log("%cdoNotTrack:%c " + navigator.doNotTrack, labelStyle, valStyle);
+      console.groupEnd();
+
+      // --- Banner Visibility Decision ---
+      console.group("%c— Banner Visibility Decision", sectionStyle);
+      if (_cnzDebugLog.length === 0) {
+        console.log("(no decision log entries)");
+      }
+      _cnzDebugLog.forEach(function (entry) {
+        var icon = entry.cat === "show" ? "✓" : entry.cat === "hide" ? "✗" : "→";
+        var style = entry.cat === "show" ? okStyle : entry.cat === "hide" ? errStyle : warnStyle;
+        console.log("%c" + icon + " " + entry.msg, style);
+        if (entry.data !== null) {
+          console.log("  ", entry.data);
+        }
+      });
+      console.groupEnd();
+
+      console.log("%cVersion:%c " + (window._cnzVersion || "unknown"), labelStyle, valStyle);
+      console.log("Learn more at: https://getconzent.com/");
+      console.groupEnd();
     }
     function showInfo() {
       const ec =
         "\n                display: inline-block;\n                font-size: 14px;\n                background: linear-gradient(to right,#22b573,rgb(30, 102, 69), #22b573);\n                color: white;\n                padding: 4px;\n                border-radius: 4px;\n            ";
       let ct = "\n\n";
-      ((ct += "🌐 Google CMP Certified\n"),
-        (ct += "🌐 IAB Europe TCF 2.3 Certified\n"),
-        (ct += "🌐 Google GTM Integration for easy setup\n"),
-        (ct += "🌐 Template based configuration\n"),
-        (ct += "🌐 Advanced features for 100% design control\n"),
-        (ct += "🌐 Language detection: " + CNZ_config.currentLang + "\n"),
+      ((ct += "[web] Google CMP Certified\n"),
+        (ct += "[web] IAB Europe TCF 2.3 Certified\n"),
+        (ct += "[web] Google GTM Integration for easy setup\n"),
+        (ct += "[web] Template based configuration\n"),
+        (ct += "[web] Advanced features for 100% design control\n"),
+        (ct += "[web] Language detection: " + CNZ_config.currentLang + "\n"),
         (ct +=
-          "🌐 Google Consent Mode detected: " +
+          "[web] Google Consent Mode detected: " +
           (CNZ_config.settings.google_consent ? "Yes" : "No") +
           "\n"),
         (ct +=
-          "🌐 Google Tag Manager detected: " +
+          "[web] Google Tag Manager detected: " +
           (CNZ_config.settings.gtm_id ? "Yes" : "No") +
           "\n"),
         (ct +=
-          "🌐 Meta Pixel detected: " +
+          "[web] Meta Pixel detected: " +
           (CNZ_config.settings.meta_consent ? "Yes" : "No") +
           "\n"),
         (ct +=
-          "🌐 Microsoft Consent detected: " +
+          "[web] Microsoft Consent detected: " +
           (CNZ_config.settings.ms_consent ? "Yes" : "No") +
           "\n"),
         (ct += "\n\n"),
@@ -4651,7 +5009,7 @@ if (typeof window._cnzMainLoaded === "undefined") {
           window._cnzVersion +
           "\n\n"),
         console.group(
-          "%cConzent.net - TCF 2.3 & CMP Certified Cookie Solution",
+          "%cConzent - TCF 2.3 & Google CMP Certified Cookie Solution",
           ec,
         ),
         console.log(`%c${ct}`, "font-size: 14px;"),
@@ -4759,6 +5117,11 @@ if (typeof window._cnzMainLoaded === "undefined") {
     }
 
     function loadInit() {
+      // Resolve framework rules if not already done by _loadLocation callback
+      if (!CNZ_config._fw) {
+        _resolveFrameworkRules();
+      }
+
       var show_banner = _showBanner();
 
       // Initialize cookie consent banner
@@ -4767,9 +5130,30 @@ if (typeof window._cnzMainLoaded === "undefined") {
 
       // If consent is not accepted
 
-      var preferences_selected = PrefsValue_new ? JSON.parse(PrefsValue_new) : null;
+      var preferences_selected = PrefsValue_new
+        ? JSON.parse(PrefsValue_new)
+        : null;
 
       let ConsentExists = cookieExists("conzentConsent");
+
+      // Debug: log consent state decisions
+      if (ConsentExists) {
+        _cnzDebug("info", "Existing consent cookie found: conzentConsent=" + accessCookie("conzentConsent"));
+      } else {
+        _cnzDebug("info", "No existing consent cookie (first visit or expired)");
+      }
+      if (preferences_selected) {
+        _cnzDebug("info", "Consent preferences found: " + JSON.stringify(preferences_selected));
+      } else {
+        _cnzDebug("info", "No consent preferences cookie set");
+      }
+      if (!show_banner && Object.keys(CNZ_config.settings).length === 0) {
+        _cnzDebug("hide", "Settings object is empty — banner cannot render");
+      }
+
+      // Debug state is fired after Conzent.init() completes (via setTimeout in ConzentFN),
+      // so schedule it with a small delay to capture all decisions.
+      setTimeout(function() { _showDebugState(); }, 500);
 
       if (preferences_selected) {
         preferences_selected.forEach((field) => {
@@ -4803,6 +5187,19 @@ if (typeof window._cnzMainLoaded === "undefined") {
             1,
           );
 
+          lastRenewedDate = CNZ_config.settings.renew_consent;
+        }
+
+        // If lastRenewedDate was never set (first visit — conzent_id may have
+        // been created by the early loader), initialise it now so the renewal
+        // check below does not mistakenly fire.
+        if (!lastRenewedDate) {
+          Conzent_Cookie.set(
+            "lastRenewedDate",
+            CNZ_config.settings.renew_consent,
+            CNZ_config.settings.expires,
+            1,
+          );
           lastRenewedDate = CNZ_config.settings.renew_consent;
         }
 
@@ -4912,7 +5309,12 @@ if (typeof window._cnzMainLoaded === "undefined") {
       // Deferring to window.load causes GTM to read consent as "Unknown".
       setup_gcm();
       setup_meta_consent();
-      setup_gtm_inject();
+      // In Advanced mode (allow_tag_fire=1), inject GTM immediately — tags
+      // fire with denied defaults and send cookieless pings.
+      // In Basic mode (allow_tag_fire=0), only inject GTM after consent exists.
+      if (CNZ_config.settings.allow_tag_fire == 1 || preferences_selected || ConsentExists) {
+        setup_gtm_inject();
+      }
 
       if (preferences_selected || ConsentExists) {
         setup_msconsent("update");
@@ -5016,7 +5418,7 @@ if (typeof window._cnzMainLoaded === "undefined") {
       [LOAD_LOCATION][LOAD_CONFIG][DIRECT_LOAD];
     })();
 
-    if (window.location.href.indexOf("conzent.net/app") > -1) {
+    if (window.location.href.indexOf("app.getconzent.com") > -1) {
       //nothing to do
     } else {
       var show_banner_iab = _showBanner();

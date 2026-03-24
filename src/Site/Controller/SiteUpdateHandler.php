@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace OCI\Site\Controller;
 
 use OCI\Banner\Service\ScriptGenerationService;
+use OCI\Compliance\Repository\PrivacyFrameworkRepositoryInterface;
 use OCI\Http\Handler\RequestHandlerInterface;
 use OCI\Http\Response\ApiResponse;
+use OCI\Monetization\Service\SubscriptionService;
+use OCI\Shared\Service\EditionService;
 use OCI\Site\Repository\LanguageRepositoryInterface;
 use OCI\Site\Repository\SiteRepositoryInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -25,6 +28,9 @@ final class SiteUpdateHandler implements RequestHandlerInterface
         private readonly SiteRepositoryInterface $siteRepository,
         private readonly LanguageRepositoryInterface $languageRepo,
         private readonly ScriptGenerationService $scriptService,
+        private readonly PrivacyFrameworkRepositoryInterface $frameworkRepo,
+        private readonly EditionService $edition,
+        private readonly ?SubscriptionService $subscriptionService = null,
     ) {}
 
     public function handle(ServerRequestInterface $request): ResponseInterface
@@ -90,7 +96,27 @@ final class SiteUpdateHandler implements RequestHandlerInterface
             if (!\in_array($status, $allowedStatuses, true)) {
                 return ApiResponse::error('Invalid status. Allowed: ' . implode(', ', $allowedStatuses), 422);
             }
+
+            // Enforce plan limit when activating a site
+            if ($status === 'active' && $this->edition->arePlanLimitsEnforced() && $this->subscriptionService !== null) {
+                $maxDomains = $this->subscriptionService->getAllowedDomainCount($userId);
+                if ($maxDomains > 0) {
+                    $activeCount = $this->siteRepository->countActiveByUser($userId);
+                    if ($activeCount >= $maxDomains) {
+                        return ApiResponse::error(
+                            'You have reached your plan limit of ' . $maxDomains . ' active site' . ($maxDomains !== 1 ? 's' : '') . '. Please upgrade your plan or disable another site first.',
+                            422,
+                        );
+                    }
+                }
+            }
+
             $data['status'] = $status;
+
+            // Clear suspended_reason when activating
+            if ($status === 'active') {
+                $data['suspended_reason'] = null;
+            }
         }
 
         if (isset($body['banner_type'])) {
@@ -100,6 +126,20 @@ final class SiteUpdateHandler implements RequestHandlerInterface
                 return ApiResponse::error('Invalid banner type. Allowed: ' . implode(', ', $allowedTypes), 422);
             }
             $data['display_banner_type'] = $bannerType;
+        }
+
+        // Derive display_banner_type from frameworks if provided
+        if (isset($body['frameworks']) && \is_array($body['frameworks'])) {
+            $fwIds = array_filter(array_map('trim', $body['frameworks']));
+            $hasGdpr = \in_array('gdpr', $fwIds, true) || \in_array('eprivacy_directive', $fwIds, true);
+            $hasCcpa = \in_array('ccpa_cpra', $fwIds, true);
+            if ($hasGdpr && $hasCcpa) {
+                $data['display_banner_type'] = 'gdpr_ccpa';
+            } elseif ($hasCcpa) {
+                $data['display_banner_type'] = 'ccpa';
+            } elseif ($hasGdpr) {
+                $data['display_banner_type'] = 'gdpr';
+            }
         }
 
         if (array_key_exists('gcm_config_status', $body)) {
@@ -127,19 +167,35 @@ final class SiteUpdateHandler implements RequestHandlerInterface
             $this->syncLanguages($siteId, array_map('intval', $body['language_ids']));
         }
 
-        // Regenerate consent script when GTM settings or banner type change
+        // Sync frameworks if provided
+        $frameworksChanged = false;
+        if (isset($body['frameworks']) && \is_array($body['frameworks'])) {
+            $fwIds = array_filter(array_map('trim', $body['frameworks']));
+            $this->frameworkRepo->setFrameworksForSite($siteId, $fwIds);
+            $frameworksChanged = true;
+        }
+
+        // Regenerate consent script when GTM settings, banner type, or frameworks change
         $scriptAffected = array_key_exists('gtm_container_id', $body)
             || array_key_exists('gtm_data_layer', $body)
-            || isset($body['banner_type']);
+            || isset($body['banner_type'])
+            || $frameworksChanged;
+
+        $scriptGenerated = null;
         if ($scriptAffected) {
             try {
-                $this->scriptService->generate($siteId);
+                $scriptGenerated = $this->scriptService->generate($siteId);
             } catch (\Throwable) {
-                // Script regeneration failure is non-fatal
+                $scriptGenerated = false;
             }
         }
 
-        return ApiResponse::success(['message' => 'Site updated']);
+        $response = ['message' => 'Site updated'];
+        if ($scriptGenerated === false) {
+            $response['warning'] = 'Site saved but script regeneration failed. Try saving banner settings to regenerate.';
+        }
+
+        return ApiResponse::success($response);
     }
 
     /**

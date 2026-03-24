@@ -33,6 +33,8 @@ final readonly class CustomerDashboardData
         public int $complianceScore,
         public string $complianceStatus,
         public array $scanInfo,
+        /** @var array{total: int, necessary: int, non_necessary: int, unclassified: int, categories: array<string, int>, status: string} */
+        public array $scanAnalysis,
         public array $nextScan,
         public array $wizardData,
         public array $recommendations,
@@ -48,5 +50,9 @@ final readonly class CustomerDashboardData
         public bool $checkIab,
         /** @var array<string, int|string> */
         public array $planFeatures,
+        public int $pageviewsUsed = 0,
+        public int $pageviewsLimit = 0,
+        /** @var array{frameworks: list<string>, warnings: list<array<string, string>>, merged_rules: array<string, mixed>} */
+        public array $frameworkCompliance = [],
     ) {}
 }

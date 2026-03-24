@@ -66,10 +66,38 @@ Conzent OCI is a production-grade, self-hosted cookie consent management platfor
 curl -sSL https://getconzent.com/install | sh
 ```
 
-This clones the repository, generates secure credentials, starts all containers, and runs database migrations automatically. Customize the install directory with:
+This clones the repository, generates secure credentials, starts all containers, and runs database migrations automatically.
+
+#### Installer Options
+
+| Option | Description |
+|--------|-------------|
+| `--dir DIR` | Installation directory (default: `./conzent`) |
+| `--branch NAME` | Git branch to clone (default: `main`) |
+| `--admin-email EMAIL` | Admin account email (prompted if omitted) |
+| `--admin-password PASS` | Admin account password (auto-generated if omitted) |
+| `--update` | Update an existing installation (preserves database and config) |
+| `--no-start` | Clone and configure only, don't start containers |
+| `--config` | Show saved admin credentials and app URL |
+| `--uninstall` | Stop containers and remove the installation |
+
+**Examples:**
 
 ```bash
+# Install to a custom directory
 curl -sSL https://getconzent.com/install | sh -s -- --dir /opt/conzent
+
+# Update an existing installation
+curl -sSL https://getconzent.com/install | sh -s -- --update
+
+# Fully automated install (CI/scripting)
+curl -sSL https://getconzent.com/install | sh -s -- --admin-email admin@example.com --admin-password secret123
+
+# Show saved credentials
+curl -sSL https://getconzent.com/install | sh -s -- --config
+
+# Uninstall
+curl -sSL https://getconzent.com/install | sh -s -- --uninstall
 ```
 
 ### Using Docker

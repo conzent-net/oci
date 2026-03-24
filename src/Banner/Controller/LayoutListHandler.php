@@ -9,7 +9,7 @@ use OCI\Dashboard\Service\DashboardService;
 use OCI\Http\Handler\RequestHandlerInterface;
 use OCI\Http\Response\ApiResponse;
 use OCI\Monetization\Service\PricingService;
-use OCI\Shared\Repository\PlanRepositoryInterface;
+use OCI\Monetization\Service\SubscriptionService;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Twig\Environment as TwigEnvironment;
@@ -22,9 +22,9 @@ final class LayoutListHandler implements RequestHandlerInterface
     public function __construct(
         private readonly DashboardService $dashboardService,
         private readonly LayoutService $layoutService,
-        private readonly PlanRepositoryInterface $planRepo,
         private readonly PricingService $pricingService,
         private readonly TwigEnvironment $twig,
+        private readonly ?SubscriptionService $subscriptionService = null,
     ) {}
 
     public function handle(ServerRequestInterface $request): ResponseInterface
@@ -44,10 +44,15 @@ final class LayoutListHandler implements RequestHandlerInterface
         $systemLayouts = $this->layoutService->getSystemLayouts('gdpr');
         $customLayouts = $this->layoutService->getCustomLayouts($siteId);
 
-        // Layout limit for the UI
+        // Layout limit for the UI — custom layouts require business plan (prevents branding bypass)
+        // Self-hosted (no SubscriptionService): all features unlocked
+        // Cloud with no/personal plan: custom_layouts feature blocked
         $userId = (int) $user['id'];
-        $maxLayouts = $this->resolveLimit($userId, 'max_layouts');
-        $canDuplicate = $maxLayouts === 0 || \count($customLayouts) < $maxLayouts;
+        $isCloud = $this->subscriptionService !== null;
+        $planKey = $this->subscriptionService?->getPlanKey($userId);
+        $maxLayouts = $planKey !== null ? $this->pricingService->getLimit($planKey, 'max_layouts') : 0;
+        $hasCustomLayouts = !$isCloud || ($planKey !== null && $this->pricingService->hasFeature($planKey, 'custom_layouts'));
+        $canDuplicate = $hasCustomLayouts && ($maxLayouts === 0 || \count($customLayouts) < $maxLayouts);
 
         $html = $this->twig->render('pages/layouts/list.html.twig', [
             'title' => 'Layouts',
@@ -62,24 +67,5 @@ final class LayoutListHandler implements RequestHandlerInterface
         ]);
 
         return ApiResponse::html($html);
-    }
-
-    private function resolveLimit(int $userId, string $limitKey): int
-    {
-        if ($this->planRepo->isEnterprise($userId)) {
-            return 0;
-        }
-
-        $userPlan = $this->planRepo->getUserPlan($userId);
-        if ($userPlan === null) {
-            return 0;
-        }
-
-        $planKey = $userPlan['plan_key'] ?? null;
-        if ($planKey !== null) {
-            return $this->pricingService->getLimit($planKey, $limitKey);
-        }
-
-        return 0;
     }
 }

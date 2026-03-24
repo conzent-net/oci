@@ -7,20 +7,26 @@
 #}
 {% extends "gdpr/base.html.twig" %}
 
-{% block banner_body %}
-<div class="content-wrap" style="display:flex;align-items:center;gap:16px;">
-  <div class="msg-wrap" style="color:{{ colors.notice_description }};flex:1;">
-    {% if iab|default(false) %}[conzent_iab_notice_description]{% else %}[conzent_cookie_notice_message]{% endif %}
-    {{ privacy_policy_link|raw }}
-  </div>
-  <div class="btn-wrap" style="flex-direction:column;gap:6px;min-width:180px;">
-    {{ buttons_html|raw }}
-  </div>
-</div>
-{% endblock %}
+{% block banner %}
+<div id="Conzent" tabindex="0" class="conzent-{{ banner_type }}{{ display_position }} cnz-stacked">
+  <div class="conzent-inner-content-box" style="border:1px solid {{ colors.notice_border }};background-color:{{ colors.notice_bg }}">
+    <div class="conzent-notice">
+      <p class="title-wrap" style="color:{{ colors.notice_title }}">{{ logo_html|raw }} [conzent_cookie_notice_banner_title]</p>
 
-{% block banner_footer %}
-<div class="conzent-branding" style="display:flex;justify-content:flex-end;padding:6px 0 0;font-size:11px;opacity:0.7;">
-  {{ branding_html|raw }}
+      <div class="content-wrap">
+        <div class="msg-wrap" style="color:{{ colors.notice_description }}">
+          {% if iab|default(false) %}[conzent_iab_notice_description]{% else %}[conzent_cookie_notice_message]{% endif %}
+          {{ privacy_policy_link|raw }}
+        </div>
+        <div class="btn-wrap">
+          {{ buttons_html|raw }}
+        </div>
+      </div>
+
+      <div class="conzent-branding" style="display:flex;justify-content:flex-end;padding:6px 0 0;font-size:11px;opacity:0.7;">
+        {{ branding_html|raw }}
+      </div>
+    </div>
+  </div>
 </div>
 {% endblock %}

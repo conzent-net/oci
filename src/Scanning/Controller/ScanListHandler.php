@@ -83,9 +83,9 @@ final class ScanListHandler implements RequestHandlerInterface
             ],
         ];
 
-        // htmx partial
+        // htmx partial — includes notification + table wrapped in swap target
         if ($request->getHeaderLine('HX-Request') === 'true') {
-            $html = $this->twig->render('pages/scans/_scan_table.html.twig', $data);
+            $html = $this->twig->render('pages/scans/_scan_content.html.twig', $data);
             return ApiResponse::html($html);
         }
 

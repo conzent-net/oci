@@ -9,6 +9,8 @@ use OCI\Banner\Repository\BannerRepositoryInterface;
 use OCI\Banner\Service\ScriptGenerationService;
 use OCI\Http\Handler\RequestHandlerInterface;
 use OCI\Http\Response\ApiResponse;
+use OCI\Monetization\Service\PricingService;
+use OCI\Monetization\Service\SubscriptionService;
 use OCI\Site\Repository\SiteRepositoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -29,6 +31,8 @@ final class BannerUpdateHandler implements RequestHandlerInterface
         private readonly SiteRepositoryInterface $siteRepo,
         private readonly ScriptGenerationService $scriptService,
         private readonly AuditLogService $auditLogService,
+        private readonly PricingService $pricingService,
+        private readonly ?SubscriptionService $subscriptionService = null,
     ) {}
 
     public function handle(ServerRequestInterface $request): ResponseInterface
@@ -60,6 +64,18 @@ final class BannerUpdateHandler implements RequestHandlerInterface
         $data = [];
         $settingSections = ['general_setting', 'layout_setting', 'content_setting', 'color_setting'];
 
+        // Enforce plan gate: strip disable_branding if user lacks custom_branding feature
+        if (isset($body['content_setting']) && is_array($body['content_setting'])) {
+            $canRemoveBranding = true;
+            if ($this->subscriptionService !== null) {
+                $planKey = $this->subscriptionService->getPlanKey($userId);
+                $canRemoveBranding = $planKey !== null && $this->pricingService->hasFeature($planKey, 'custom_branding');
+            }
+            if (!$canRemoveBranding) {
+                unset($body['content_setting']['disable_branding']);
+            }
+        }
+
         foreach ($settingSections as $section) {
             if (isset($body[$section]) && is_array($body[$section])) {
                 $data[$section] = json_encode($body[$section], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
@@ -86,7 +102,7 @@ final class BannerUpdateHandler implements RequestHandlerInterface
                 'block_iframe', 'banner_delay_ms', 'include_all_languages',
                 'tag_fire_enabled', 'gcm_enabled', 'meta_consent_enabled', 'uet_enabled',
                 'clarity_enabled', 'amazon_consent_enabled',
-                'gtm_container_id', 'gtm_data_layer', 'disable_on_pages',
+                'gtm_container_id', 'gtm_data_layer', 'disable_on_pages', 'allowed_scripts',
             ];
 
             foreach ($allowedSiteFields as $field) {

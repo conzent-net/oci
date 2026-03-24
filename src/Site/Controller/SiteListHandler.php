@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace OCI\Site\Controller;
 
+use OCI\Compliance\Repository\PrivacyFrameworkRepositoryInterface;
+use OCI\Compliance\Service\PrivacyFrameworkService;
 use OCI\Http\Handler\RequestHandlerInterface;
 use OCI\Http\Response\ApiResponse;
 use OCI\Shared\Repository\PlanRepositoryInterface;
@@ -33,6 +35,8 @@ final class SiteListHandler implements RequestHandlerInterface
         private readonly LanguageRepositoryInterface $languageRepo,
         private readonly EditionService $edition,
         private readonly TwigEnvironment $twig,
+        private readonly PrivacyFrameworkService $frameworkService,
+        private readonly PrivacyFrameworkRepositoryInterface $frameworkRepo,
         private readonly ?SubscriptionService $subscriptionService = null,
     ) {}
 
@@ -72,33 +76,38 @@ final class SiteListHandler implements RequestHandlerInterface
                 $hasSubscription = $this->subscriptionService->hasActiveAccess($userId);
                 $maxDomains = $this->subscriptionService->getAllowedDomainCount($userId);
 
-                // Allow adding sites even without subscription (they'll be suspended).
-                // Only block when user has a subscription but hit the domain limit.
+                // Sites can always be added (excess will be suspended).
+                // But hide the add button when at limit to guide users to upgrade.
                 if ($hasSubscription && $maxDomains > 0) {
-                    $activeSiteCount = $this->siteRepository->countByUser($userId);
+                    $activeSiteCount = $this->siteRepository->countActiveByUser($userId);
                     $canAddSite = $activeSiteCount < $maxDomains;
                 }
             }
         }
 
-        // Attach language IDs to each site (for the edit modal)
+        // Attach language IDs and framework IDs to each site (for the edit modal)
         foreach ($sites as &$site) {
             $siteLangs = $this->languageRepo->getSiteLanguages((int) $site['id']);
             $site['language_ids'] = array_map(
                 static fn(array $l): int => (int) ($l['language_id'] ?? $l['id'] ?? 0),
                 $siteLangs,
             );
+            $site['framework_ids'] = $this->frameworkRepo->getFrameworksForSite((int) $site['id']);
         }
         unset($site);
 
         // Count by status for filter badges (include deleted for accurate counts)
         $allSitesUnfiltered = $this->siteRepository->findAllByUser($userId, includeDeleted: true);
         $statusCounts = ['all' => 0, 'active' => 0, 'disabled' => 0, 'deleted' => 0, 'suspended' => 0];
+        $planLimitSuspendedCount = 0;
         foreach ($allSitesUnfiltered as $s) {
             $statusCounts['all']++;
             $st = (string) ($s['status'] ?? '');
             if (isset($statusCounts[$st])) {
                 $statusCounts[$st]++;
+            }
+            if ($st === 'suspended' && ($s['suspended_reason'] ?? '') === 'plan_limit') {
+                $planLimitSuspendedCount++;
             }
         }
 
@@ -113,7 +122,10 @@ final class SiteListHandler implements RequestHandlerInterface
             'hasSubscription' => $hasSubscription,
             'maxDomains' => $maxDomains,
             'isEnterprise' => $isEnterprise,
+            'planLimitSuspendedCount' => $planLimitSuspendedCount,
+            'activeSiteCount' => $statusCounts['active'],
             'languages' => $this->languageRepo->getAllLanguages(),
+            'groupedFrameworks' => $this->frameworkService->getFrameworksGroupedByRegion(),
             'autoOpenCreate' => $autoOpenCreate,
         ];
 

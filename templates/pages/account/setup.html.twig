@@ -9,6 +9,112 @@
         Tell us a bit about yourself and your company to get started.
     </p>
 
+    {% if legacy_preview is not null %}
+    <div x-data="legacyMigration()" class="mb-5" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:1.25rem">
+        <p class="has-text-weight-semibold mb-2" style="font-size:0.9rem;color:#166534">
+            <i class="fas fa-arrow-right-arrow-left" style="margin-right:0.35rem"></i> Existing Conzent account found
+        </p>
+        <p style="font-size:0.85rem;color:#15803d" class="mb-3">
+            We found an account matching <strong>{{ user.email }}</strong> with
+            <strong>{{ legacy_preview.total_sites }}</strong> site(s).
+            Import your websites and company info to get started quickly.
+        </p>
+        <p style="font-size:0.8rem;color:#166534" class="mb-3">
+            <i class="fas fa-info-circle" style="margin-right:0.25rem"></i>
+            Only your website domains and company details are imported.
+            Banner design, colors, and other customisations will need to be set up fresh.
+            A subscription is required before your sites can go live.
+        </p>
+
+        <button class="button is-success" type="button"
+                @click="showConfirm = true"
+                :disabled="migrating"
+                :class="migrating && 'is-loading'">
+            <span class="icon"><i class="fas fa-download"></i></span>
+            <span>Import from existing account</span>
+        </button>
+
+        <template x-if="result">
+            <div class="notification mt-4" style="border-radius:10px"
+                 :class="result.migrated_sites > 0 ? 'is-success is-light' : 'is-warning is-light'">
+                <p><strong x-text="result.migrated_sites"></strong> site(s) imported.
+                   <template x-if="result.skipped_sites > 0">
+                       <span> <strong x-text="result.skipped_sites"></strong> skipped (domain already exists).</span>
+                   </template>
+                </p>
+                <template x-if="result.errors && result.errors.length > 0">
+                    <ul class="mt-2" style="font-size:0.85rem">
+                        <template x-for="err in result.errors"><li x-text="err"></li></template>
+                    </ul>
+                </template>
+            </div>
+        </template>
+
+        <template x-if="errorMsg">
+            <div class="notification is-danger is-light mt-4" style="border-radius:10px">
+                <button class="delete" @click="errorMsg = null"></button>
+                <span x-text="errorMsg"></span>
+            </div>
+        </template>
+
+        {# Confirmation modal #}
+        <div class="modal" :class="showConfirm && 'is-active'">
+            <div class="modal-background" @click="showConfirm = false"></div>
+            <div class="modal-card" style="max-width:520px">
+                <header class="modal-card-head">
+                    <p class="modal-card-title">Import from existing account</p>
+                    <button class="delete" aria-label="close" @click="showConfirm = false"></button>
+                </header>
+                <section class="modal-card-body">
+                    <p class="mb-3">This will import the following from your previous Conzent account:</p>
+                    <ul class="ml-4 mb-3" style="list-style:disc;font-size:0.9rem">
+                        <li>Company information (name, address, VAT)</li>
+                        <li><strong>{{ legacy_preview.migratable_sites }}</strong> website domain(s)</li>
+                    </ul>
+                    <p class="mb-3" style="font-size:0.85rem;color:#64748b">
+                        Site-specific settings (banner design, colors, content) are not migrated and will use defaults.
+                        Your sites will be suspended until you subscribe to a plan.
+                    </p>
+
+                    {% if legacy_preview.sites|length > 0 %}
+                    <div class="table-container">
+                        <table class="table is-fullwidth is-hoverable" style="font-size:0.85rem">
+                            <thead><tr><th>Domain</th><th>Status</th></tr></thead>
+                            <tbody>
+                            {% for site in legacy_preview.sites %}
+                            <tr>
+                                <td>{{ site.domain }}</td>
+                                <td>
+                                    {% if site.status == 'will_migrate' %}
+                                        <span class="tag is-success is-light">Ready</span>
+                                    {% else %}
+                                        <span class="tag is-warning is-light">Skip (exists)</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% endif %}
+                </section>
+                <footer class="modal-card-foot" style="justify-content:flex-end">
+                    <button class="button" @click="showConfirm = false">Cancel</button>
+                    <button class="button is-success" @click="migrate()" :class="migrating && 'is-loading'" :disabled="migrating">
+                        <span class="icon"><i class="fas fa-download"></i></span>
+                        <span>Import Now</span>
+                    </button>
+                </footer>
+            </div>
+        </div>
+    </div>
+
+    <div class="has-text-centered mb-4" style="position:relative">
+        <hr style="border:0;border-top:1px solid #e2e8f0;margin:0">
+        <span style="background:#fff;padding:0 0.75rem;position:relative;top:-0.7rem;font-size:0.8rem;color:#94a3b8">or fill in manually</span>
+    </div>
+    {% endif %}
+
     {% if error %}
         <div class="notification is-danger is-light" style="border-radius:10px">
             <button class="delete" onclick="this.parentElement.remove()"></button>
@@ -122,4 +228,44 @@
         </div>
     </form>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function legacyMigration() {
+    return {
+        showConfirm: false,
+        migrating: false,
+        result: null,
+        errorMsg: null,
+        async migrate() {
+            this.migrating = true;
+            this.errorMsg = null;
+            try {
+                const resp = await fetch('/app/account/legacy-migrate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    body: JSON.stringify({_csrf_token: '{{ csrf_token_migrate }}'})
+                });
+                const data = await resp.json();
+                this.showConfirm = false;
+                if (data.success) {
+                    this.result = data.data;
+                    setTimeout(() => window.location.href = '/', 1500);
+                } else {
+                    this.errorMsg = data.error || 'Import failed. Please try again.';
+                }
+            } catch (e) {
+                this.showConfirm = false;
+                this.errorMsg = 'An unexpected error occurred. Please try again.';
+            } finally {
+                this.migrating = false;
+            }
+        }
+    };
+}
+</script>
 {% endblock %}

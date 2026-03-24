@@ -19,6 +19,8 @@
  *   ingest:flush                   Flush beacon buffer to DB (long-running)
  *   schedule:run                   Run scheduled tasks (long-running)
  *   scripts:regenerate             Regenerate consent scripts for all active sites
+ *   cleanup:non-admin-users        Delete all non-admin users and cascaded data
+ *   blog:generate [--max=N]        Generate blog articles from RSS feeds via AI
  *
  * Legacy Migration Options:
  *   --dry-run              Preview without writing data
@@ -441,6 +443,81 @@ match ($command) {
         exit($result['errors'] > 0 ? 1 : 0);
     })(),
 
+    'cleanup:non-admin-users' => (function () use ($container, $argv) {
+        $db = $container->get(\Doctrine\DBAL\Connection::class);
+        $dryRun = \in_array('--dry-run', $argv, true);
+
+        $userCount = (int) $db->fetchOne("SELECT COUNT(*) FROM oci_users WHERE role != 'admin'");
+        $siteCount = (int) $db->fetchOne('SELECT COUNT(*) FROM oci_sites');
+        $orphanSiteCount = (int) $db->fetchOne("SELECT COUNT(*) FROM oci_sites WHERE user_id NOT IN (SELECT id FROM oci_users WHERE role = 'admin')");
+
+        echo "Found {$userCount} non-admin user(s), {$siteCount} total site(s) ({$orphanSiteCount} to remove).\n";
+
+        if ($userCount === 0 && $orphanSiteCount === 0) {
+            echo "Nothing to clean up.\n";
+            return;
+        }
+
+        if ($dryRun) {
+            echo "Dry run — no changes made.\n";
+            $users = $db->fetchAllAssociative("SELECT id, email, role FROM oci_users WHERE role != 'admin' ORDER BY id");
+            foreach ($users as $u) {
+                echo "  Would delete user: #{$u['id']} {$u['email']} ({$u['role']})\n";
+            }
+            $sites = $db->fetchAllAssociative("SELECT id, domain, user_id FROM oci_sites ORDER BY id");
+            foreach ($sites as $s) {
+                echo "  Would delete site: #{$s['id']} {$s['domain']} (user #{$s['user_id']})\n";
+            }
+            return;
+        }
+
+        // Delete all sites first (including any orphans not tied to an admin)
+        $deletedSites = $db->executeStatement("DELETE FROM oci_sites WHERE user_id NOT IN (SELECT id FROM oci_users WHERE role = 'admin')");
+        echo "Deleted {$deletedSites} site(s) and all cascaded data (banners, consents, etc.).\n";
+
+        // Then delete non-admin users
+        $deletedUsers = $db->executeStatement("DELETE FROM oci_users WHERE role != 'admin'");
+        echo "Deleted {$deletedUsers} user(s) and all cascaded data.\n";
+
+        // Also reset legacy_migrated_at so admin can re-test
+        $db->executeStatement("UPDATE oci_users SET legacy_migrated_at = NULL WHERE role = 'admin'");
+        echo "Reset legacy_migrated_at on admin user(s).\n";
+    })(),
+
+    'blog:generate' => (function () use ($container, $argv) {
+        $maxArticles = 5;
+        foreach ($argv as $arg) {
+            if (str_starts_with($arg, '--max=')) {
+                $maxArticles = (int) substr($arg, 6);
+            }
+        }
+
+        $blogService = $container->get(\OCI\Modules\Blog\Service\BlogService::class);
+        $logger = $container->get(\Psr\Log\LoggerInterface::class);
+
+        echo "╔══════════════════════════════════════════╗\n";
+        echo "║   Conzent Blog — AI Content Generator     ║\n";
+        echo "╚══════════════════════════════════════════╝\n\n";
+        echo "Max articles per run: {$maxArticles}\n\n";
+
+        $started = microtime(true);
+        $stats = $blogService->runPipeline($maxArticles);
+        $elapsed = round(microtime(true) - $started, 2);
+
+        echo "\n";
+        echo "═══════════════════════════════════════════\n";
+        echo " Feeds fetched:      {$stats['feeds_fetched']}\n";
+        echo " New feed items:     {$stats['new_items']}\n";
+        echo " Articles generated: {$stats['articles_generated']}\n";
+        echo " Errors:             {$stats['errors']}\n";
+        echo " Time:               {$elapsed}s\n";
+        echo "═══════════════════════════════════════════\n";
+
+        if ($stats['articles_generated'] > 0) {
+            echo "\nArticles created as drafts. Review at /app/blog\n";
+        }
+    })(),
+
     default => (function () use ($command) {
         echo "OCI — Open Consent Infrastructure CLI\n\n";
         if ($command !== 'help') {
@@ -457,6 +534,8 @@ match ($command) {
         echo "  schedule:run                   Run scheduled tasks\n";
         echo "  scripts:regenerate             Regenerate all consent scripts\n";
         echo "  cache:purge-loader             Purge CMP loader from Cloudflare edge\n";
+        echo "  cleanup:non-admin-users        Delete all non-admin users and cascaded data\n";
+        echo "  blog:generate [--max=N]        Generate blog articles from RSS feeds (default: 5)\n";
         echo "\n";
     })(),
 };

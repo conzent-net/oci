@@ -5,9 +5,13 @@ declare(strict_types=1);
 namespace OCI\Consent\Controller;
 
 use Doctrine\DBAL\Connection;
+use OCI\Banner\Service\ScriptGenerationService;
 use OCI\Http\Handler\RequestHandlerInterface;
 use OCI\Http\Response\ApiResponse;
+use OCI\Monetization\Service\PricingService;
+use OCI\Monetization\Service\SubscriptionService;
 use OCI\Scanning\Service\BeaconBufferService;
+use OCI\Site\Repository\PageviewRepositoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 
@@ -27,6 +31,10 @@ final class PageviewLogHandler implements RequestHandlerInterface
     public function __construct(
         private readonly Connection $db,
         private readonly BeaconBufferService $beaconBuffer,
+        private readonly ?PageviewRepositoryInterface $pageviewRepo = null,
+        private readonly ?PricingService $pricingService = null,
+        private readonly ?SubscriptionService $subscriptionService = null,
+        private readonly ?ScriptGenerationService $scriptService = null,
     ) {}
 
     public function handle(ServerRequestInterface $request): ResponseInterface
@@ -66,12 +74,52 @@ final class PageviewLogHandler implements RequestHandlerInterface
                  ON DUPLICATE KEY UPDATE pageview_count = pageview_count + 1',
                 ['siteId' => $siteId, 'date' => $today],
             );
+
+            // Check if monthly pageview limit just crossed
+            $this->checkPageviewLimit($siteId, $websiteKey);
         }
 
         // Buffer cookie observations for ALL request types (banner_load, banner_view, consent_cookies)
         $this->bufferCookieObservations($siteId, $websiteKey, $body);
 
         return $this->corsResponse(ApiResponse::json(['status' => 'ok'], 200));
+    }
+
+    /**
+     * Check if the user's monthly pageview limit has been exceeded.
+     * If so, mark the site's version.json so the loader shows a warning instead of the banner.
+     */
+    private function checkPageviewLimit(int $siteId, string $websiteKey): void
+    {
+        if ($this->pageviewRepo === null || $this->pricingService === null
+            || $this->subscriptionService === null || $this->scriptService === null) {
+            return;
+        }
+
+        $userId = $this->db->fetchOne(
+            'SELECT user_id FROM oci_sites WHERE id = :id',
+            ['id' => $siteId],
+        );
+
+        if ($userId === false) {
+            return;
+        }
+
+        $userId = (int) $userId;
+        $planKey = $this->subscriptionService->getPlanKey($userId);
+        if ($planKey === null) {
+            return;
+        }
+
+        $limit = $this->pricingService->getLimit($planKey, 'pageviews_per_month');
+        if ($limit <= 0) {
+            return; // Unlimited
+        }
+
+        $used = $this->pageviewRepo->getMonthlyTotalForUser($userId);
+        if ($used >= $limit) {
+            $this->scriptService->markSiteExceeded($websiteKey);
+        }
     }
 
     /**

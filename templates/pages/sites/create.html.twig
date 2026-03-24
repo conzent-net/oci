@@ -164,6 +164,51 @@
                 <p class="help">Optional — you can add this later in site settings</p>
             </div>
 
+            {# ── Privacy Framework Selection ────────────── #}
+            {% if groupedFrameworks is defined and groupedFrameworks|length > 0 %}
+            <div class="field mt-5">
+                <label class="label">
+                    Privacy Frameworks
+                    <span class="has-text-grey has-text-weight-normal is-size-7 ml-1">Select the regulations that apply to your visitors</span>
+                </label>
+
+                {% for groupKey, group in groupedFrameworks %}
+                <p class="has-text-weight-semibold is-size-7 has-text-grey mt-3 mb-2">
+                    <span class="icon is-small"><i class="fas fa-globe"></i></span>
+                    {{ group.label }}
+                </p>
+                <div class="columns is-multiline is-gapless">
+                    {% for fw in group.frameworks %}
+                    <div class="column is-6">
+                        <label class="checkbox is-size-7 py-1 px-2 is-block"
+                               :class="{'has-text-primary has-text-weight-semibold': form.frameworks.includes('{{ fw.id }}')}"
+                               style="cursor: pointer; border-radius: 4px;"
+                               @mouseenter="$el.style.backgroundColor='#f5f5f5'" @mouseleave="$el.style.backgroundColor=''">
+                            <input type="checkbox"
+                                   name="frameworks[]"
+                                   value="{{ fw.id }}"
+                                   class="mr-1"
+                                   x-model="form.frameworks"
+                                   {{ fw.id in (old.frameworks ?? ['gdpr', 'eprivacy_directive']) ? 'checked' : '' }}>
+                            {{ fw.name }}
+                            {% if fw.consent.model is defined %}
+                            <span class="tag is-rounded ml-1 {{ fw.consent.model == 'opt_in' ? 'is-danger' : (fw.consent.model == 'opt_out' ? 'is-warning' : 'is-info') }} is-light" style="font-size: 0.6rem; height: 1.2em;">
+                                {{ fw.consent.model | replace({'_': '-'}) }}
+                            </span>
+                            {% endif %}
+                        </label>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endfor %}
+
+                <p class="help mt-2">
+                    <span class="icon is-small"><i class="fas fa-info-circle"></i></span>
+                    GDPR and ePrivacy Directive are pre-selected as defaults. You can change this later under <strong>Privacy Frameworks</strong>.
+                </p>
+            </div>
+            {% endif %}
+
             {% if isFirstSite %}
             {# ── First-time: extra info box ────────────── #}
             <div class="message is-info mt-5">
@@ -174,7 +219,7 @@
                     </p>
                     <ul class="ml-4" style="list-style: disc;">
                         <li>We'll create your site and start scanning for cookies automatically</li>
-                        <li>A default consent banner (GDPR) will be set up with recommended settings</li>
+                        <li>A consent banner will be set up based on your selected privacy frameworks</li>
                         <li>You'll be taken to your dashboard to configure the banner and install the script</li>
                     </ul>
                 </div>
@@ -227,8 +272,8 @@
                 <span class="icon is-large has-text-success">
                     <i class="fas fa-check-double fa-2x"></i>
                 </span>
-                <h3 class="title is-5 mt-3">GDPR &amp; CCPA Ready</h3>
-                <p class="has-text-grey">Our consent banner supports Google Consent Mode v2 out of the box.</p>
+                <h3 class="title is-5 mt-3">20+ Privacy Frameworks</h3>
+                <p class="has-text-grey">GDPR, CCPA, LGPD, POPIA, and more — with geo-aware consent rules per visitor.</p>
             </div>
         </div>
         <div class="column">
@@ -253,7 +298,8 @@ function createSitePage() {
         form: {
             domain: '{{ old.domain ?? '' }}',
             siteName: '{{ old.site_name ?? '' }}',
-            privacyPolicyUrl: '{{ old.privacy_policy_url ?? '' }}'
+            privacyPolicyUrl: '{{ old.privacy_policy_url ?? '' }}',
+            frameworks: {{ old.frameworks is defined ? old.frameworks | json_encode | raw : "['gdpr', 'eprivacy_directive']" }}
         },
 
         handleSubmit(event) {

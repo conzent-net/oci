@@ -76,10 +76,18 @@
                         <span class="icon is-small"><i class="fas fa-eye"></i></span>
                         <span>Preview</span>
                     </a>
+                    {% if canDuplicate %}
                     <a class="card-footer-item" @click.prevent="duplicateLayout('gdpr/{{ slug }}', '{{ layout.name }}')">
                         <span class="icon is-small"><i class="fas fa-copy"></i></span>
                         <span>Duplicate</span>
                     </a>
+                    {% else %}
+                    <span class="card-footer-item has-text-grey-light" style="cursor: not-allowed;" title="Upgrade to duplicate more layouts">
+                        <span class="icon is-small"><i class="fas fa-copy"></i></span>
+                        <span>Duplicate</span>
+                        <span class="tag is-warning is-light ml-2" style="font-size: 0.65rem;">Upgrade</span>
+                    </span>
+                    {% endif %}
                 </footer>
             </div>
         </div>
@@ -145,10 +153,18 @@
                 <iframe id="previewModalFrame" class="preview-modal-iframe" x-show="!previewLoading" sandbox="allow-same-origin allow-scripts"></iframe>
             </section>
             <footer class="modal-card-foot">
+                {% if canDuplicate %}
                 <button class="button is-primary" @click="closePreview(); duplicateLayout(previewKey, previewName)">
                     <span class="icon is-small"><i class="fas fa-copy"></i></span>
                     <span>Duplicate</span>
                 </button>
+                {% else %}
+                <button class="button is-primary" disabled title="Upgrade to duplicate more layouts">
+                    <span class="icon is-small"><i class="fas fa-copy"></i></span>
+                    <span>Duplicate</span>
+                    <span class="tag is-warning is-light ml-2" style="font-size: 0.65rem;">Upgrade</span>
+                </button>
+                {% endif %}
                 <button class="button" @click="closePreview()">Close</button>
             </footer>
         </div>

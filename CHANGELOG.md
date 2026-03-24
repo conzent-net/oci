@@ -4,6 +4,49 @@ All notable changes to the Conzent OCI core will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/).
 
+## [v2.3.0] - 2026-03-24
+
+### Added
+- **Privacy Framework** — Full privacy/cookie policy framework with multi-step generation, template support, and per-site customization
+- **Pageview usage bar** — Dashboard now shows pageview usage with exceeded notice and plan upgrade prompts
+- **Compliance score & recommendations** — Dashboard compliance score widget with actionable recommendation checklist
+- **Help & support pages** — In-app help center with support documentation
+
+### Changed
+- **Dashboard layout** — Redesigned dashboard with improved layout and richer statistics
+- **Banner script engine** — Script minification, GTM integration fixes, IAB TCF error handling improvements
+- **Branding** — Updated logo and branding across the platform
+- **Site limitations** — Improved plan-based site and domain limit enforcement
+- **Custom layouts** — Fixed duplicate layout handling and custom layout editing
+
+### Fixed
+- **Banner defaults** — Fixed default banner settings not applying correctly on new sites
+- **Script generation** — Fixed ASCII encoding issues, minification errors, and cache invalidation
+- **Modal dialogs** — Fixed modal display and interaction issues
+- **Color settings** — Fixed color picker and theme application bugs
+- **Scan page** — Fixed scan display and recommendation rendering
+- **Login flow** — Fixed login edge cases and font rendering
+
+---
+
+## [v2.2.1] - 2026-03-17
+
+### Added
+- **User registration** — Public registration page with email/password signup and automatic login
+- **Scan card redesign** — Simplified scan index page with cleaner card layout
+
+### Fixed
+- **Docker volume stale assets** — Public assets (CSS, JS, media) are now synced into Docker volumes on every container start, fixing updates not appearing after `--update`
+- **Dashboard recommendations** — Fixed recommendation checklist display and consent stats
+- **Scan repository** — Fixed scan queries and detail page
+- **Logo display** — Fixed logo rendering issues
+
+### Changed
+- **Dashboard** — Enhanced customer dashboard with richer consent statistics and scan summary
+- **README** — Added full installer options table with `--update`, `--config`, `--uninstall` and usage examples
+
+---
+
 ## [v2.2.0] - 2026-03-17
 
 ### Added

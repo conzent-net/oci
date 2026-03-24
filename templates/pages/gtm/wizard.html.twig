@@ -202,6 +202,25 @@
                 </div>
             </div>
 
+            {# ── Matomo Analytics ── #}
+            <div class="box mb-3 p-0" x-data="{ open: false }">
+                <div class="px-4 py-3" style="cursor:pointer;display:flex;align-items:center;gap:0.5rem" @click="open = !open">
+                    <span class="icon has-text-success"><i class="fas fa-chart-bar"></i></span>
+                    <strong style="flex:1">Matomo Analytics</strong>
+                    <span class="tag is-success is-light" x-show="pixels.matomo_analytics.trim()" x-cloak>Configured</span>
+                    <span class="icon is-small has-text-grey"><i class="fas" :class="open ? 'fa-chevron-up' : 'fa-chevron-down'"></i></span>
+                </div>
+                <div class="px-4 pb-4" x-show="open" x-cloak>
+                    <div class="field">
+                        <label class="label is-small">Tracking Script</label>
+                        <div class="control">
+                            <textarea class="textarea" x-model="pixels.matomo_analytics" rows="4" placeholder="Paste the full Matomo tracking &lt;script&gt; snippet here..."></textarea>
+                        </div>
+                        <p class="help">The complete Matomo tracking code from your Matomo instance</p>
+                    </div>
+                </div>
+            </div>
+
             {# ── Google Ads ── #}
             <div class="box mb-3 p-0" x-data="{ open: false }">
                 <div class="px-4 py-3" style="cursor:pointer;display:flex;align-items:center;gap:0.5rem" @click="open = !open">
@@ -508,6 +527,7 @@ function gtmWizard() {
         // Step 2 — pixel config
         pixels: {
             google_analytics: '',
+            matomo_analytics: '',
             google_ads_conversion_id: '',
             google_ads_conversion_label: '',
             facebook_pixel: '',
@@ -609,6 +629,8 @@ function gtmWizard() {
             const items = [];
             if (this.pixels.google_analytics.trim())
                 items.push({ name: 'Google Analytics', detail: 'Measurement ID: ' + this.pixels.google_analytics });
+            if (this.pixels.matomo_analytics.trim())
+                items.push({ name: 'Matomo Analytics', detail: 'Custom HTML tag' });
             if (this.pixels.google_ads_conversion_id.trim())
                 items.push({ name: 'Google Ads', detail: 'Conversion ID + Linker' });
             if (this.pixels.facebook_pixel.trim())

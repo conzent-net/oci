@@ -55,8 +55,7 @@
                     </p>
                     <p class="subtitle is-7 has-text-grey">
                         {{ lastScan.total_cookies }} cookies &middot;
-                        {{ lastScan.total_scripts }} beacons &middot;
-                        {{ lastScan.total_pages }} pages
+                        {{ lastScan.total_scripts }} beacons
                     </p>
                 {% else %}
                     <p class="title is-5 mb-1 has-text-grey-light">No scans yet</p>
@@ -83,32 +82,22 @@
         </div>
         <div class="column is-4">
             <div class="box has-background-light p-4">
-                <p class="heading has-text-grey">Scan Servers</p>
-                <p class="title is-5 mb-1">{{ servers|length }}</p>
-                <p class="subtitle is-7 has-text-grey">
-                    {{ servers|filter(s => s.is_active)|length }} active
-                </p>
+                <p class="heading has-text-grey">Cookies Detected</p>
+                {% if lastScan %}
+                    <p class="title is-5 mb-1">{{ lastScan.total_cookies }}</p>
+                    <p class="subtitle is-7 has-text-grey">
+                        across {{ lastScan.total_scripts }} scripts
+                    </p>
+                {% else %}
+                    <p class="title is-5 mb-1 has-text-grey-light">0</p>
+                    <p class="subtitle is-7 has-text-grey">Run a scan to detect</p>
+                {% endif %}
             </div>
         </div>
     </div>
 
-    {# ── Active Scan Progress ──────────────────────────── #}
-    {% if hasActiveScans %}
-    <div class="notification is-info is-light mb-4" id="active-scan-notice"
-         hx-get="/scans?site_id={{ siteId }}"
-         hx-trigger="every 10s"
-         hx-target="#scan-table-container"
-         hx-select="#scan-table-container"
-         hx-swap="outerHTML">
-        <span class="icon"><i class="fas fa-spinner fa-spin"></i></span>
-        <strong>Scan in progress</strong> — results will appear automatically.
-    </div>
-    {% endif %}
-
-    {# ── Scan History Table ────────────────────────────── #}
-    <div id="scan-table-container">
-        {% include 'pages/scans/_scan_table.html.twig' %}
-    </div>
+    {# ── Scan History (notification + table, auto-refreshes via htmx) ── #}
+    {% include 'pages/scans/_scan_content.html.twig' %}
 
     {# ── Start Scan Modal ──────────────────────────────── #}
     <div class="modal" :class="{ 'is-active': startScanModal }">
@@ -119,27 +108,7 @@
                 <button class="delete" @click="startScanModal = false"></button>
             </header>
             <section class="modal-card-body">
-                <div class="field">
-                    <label class="label">Scan Type</label>
-                    <div class="control">
-                        <label class="radio">
-                            <input type="radio" name="scan_type" value="full" x-model="scanType"> Full Site Scan
-                        </label>
-                        <label class="radio ml-4">
-                            <input type="radio" name="scan_type" value="custom" x-model="scanType"> Custom URLs
-                        </label>
-                    </div>
-                </div>
-
-                <div class="field" x-show="scanType === 'custom'" x-transition>
-                    <label class="label">URLs to Scan</label>
-                    <div class="control">
-                        <textarea class="textarea" x-model="customUrls"
-                                  placeholder="https://example.com/page1&#10;https://example.com/page2"
-                                  rows="5"></textarea>
-                    </div>
-                    <p class="help">One URL per line</p>
-                </div>
+                <p class="mb-3">Run a cookie scan to detect cookies, tracking scripts, and beacons on your website.</p>
 
                 <div class="notification is-warning is-light" x-show="scanError" x-text="scanError"></div>
             </section>
@@ -218,8 +187,6 @@ function scansPage() {
 
         // Start Scan Modal
         startScanModal: false,
-        scanType: 'full',
-        customUrls: '',
         scanStarting: false,
         scanError: '',
 
@@ -237,18 +204,8 @@ function scansPage() {
 
             const body = {
                 site_id: this.siteId,
-                scan_type: this.scanType,
+                scan_type: 'full',
             };
-
-            if (this.scanType === 'custom') {
-                const urls = this.customUrls.split('\n').map(u => u.trim()).filter(u => u);
-                if (urls.length === 0) {
-                    this.scanError = 'Please enter at least one URL';
-                    this.scanStarting = false;
-                    return;
-                }
-                body.urls = urls;
-            }
 
             try {
                 const res = await fetch('/app/scans/start', {

@@ -50,7 +50,7 @@ final class ScanRepository implements ScanRepositoryInterface
             'SELECT s.*, srv.server_name
              FROM oci_scans s
              LEFT JOIN oci_scan_servers srv ON srv.id = s.server_id
-             WHERE s.site_id = :siteId
+             WHERE s.site_id = :siteId AND s.scan_status <> "initiated"
              ORDER BY s.id DESC
              LIMIT :limit OFFSET :offset',
             ['siteId' => $siteId, 'limit' => $limit, 'offset' => $offset],
@@ -61,7 +61,7 @@ final class ScanRepository implements ScanRepositoryInterface
     public function countBySite(int $siteId): int
     {
         return (int) $this->db->fetchOne(
-            'SELECT COUNT(*) FROM oci_scans WHERE site_id = :siteId',
+            'SELECT COUNT(*) FROM oci_scans WHERE site_id = :siteId AND scan_status <> "initiated"',
             ['siteId' => $siteId],
         );
     }
@@ -232,6 +232,18 @@ final class ScanRepository implements ScanRepositoryInterface
     {
         return (int) $this->db->fetchOne(
             'SELECT COUNT(*) FROM oci_scan_cookies WHERE scan_id = :scanId',
+            ['scanId' => $scanId],
+        );
+    }
+
+    public function getScanCookieBreakdown(int $scanId): array
+    {
+        return $this->db->fetchAllAssociative(
+            'SELECT COALESCE(category_slug, \'unclassified\') AS category_slug, COUNT(*) AS total
+             FROM oci_scan_cookies
+             WHERE scan_id = :scanId
+             GROUP BY category_slug
+             ORDER BY total DESC',
             ['scanId' => $scanId],
         );
     }

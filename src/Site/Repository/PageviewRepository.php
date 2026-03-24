@@ -59,4 +59,17 @@ final class PageviewRepository implements PageviewRepositoryInterface
             'endDate' => $endDate,
         ]);
     }
+
+    public function getMonthlyTotalForUser(int $userId): int
+    {
+        $sql = <<<'SQL'
+            SELECT COALESCE(SUM(pv.pageview_count), 0)
+            FROM oci_site_pageviews pv
+            INNER JOIN oci_sites s ON s.id = pv.site_id
+            WHERE s.user_id = :userId
+              AND pv.period_date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
+        SQL;
+
+        return (int) $this->db->fetchOne($sql, ['userId' => $userId]);
+    }
 }

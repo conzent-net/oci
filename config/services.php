@@ -83,6 +83,7 @@ return [
         $twig->addGlobal('modules', $moduleRegistry);
         $twig->addGlobal('edition', $c->get(\OCI\Shared\Service\EditionService::class));
         $twig->addGlobal('openrouter_enabled', trim($_ENV['OPENROUTER_API_KEY'] ?? '') !== '');
+        $twig->addGlobal('chat_service_url', $_ENV['CHAT_SERVICE_URL'] ?? 'https://chat.getconzent.com');
         // CMP/TCF globals (cmp_id, cmp_name, cmp_valid, tcf_enabled) are set
         // by SessionMiddleware after server-side validation against the IAB registry.
 
@@ -123,12 +124,27 @@ return [
     OCI\Report\Repository\ReportRepositoryInterface::class => autowire(OCI\Report\Repository\ReportRepository::class),
     OCI\Admin\Repository\AuditLogRepositoryInterface::class => autowire(OCI\Admin\Repository\AuditLogRepository::class),
     OCI\Compliance\Repository\ChecklistRepositoryInterface::class => autowire(OCI\Compliance\Repository\ChecklistRepository::class),
+    OCI\Compliance\Repository\PrivacyFrameworkRepositoryInterface::class => autowire(OCI\Compliance\Repository\PrivacyFrameworkRepository::class),
     OCI\Compliance\Service\ChecklistService::class => static function (ContainerInterface $c): OCI\Compliance\Service\ChecklistService {
         return new OCI\Compliance\Service\ChecklistService(
             $c->get(OCI\Compliance\Repository\ChecklistRepositoryInterface::class),
             $c->get('config.base_path') . '/config/conzent-compliance-checklists.json',
         );
     },
+    OCI\Compliance\Service\PrivacyFrameworkService::class => static function (ContainerInterface $c): OCI\Compliance\Service\PrivacyFrameworkService {
+        return new OCI\Compliance\Service\PrivacyFrameworkService(
+            $c->get('config.base_path') . '/config/privacy-frameworks.json',
+        );
+    },
+    // ── GeoIP (ipregistry fallback) ─────────────────────
+    OCI\Infrastructure\GeoIp\GeoIpService::class => static function (ContainerInterface $c): OCI\Infrastructure\GeoIp\GeoIpService {
+        return new OCI\Infrastructure\GeoIp\GeoIpService(
+            $c->get(OCI\Infrastructure\GeoIp\IpGeolocationRepository::class),
+            $c->get(LoggerInterface::class),
+            $_ENV['IPREGISTRY_API_KEY'] ?? '',
+        );
+    },
+
     OCI\Notification\Repository\NotificationReadRepositoryInterface::class => autowire(OCI\Notification\Repository\NotificationReadRepository::class),
     OCI\Notification\Service\NotificationService::class => static function (ContainerInterface $c): OCI\Notification\Service\NotificationService {
         return new OCI\Notification\Service\NotificationService(
@@ -137,13 +153,40 @@ return [
         );
     },
 
-    // ── Monetization (null when module not installed) ──────
-    OCI\Monetization\Service\PricingService::class => class_exists(OCI\Monetization\Service\PricingService::class)
-        ? autowire(OCI\Monetization\Service\PricingService::class)
-        : value(null),
-    OCI\Monetization\Service\SubscriptionService::class => class_exists(OCI\Monetization\Service\SubscriptionService::class)
-        ? autowire(OCI\Monetization\Service\SubscriptionService::class)
-        : value(null),
+    // ── Legacy database connection (self-service migration) ─
+    'legacy.connection' => static function (): ?Connection {
+        $url = $_ENV['LEGACY_DATABASE_URL'] ?? '';
+        if ($url === '') {
+            return null;
+        }
+
+        $dsnParser = new \Doctrine\DBAL\Tools\DsnParser([
+            'mysql' => 'pdo_mysql',
+            'mariadb' => 'pdo_mysql',
+        ]);
+
+        return DriverManager::getConnection($dsnParser->parse($url), new DbalConfig());
+    },
+
+    // ── Legacy account migration service ─────────────────
+    OCI\Identity\Service\LegacyAccountMigrationService::class => static function (ContainerInterface $c): OCI\Identity\Service\LegacyAccountMigrationService {
+        return new OCI\Identity\Service\LegacyAccountMigrationService(
+            $c->get(Connection::class),
+            $c->get('legacy.connection'),
+            $c->get(OCI\Identity\Repository\UserRepositoryInterface::class),
+            $c->get(OCI\Site\Repository\SiteRepositoryInterface::class),
+            $c->get(OCI\Banner\Repository\BannerRepositoryInterface::class),
+            $c->get(OCI\Site\Repository\LanguageRepositoryInterface::class),
+            $c->get(OCI\Cookie\Repository\CookieCategoryRepositoryInterface::class),
+            $c->has(OCI\Banner\Service\ScriptGenerationService::class) ? $c->get(OCI\Banner\Service\ScriptGenerationService::class) : null,
+            $c->get(LoggerInterface::class),
+        );
+    },
+
+    // ── Monetization ──────────────────────────────────────
+    // PricingService and SubscriptionService are registered by the Billing module
+    // (src/Modules/Billing/config/services.php). No core fallback needed — the
+    // DashboardService constructor accepts them as nullable.
 
     // ── Monetization (swap via env var) ─────────────────────
     // OCI\Monetization\Service\MonetizationServiceInterface::class => static function (ContainerInterface $c) {

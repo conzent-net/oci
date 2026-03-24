@@ -72,6 +72,11 @@ final class GtmWizardApplyHandler implements RequestHandlerInterface
             $results[] = $this->wizardService->createGoogleAnalytics($token, $wsPath, $ga);
         }
 
+        $matomo = trim((string) ($pixels['matomo_analytics'] ?? ''));
+        if ($matomo !== '') {
+            $results[] = $this->wizardService->createMatomo($token, $wsPath, $matomo);
+        }
+
         $adsId = trim((string) ($pixels['google_ads_conversion_id'] ?? ''));
         $adsLabel = trim((string) ($pixels['google_ads_conversion_label'] ?? ''));
         if ($adsId !== '') {

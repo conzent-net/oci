@@ -58,12 +58,6 @@
         </div>
         <div class="column">
             <div class="box has-background-light p-4 has-text-centered">
-                <p class="heading">Pages Scanned</p>
-                <p class="title is-3">{{ stats.urls_completed }} / {{ stats.total_urls }}</p>
-            </div>
-        </div>
-        <div class="column">
-            <div class="box has-background-light p-4 has-text-centered">
                 <p class="heading">Categories</p>
                 <p class="title is-3">{{ cookiesByCategory|length }}</p>
             </div>
@@ -77,7 +71,6 @@
                 <h3 class="title is-5 mb-3">Scan Details</h3>
                 <table class="table is-narrow is-fullwidth">
                     <tr><th style="width:40%">Site</th><td>{{ site.domain }}</td></tr>
-                    <tr><th>Type</th><td>{{ scan.scan_type|capitalize }}</td></tr>
                     <tr><th>Started</th><td>{{ scan.started_at ? scan.started_at|date('Y-m-d H:i:s') : '—' }}</td></tr>
                     <tr><th>Completed</th><td>{{ scan.completed_at ? scan.completed_at|date('Y-m-d H:i:s') : '—' }}</td></tr>
                     <tr><th>Attempts</th><td>{{ scan.scan_attempts }}</td></tr>
@@ -202,49 +195,6 @@
     </div>
     {% endif %}
 
-    {# ── Scanned URLs ──────────────────────────────────── #}
-    {% if urls|length > 0 %}
-    <div class="box">
-        <h3 class="title is-5 mb-3">Scanned URLs ({{ urls|length }})</h3>
-        <div class="table-container">
-            <table class="table is-fullwidth is-hoverable is-striped is-narrow">
-                <thead>
-                    <tr>
-                        <th>URL</th>
-                        <th>Status</th>
-                        <th>Cookies</th>
-                        <th>Beacons</th>
-                        <th>Scanned At</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for url in urls %}
-                    <tr>
-                        <td class="is-size-7" style="max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                            {{ url.url }}
-                        </td>
-                        <td>
-                            {% if url.status == 'completed' %}
-                                <span class="tag is-success is-light is-small">Done</span>
-                            {% elseif url.status == 'failed' %}
-                                <span class="tag is-danger is-light is-small"
-                                      title="{{ url.error_message|default('') }}">Failed</span>
-                            {% elseif url.status == 'scanning' %}
-                                <span class="tag is-info is-light is-small">Scanning</span>
-                            {% else %}
-                                <span class="tag is-light is-small">{{ url.status }}</span>
-                            {% endif %}
-                        </td>
-                        <td>{{ url.cookies_found }}</td>
-                        <td>{{ url.beacons_found }}</td>
-                        <td class="is-size-7">{{ url.scanned_at ? url.scanned_at|date('H:i:s') : '—' }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-    {% endif %}
 
 </div>
 {% endblock %}

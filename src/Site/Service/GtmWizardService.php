@@ -202,6 +202,38 @@ final class GtmWizardService
     }
 
     /**
+     * Create a Matomo Analytics tag (custom HTML).
+     *
+     * @return array{success: bool, name: string, error?: string}
+     */
+    public function createMatomo(string $token, string $wsPath, string $script): array
+    {
+        $name = 'Matomo Analytics';
+
+        $triggerId = $this->findConzentTriggerId($token, $wsPath);
+
+        $tag = [
+            'name' => 'Matomo Analytics',
+            'type' => 'html',
+            'tagFiringOption' => 'oncePerEvent',
+            'firingTriggerId' => [$triggerId ?? self::TRIGGER_ALL_PAGES],
+            'consentSettings' => [
+                'consentStatus' => 'needed',
+                'consentType' => ['type' => 'list', 'list' => [['type' => 'template', 'value' => 'analytics_storage']]],
+            ],
+            'parameter' => [
+                ['key' => 'html', 'type' => 'template', 'value' => $script],
+            ],
+        ];
+
+        $result = $this->gtmApi->createTag($token, $wsPath, $tag);
+
+        return $result !== null
+            ? ['success' => true, 'name' => $name]
+            : ['success' => false, 'name' => $name, 'error' => 'Failed to create tag (may already exist)'];
+    }
+
+    /**
      * Create Google Ads conversion tracking + conversion linker tags.
      *
      * @return array{success: bool, name: string, error?: string}

@@ -197,6 +197,120 @@
         </div>
     </form>
 
+    {# ── Legacy Migration ── #}
+    {% if legacy_preview is not null and not already_migrated %}
+    <div class="box mb-5" x-data="legacyMigration()">
+        <div class="oci-section-header" style="cursor:default">
+            <h2 class="title is-5 mb-0">
+                <span class="section-icon" style="background:rgba(72,95,199,0.1);color:#485fc7">
+                    <i class="fas fa-download"></i>
+                </span>
+                Migrate from Legacy Account
+            </h2>
+        </div>
+        <div class="oci-section-body">
+            <p class="mb-4" style="font-size:0.85rem;color:var(--oci-text-light)">
+                We found a legacy Conzent account matching your email. You can import your website domains and company details.
+                Site-specific settings (banner design, colors, content) are not migrated. A subscription is required before sites can go live.
+            </p>
+
+            {% if legacy_preview.sites|length > 0 %}
+            <div class="table-container mb-4">
+                <table class="table is-fullwidth is-hoverable is-striped" style="font-size:0.9rem">
+                    <thead>
+                        <tr>
+                            <th>Domain</th>
+                            <th>Site Name</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for site in legacy_preview.sites %}
+                        <tr>
+                            <td>{{ site.domain }}</td>
+                            <td>{{ site.site_name }}</td>
+                            <td>
+                                {% if site.status == 'will_migrate' %}
+                                    <span class="tag is-success is-light">Ready</span>
+                                {% else %}
+                                    <span class="tag is-warning is-light">Domain exists (skip)</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+
+            <p class="mb-4" style="font-size:0.85rem">
+                <strong>{{ legacy_preview.migratable_sites }}</strong> site(s) will be migrated.
+                {% if legacy_preview.conflicting_sites > 0 %}
+                    <span class="has-text-warning-dark">{{ legacy_preview.conflicting_sites }} site(s) will be skipped (domain already exists).</span>
+                {% endif %}
+            </p>
+
+            <button class="button is-primary" type="button"
+                    @click="showConfirm = true"
+                    :disabled="migrating"
+                    :class="migrating && 'is-loading'">
+                <span class="icon"><i class="fas fa-download"></i></span>
+                <span>Start Migration</span>
+            </button>
+
+            <template x-if="result">
+                <div class="notification is-success is-light mt-4" style="border-radius:var(--oci-radius)">
+                    <p>Migration complete! <strong x-text="result.migrated_sites"></strong> site(s) migrated successfully.</p>
+                    <template x-if="result.skipped_sites > 0">
+                        <p x-text="result.skipped_sites + ' site(s) skipped (domain conflict).'"></p>
+                    </template>
+                </div>
+            </template>
+
+            <template x-if="errorMsg">
+                <div class="notification is-danger is-light mt-4" style="border-radius:var(--oci-radius)">
+                    <button class="delete" @click="errorMsg = null"></button>
+                    <span x-text="errorMsg"></span>
+                </div>
+            </template>
+
+            {# Confirmation modal #}
+            <div class="modal" :class="showConfirm && 'is-active'">
+                <div class="modal-background" @click="showConfirm = false"></div>
+                <div class="modal-card" style="max-width:520px">
+                    <header class="modal-card-head">
+                        <p class="modal-card-title">Confirm Migration</p>
+                        <button class="delete" aria-label="close" @click="showConfirm = false"></button>
+                    </header>
+                    <section class="modal-card-body">
+                        <p>This will import the following from your legacy Conzent account:</p>
+                        <ul class="mt-3 ml-4" style="list-style:disc">
+                            <li>Company information (name, address, VAT)</li>
+                            <li><strong>{{ legacy_preview.migratable_sites }}</strong> website domain(s)</li>
+                        </ul>
+                        <p class="mt-3" style="font-size:0.85rem;color:#64748b">
+                            Site-specific settings (banner design, colors, content) are not migrated and will use defaults.
+                            Sites will be suspended until you subscribe to a plan.
+                        </p>
+                    </section>
+                    <footer class="modal-card-foot" style="justify-content:flex-end">
+                        <button class="button" @click="showConfirm = false">Cancel</button>
+                        <button class="button is-primary" @click="migrate()" :class="migrating && 'is-loading'" :disabled="migrating">
+                            <span class="icon"><i class="fas fa-download"></i></span>
+                            <span>Migrate Now</span>
+                        </button>
+                    </footer>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% elseif already_migrated %}
+    <p class="mb-5" style="font-size:0.85rem;color:var(--oci-text-light)">
+        <span class="icon has-text-success"><i class="fas fa-check-circle"></i></span>
+        Account data imported from legacy Conzent on {{ user.legacy_migrated_at|date('M d, Y') }}.
+    </p>
+    {% endif %}
+
     {# ── Delete Account (non-admin only) ── #}
     {% if user.role != 'admin' %}
     <div class="box mt-6" x-data="{ showDelete: false }">
@@ -253,4 +367,44 @@
     </div>
     {% endif %}
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function legacyMigration() {
+    return {
+        showConfirm: false,
+        migrating: false,
+        result: null,
+        errorMsg: null,
+        async migrate() {
+            this.migrating = true;
+            this.errorMsg = null;
+            try {
+                const resp = await fetch('/app/account/legacy-migrate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    body: JSON.stringify({_csrf_token: '{{ csrf_token }}'})
+                });
+                const data = await resp.json();
+                this.showConfirm = false;
+                if (data.success) {
+                    this.result = data.data;
+                    setTimeout(() => window.location.reload(), 2500);
+                } else {
+                    this.errorMsg = data.error || 'Migration failed. Please try again.';
+                }
+            } catch (e) {
+                this.showConfirm = false;
+                this.errorMsg = 'An unexpected error occurred. Please try again.';
+            } finally {
+                this.migrating = false;
+            }
+        }
+    };
+}
+</script>
 {% endblock %}

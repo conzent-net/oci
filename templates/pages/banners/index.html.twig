@@ -51,7 +51,33 @@
         <div class="level mb-0">
             <div class="level-left">
                 <div class="tags mb-0" style="gap:0.375rem">
-                    <span class="tag is-info is-light">{{ bannerType|upper }}</span>
+                    {% if siteFrameworkNames is defined and siteFrameworkNames|length > 0 %}
+                        {% set maxShow = 3 %}
+                        {% for fwName in siteFrameworkNames|slice(0, maxShow) %}
+                            <span class="tag is-info is-light">{{ fwName }}</span>
+                        {% endfor %}
+                        {% if siteFrameworkNames|length > maxShow %}
+                            <span class="tag is-info is-light" style="cursor:pointer; position:relative"
+                                  x-data="{ showAll: false }"
+                                  @mouseenter="showAll = true" @mouseleave="showAll = false">
+                                +{{ siteFrameworkNames|length - maxShow }} more
+                                <div x-show="showAll" x-transition.opacity x-cloak
+                                     style="position:absolute; top:100%; left:0; z-index:30; min-width:220px; margin-top:6px"
+                                     @mouseenter="showAll = true" @mouseleave="showAll = false">
+                                    <div class="box p-3" style="box-shadow:0 4px 12px rgba(0,0,0,.15)">
+                                        <p class="is-size-7 has-text-weight-semibold mb-2">Selected frameworks</p>
+                                        <div class="tags" style="gap:0.25rem">
+                                            {% for fwName in siteFrameworkNames %}
+                                                <span class="tag is-info is-light is-small">{{ fwName }}</span>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </span>
+                        {% endif %}
+                    {% else %}
+                        <span class="tag is-info is-light">{{ bannerType|upper }}</span>
+                    {% endif %}
                     {% if bannerSettings.template_id %}
                         {% for tpl in templates %}
                             {% if tpl.id == bannerSettings.template_id %}
@@ -134,11 +160,14 @@
                         <p class="help">TCF is not enabled. Set <code>CMP_ID</code> to a valid IAB-registered CMP ID in your environment configuration. Requires an IAB Europe CMP membership.</p>
                     {% endif %}
                 </div>
+            </div>
+            {% endif %}
+
+            <div class="oci-field-grid mt-4">
                 <div class="field">
                     {{ ui.toggle('settings.general.google_consent', 'Google Consent Mode v2', 'Send consent signals to Google tags') }}
                 </div>
             </div>
-            {% endif %}
 
             {% if bannerType == 'ccpa' or bannerType == 'gdpr_ccpa' %}
             <hr class="oci-divider">
@@ -282,7 +311,14 @@
                 {% endif %}
                 <div>{{ ui.toggle('settings.content.close_button', 'Close [X] Button') }}</div>
                 <div>{{ ui.toggle('settings.content.cookie_policy_link', 'Cookie Policy Link') }}</div>
+                {% if canRemoveBranding %}
                 <div>{{ ui.toggle('settings.content.disable_branding', 'Remove "Powered by Conzent" Branding') }}</div>
+                {% else %}
+                <div class="is-flex is-align-items-center is-justify-content-space-between">
+                    <span class="has-text-grey">Remove "Powered by Conzent" Branding</span>
+                    <span class="tag is-warning is-light">Business Plan</span>
+                </div>
+                {% endif %}
             </div>
 
             {% if bannerType == 'gdpr' or bannerType == 'gdpr_ccpa' %}
@@ -353,6 +389,7 @@
                 <template x-for="field in ['background', 'border', 'title', 'message']">
                     <div class="oci-color-field">
                         <input type="color" :value="getColor('banner', field)"
+                               :data-color-element="'banner'" :data-color-field="field"
                                @input="setColor('banner', field, $event.target.value)">
                         <span class="color-label" x-text="field.charAt(0).toUpperCase() + field.slice(1)"></span>
                     </div>
@@ -366,6 +403,7 @@
                 <template x-for="field in ['background', 'border', 'text']">
                     <div class="oci-color-field">
                         <input type="color" :value="getColor('accept_all_button', field)"
+                               :data-color-element="'accept_all_button'" :data-color-field="field"
                                @input="setColor('accept_all_button', field, $event.target.value)">
                         <span class="color-label" x-text="field.charAt(0).toUpperCase() + field.slice(1)"></span>
                     </div>
@@ -378,6 +416,7 @@
                 <template x-for="field in ['background', 'border', 'text']">
                     <div class="oci-color-field">
                         <input type="color" :value="getColor('reject_all_button', field)"
+                               :data-color-element="'reject_all_button'" :data-color-field="field"
                                @input="setColor('reject_all_button', field, $event.target.value)">
                         <span class="color-label" x-text="field.charAt(0).toUpperCase() + field.slice(1)"></span>
                     </div>
@@ -390,6 +429,7 @@
                 <template x-for="field in ['background', 'border', 'text']">
                     <div class="oci-color-field">
                         <input type="color" :value="getColor('customize_button', field)"
+                               :data-color-element="'customize_button'" :data-color-field="field"
                                @input="setColor('customize_button', field, $event.target.value)">
                         <span class="color-label" x-text="field.charAt(0).toUpperCase() + field.slice(1)"></span>
                     </div>
@@ -401,11 +441,13 @@
             <div class="oci-color-row">
                 <div class="oci-color-field">
                     <input type="color" :value="getColor('toggle_switch', 'enabled_state')"
+                           data-color-element="toggle_switch" data-color-field="enabled_state"
                            @input="setColor('toggle_switch', 'enabled_state', $event.target.value)">
                     <span class="color-label">Toggle Enabled</span>
                 </div>
                 <div class="oci-color-field">
                     <input type="color" :value="getColor('toggle_switch', 'disabled_state')"
+                           data-color-element="toggle_switch" data-color-field="disabled_state"
                            @input="setColor('toggle_switch', 'disabled_state', $event.target.value)">
                     <span class="color-label">Toggle Disabled</span>
                 </div>
@@ -417,6 +459,7 @@
                 <template x-for="field in ['background', 'border', 'text']">
                     <div class="oci-color-field">
                         <input type="color" :value="getColor('save_preference_button', field)"
+                               :data-color-element="'save_preference_button'" :data-color-field="field"
                                @input="setColor('save_preference_button', field, $event.target.value)">
                         <span class="color-label" x-text="field.charAt(0).toUpperCase() + field.slice(1)"></span>
                     </div>
@@ -430,6 +473,7 @@
             <div class="oci-color-row">
                 <div class="oci-color-field">
                     <input type="color" :value="getColor('do_not_sell_link', 'text')"
+                           data-color-element="do_not_sell_link" data-color-field="text"
                            @input="setColor('do_not_sell_link', 'text', $event.target.value)">
                     <span class="color-label">Text</span>
                 </div>
@@ -440,11 +484,13 @@
             <div class="oci-color-row">
                 <div class="oci-color-field">
                     <input type="color" :value="getColor('checkbox', 'enabled_state')"
+                           data-color-element="checkbox" data-color-field="enabled_state"
                            @input="setColor('checkbox', 'enabled_state', $event.target.value)">
                     <span class="color-label">Checkbox Enabled</span>
                 </div>
                 <div class="oci-color-field">
                     <input type="color" :value="getColor('checkbox', 'disabled_state')"
+                           data-color-element="checkbox" data-color-field="disabled_state"
                            @input="setColor('checkbox', 'disabled_state', $event.target.value)">
                     <span class="color-label">Checkbox Disabled</span>
                 </div>
@@ -453,6 +499,7 @@
                 <template x-for="field in ['background', 'border', 'text']">
                     <div class="oci-color-field">
                         <input type="color" :value="getColor('cancel_button', field)"
+                               :data-color-element="'cancel_button'" :data-color-field="field"
                                @input="setColor('cancel_button', field, $event.target.value)">
                         <span class="color-label" x-text="'Cancel ' + field.charAt(0).toUpperCase() + field.slice(1)"></span>
                     </div>
@@ -462,6 +509,7 @@
                 <template x-for="field in ['background', 'border', 'text']">
                     <div class="oci-color-field">
                         <input type="color" :value="getColor('save_preference_button', field)"
+                               :data-color-element="'save_preference_button'" :data-color-field="field"
                                @input="setColor('save_preference_button', field, $event.target.value)">
                         <span class="color-label" x-text="'Save ' + field.charAt(0).toUpperCase() + field.slice(1)"></span>
                     </div>
@@ -474,6 +522,7 @@
             <div class="oci-color-row">
                 <div class="oci-color-field">
                     <input type="color" :value="getColor('floating_button', 'background')"
+                           data-color-element="floating_button" data-color-field="background"
                            @input="setColor('floating_button', 'background', $event.target.value)">
                     <span class="color-label">Background</span>
                 </div>
@@ -485,6 +534,7 @@
                 <template x-for="field in ['background', 'border', 'text']">
                     <div class="oci-color-field">
                         <input type="color" :value="getColor('alttext_button', field)"
+                               :data-color-element="'alttext_button'" :data-color-field="field"
                                @input="setColor('alttext_button', field, $event.target.value)">
                         <span class="color-label" x-text="field.charAt(0).toUpperCase() + field.slice(1)"></span>
                     </div>
@@ -742,8 +792,21 @@
 
             <hr class="oci-divider">
 
-            {# Disable Banner on Specific Pages #}
+            {# Script Whitelist #}
             <div class="field">
+                <label class="label">Script Whitelist</label>
+                <p class="is-size-7 has-text-grey mb-2">Enter one URL or keyword per line. Scripts matching any of these patterns will never be blocked by the consent banner. Use partial URLs (e.g. <code>cdn.jsdelivr.net/npm/alpinejs</code>) or filenames (e.g. <code>alpine.min.js</code>).</p>
+                <div class="control">
+                    <textarea class="textarea" rows="4"
+                              x-model="siteSettings.allowed_scripts_text"
+                              placeholder="cdn.jsdelivr.net/npm/alpinejs&#10;cdn.example.com/framework.js"></textarea>
+                </div>
+            </div>
+
+            <hr class="oci-divider">
+
+            {# Disable Banner on Specific Pages — hidden until early blocker support is implemented #}
+            <div class="field" style="display:none">
                 <label class="label">Disable Banner on Specific Pages</label>
                 <p class="is-size-7 has-text-grey mb-2">Enter one URL path per line where the banner should not appear.</p>
                 <div class="control">
@@ -831,7 +894,7 @@ function bannerSettings() {
         saving: false,
         purging: false,
         purged: false,
-        colorTheme: 'light',
+        colorTheme: {{ bannerSettings.colors._activeTheme is defined and bannerSettings.colors._activeTheme == 'dark' ? "'dark'" : "'light'" }},
         sections: {
             general: true,
             bannerLayout: false,
@@ -843,7 +906,7 @@ function bannerSettings() {
             customCss: false
         },
 
-        layoutKey: '{{ bannerSettings.layout_key is defined and bannerSettings.layout_key ? bannerSettings.layout_key : "gdpr/classic" }}',
+        layoutKey: '{{ bannerSettings.custom_layout_id is defined and bannerSettings.custom_layout_id ? "custom:" ~ bannerSettings.custom_layout_id : (bannerSettings.layout_key is defined and bannerSettings.layout_key ? bannerSettings.layout_key : "gdpr/classic") }}',
         customLayoutId: {{ bannerSettings.custom_layout_id is defined and bannerSettings.custom_layout_id ? bannerSettings.custom_layout_id : 'null' }},
 
         layoutChanged() {
@@ -917,7 +980,8 @@ function bannerSettings() {
             gtm_container_id: '{{ currentSite.gtm_container_id is defined and currentSite.gtm_container_id ? currentSite.gtm_container_id : "" }}',
             gtm_data_layer: '{{ currentSite.gtm_data_layer is defined and currentSite.gtm_data_layer ? currentSite.gtm_data_layer : "" }}',
             renew_user_consent_at: '{{ currentSite.renew_user_consent_at is defined and currentSite.renew_user_consent_at ? currentSite.renew_user_consent_at : "" }}',
-            disable_on_pages_text: `{{ disableOnPagesText is defined ? disableOnPagesText|e('js') : '' }}`
+            disable_on_pages_text: `{{ disableOnPagesText is defined ? disableOnPagesText|e('js') : '' }}`,
+            allowed_scripts_text: `{{ allowedScriptsText is defined ? allowedScriptsText|e('js') : '' }}`
         },
 
         settings: {
@@ -944,7 +1008,7 @@ function bannerSettings() {
                 customize_button: {{ bannerSettings.content.customize_button is defined and bannerSettings.content.customize_button ? 'true' : 'false' }},
                 close_button: {{ bannerSettings.content.close_button is defined and bannerSettings.content.close_button ? 'true' : 'false' }},
                 cookie_policy_link: {{ bannerSettings.content.cookie_policy_link is defined and bannerSettings.content.cookie_policy_link ? 'true' : 'false' }},
-                disable_branding: {{ bannerSettings.content.disable_branding is defined and bannerSettings.content.disable_branding ? 'true' : 'false' }},
+                disable_branding: {{ canRemoveBranding and bannerSettings.content.disable_branding is defined and bannerSettings.content.disable_branding ? 'true' : 'false' }},
                 show_google_privacy_policy: {{ bannerSettings.content.show_google_privacy_policy is defined and bannerSettings.content.show_google_privacy_policy ? 'true' : 'false' }},
                 respect_global_privacy_control: {{ bannerSettings.content.respect_global_privacy_control is defined and bannerSettings.content.respect_global_privacy_control ? 'true' : 'false' }},
                 show_cookie_on_banner: {{ bannerSettings.content.show_cookie_on_banner is defined and bannerSettings.content.show_cookie_on_banner ? 'true' : 'false' }},
@@ -952,7 +1016,7 @@ function bannerSettings() {
                 floating_button: {{ bannerSettings.content.floating_button is defined and bannerSettings.content.floating_button ? 'true' : 'false' }},
                 button_position: '{{ bannerSettings.content.button_position is defined ? bannerSettings.content.button_position : "right" }}'
             },
-            colors: {{ bannerSettings.colors|json_encode|raw }}
+            colors: Object.assign({}, {{ bannerSettings.colors|json_encode|raw }})
         },
 
         {# ── Content / Translations state ─────────────── #}
@@ -976,6 +1040,17 @@ function bannerSettings() {
             const domain = '{{ currentSite.domain is defined ? currentSite.domain : "" }}';
             const key = '{{ websiteKey is defined ? websiteKey : "" }}';
             this.previewUrl = domain ? (domain.startsWith('http') ? domain : (domain.includes('localhost') ? 'http://' : 'https://') + domain) + '?conzent_preview=' + key : '';
+
+            // Force-update all color input swatches when theme changes
+            this.$watch('colorTheme', () => {
+                this.$nextTick(() => {
+                    document.querySelectorAll('#section-colors input[type="color"]').forEach(el => {
+                        const e = el.dataset.colorElement;
+                        const f = el.dataset.colorField;
+                        if (e && f) el.value = this.getColor(e, f);
+                    });
+                });
+            });
         },
 
         openPreview() {
@@ -997,9 +1072,17 @@ function bannerSettings() {
             .then(data => {
                 if (data.success && data.data.installed) {
                     this.scriptCheckStatus = 'installed';
+                    // If site blocks iframing, use the built-in preview page
+                    if (data.data.frameable === false) {
+                        this.previewUrl = '/app/banners/preview?site_id={{ siteId }}';
+                    }
                 } else {
                     this.scriptCheckStatus = 'not_installed';
                     this.scriptCheckReason = data.data?.reason || 'Consent script not found on the website.';
+                    // Even if script not installed, check if site blocks iframing
+                    if (data.data.frameable === false) {
+                        this.previewUrl = '/app/banners/preview?site_id={{ siteId }}';
+                    }
                 }
             })
             .catch(() => {
@@ -1028,6 +1111,8 @@ function bannerSettings() {
             this.saving = true;
             const pages = this.siteSettings.disable_on_pages_text
                 .split('\n').map(p => p.trim()).filter(p => p.length > 0);
+            const allowedScripts = this.siteSettings.allowed_scripts_text
+                .split('\n').map(p => p.trim()).filter(p => p.length > 0);
 
             fetch('/app/banners/' + this.bannerId, {
                 method: 'PUT',
@@ -1037,7 +1122,7 @@ function bannerSettings() {
                     general_setting: this.settings.general,
                     layout_setting: this.settings.layout,
                     content_setting: this.settings.content,
-                    color_setting: this.settings.colors,
+                    color_setting: { ...this.settings.colors, _activeTheme: this.colorTheme },
                     layout_key: this.customLayoutId ? null : this.layoutKey,
                     custom_layout_id: this.customLayoutId,
                     custom_css: this.customCss,
@@ -1051,7 +1136,8 @@ function bannerSettings() {
                         uet_enabled: this.siteSettings.uet_enabled ? 1 : 0,
                         clarity_enabled: this.siteSettings.clarity_enabled ? 1 : 0,
                         amazon_consent_enabled: this.siteSettings.amazon_consent_enabled ? 1 : 0,
-                        disable_on_pages: JSON.stringify(pages)
+                        disable_on_pages: JSON.stringify(pages),
+                        allowed_scripts: JSON.stringify(allowedScripts)
                     }
                 })
             })
@@ -1245,9 +1331,9 @@ function bannerSettings() {
 
         setColor(element, field, value) {
             const theme = this.colorTheme;
-            if (!this.settings.colors) this.settings.colors = {};
-            if (!this.settings.colors[element]) this.settings.colors[element] = {};
-            if (!this.settings.colors[element][theme]) this.settings.colors[element][theme] = {};
+            if (!this.settings.colors || Array.isArray(this.settings.colors)) this.settings.colors = {};
+            if (!this.settings.colors[element] || Array.isArray(this.settings.colors[element])) this.settings.colors[element] = {};
+            if (!this.settings.colors[element][theme] || Array.isArray(this.settings.colors[element][theme])) this.settings.colors[element][theme] = {};
             this.settings.colors[element][theme][field] = value;
         },
 
@@ -1306,6 +1392,12 @@ function bannerSettings() {
                 .map(p => p.trim())
                 .filter(p => p.length > 0);
 
+            // Parse allowed_scripts textarea into JSON array
+            const allowedScripts = this.siteSettings.allowed_scripts_text
+                .split('\n')
+                .map(p => p.trim())
+                .filter(p => p.length > 0);
+
             fetch('/app/banners/' + this.bannerId, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
@@ -1314,7 +1406,7 @@ function bannerSettings() {
                     general_setting: this.settings.general,
                     layout_setting: this.settings.layout,
                     content_setting: this.settings.content,
-                    color_setting: this.settings.colors,
+                    color_setting: { ...this.settings.colors, _activeTheme: this.colorTheme },
                     layout_key: this.customLayoutId ? null : this.layoutKey,
                     custom_layout_id: this.customLayoutId,
                     custom_css: this.customCss,
@@ -1328,7 +1420,8 @@ function bannerSettings() {
                         uet_enabled: this.siteSettings.uet_enabled ? 1 : 0,
                         clarity_enabled: this.siteSettings.clarity_enabled ? 1 : 0,
                         amazon_consent_enabled: this.siteSettings.amazon_consent_enabled ? 1 : 0,
-                        disable_on_pages: JSON.stringify(pages)
+                        disable_on_pages: JSON.stringify(pages),
+                        allowed_scripts: JSON.stringify(allowedScripts)
                     }
                 })
             })

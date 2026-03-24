@@ -26,4 +26,9 @@ interface PageviewRepositoryInterface
      * @return array<int, array{period_date: string, pageview_count: int}>
      */
     public function getByDateRange(int $siteId, string $startDate, string $endDate): array;
+
+    /**
+     * Get total pageviews for the current calendar month across all sites owned by a user.
+     */
+    public function getMonthlyTotalForUser(int $userId): int;
 }

@@ -6,6 +6,8 @@ namespace OCI\Dashboard\Service;
 
 use OCI\Agency\Repository\AgencyRepositoryInterface;
 use OCI\Banner\Repository\BannerRepositoryInterface;
+use OCI\Compliance\Repository\PrivacyFrameworkRepositoryInterface;
+use OCI\Compliance\Service\PrivacyFrameworkService;
 use OCI\Shared\Repository\PlanRepositoryInterface;
 use OCI\Monetization\Service\PricingService;
 use OCI\Monetization\Service\SubscriptionService;
@@ -30,6 +32,8 @@ final class ComplianceCheckService
         private readonly LanguageRepositoryInterface $languageRepo,
         private readonly PlanRepositoryInterface $planRepo,
         private readonly AgencyRepositoryInterface $agencyRepo,
+        private readonly PrivacyFrameworkService $frameworkService,
+        private readonly PrivacyFrameworkRepositoryInterface $frameworkRepo,
         private readonly ?PricingService $pricingService = null,
         private readonly ?SubscriptionService $subscriptionService = null,
     ) {}
@@ -272,6 +276,244 @@ final class ComplianceCheckService
         return $result;
     }
 
+    /**
+     * Check a site's banner settings against its selected privacy frameworks.
+     *
+     * Returns a list of framework-specific warnings/violations based on the
+     * merged rules from all selected frameworks.
+     *
+     * @return array{
+     *     frameworks: list<string>,
+     *     warnings: list<array{framework: string, check: string, message: string, severity: string}>,
+     *     merged_rules: array<string, mixed>,
+     * }
+     */
+    public function checkFrameworkCompliance(int $siteId): array
+    {
+        $result = [
+            'frameworks' => [],
+            'warnings' => [],
+            'merged_rules' => [],
+        ];
+
+        $frameworkIds = $this->frameworkRepo->getFrameworksForSite($siteId);
+        $result['frameworks'] = $frameworkIds;
+
+        if ($frameworkIds === []) {
+            $result['warnings'][] = [
+                'framework' => 'none',
+                'check' => 'no_frameworks_selected',
+                'message' => 'No privacy frameworks selected. Select the frameworks that apply to your website visitors.',
+                'severity' => 'error',
+            ];
+
+            return $result;
+        }
+
+        $merged = $this->frameworkService->getMergedRules($frameworkIds);
+        $result['merged_rules'] = $merged;
+
+        // Load current banner settings
+        $banners = $this->bannerRepo->getSiteBannerSettings($siteId, 'gdpr');
+        if (empty($banners)) {
+            $result['warnings'][] = [
+                'framework' => 'all',
+                'check' => 'no_banner_configured',
+                'message' => 'No banner configured for this site.',
+                'severity' => 'error',
+            ];
+
+            return $result;
+        }
+
+        $banner = reset($banners);
+        $contentSettings = $this->decodeJson((string) ($banner['content_setting'] ?? '{}'));
+        $generalSettings = $this->decodeJson((string) ($banner['general_setting'] ?? '{}'));
+
+        // Flatten content settings (may be nested under gdpr.cookie_notice)
+        $cn = $contentSettings['gdpr']['cookie_notice'] ?? $contentSettings['cookie_notice'] ?? $contentSettings;
+
+        // Check required buttons against actual settings
+        foreach ($merged['required_buttons'] as $button) {
+            $settingKey = match ($button) {
+                'accept_all' => 'accept_all_button',
+                'reject_all' => 'reject_all_button',
+                'manage_preferences' => 'customize_button',
+                default => null,
+            };
+
+            if ($settingKey !== null) {
+                $enabled = (int) ($cn[$settingKey] ?? 0);
+                if ($enabled !== 1) {
+                    // Find which framework requires this button
+                    $fwName = $this->findFrameworkRequiringButton($frameworkIds, $button);
+                    $result['warnings'][] = [
+                        'framework' => $fwName,
+                        'check' => 'missing_button_' . $button,
+                        'message' => ucfirst(str_replace('_', ' ', $button)) . ' button is required by ' . $fwName . ' but is currently disabled.',
+                        'severity' => 'error',
+                    ];
+                }
+            }
+        }
+
+        // Check Do Not Sell requirement
+        if ($merged['do_not_sell_required']) {
+            $hasCcpaFramework = \in_array('ccpa_cpra', $frameworkIds, true);
+            if (!$hasCcpaFramework) {
+                $fwName = $this->findFrameworkRequiringDoNotSell($frameworkIds);
+                $result['warnings'][] = [
+                    'framework' => $fwName,
+                    'check' => 'do_not_sell_missing',
+                    'message' => '"Do Not Sell or Share" link is required by ' . $fwName . '. Enable CCPA/opt-out banner type.',
+                    'severity' => 'error',
+                ];
+            }
+        }
+
+        // Check GPC signal requirement
+        if ($merged['must_honor_gpc']) {
+            // GPC is handled automatically by the framework rules in the script,
+            // but we warn if the user hasn't acknowledged it
+            $result['warnings'][] = [
+                'framework' => $this->findFrameworkRequiringGpc($frameworkIds),
+                'check' => 'gpc_required',
+                'message' => 'Global Privacy Control (GPC) signal must be honored. The consent script handles this automatically.',
+                'severity' => 'info',
+            ];
+        }
+
+        // Check Google Consent Mode requirement
+        if ($merged['gcm_required']) {
+            $siteData = $siteData ?? $this->siteRepo->findById($siteId);
+            $gcmEnabled = (int) ($siteData['gcm_enabled'] ?? 0);
+            if ($gcmEnabled !== 1) {
+                $result['warnings'][] = [
+                    'framework' => 'gdpr',
+                    'check' => 'gcm_required',
+                    'message' => 'Google Consent Mode v2 is required but not enabled.',
+                    'severity' => 'error',
+                ];
+            }
+        }
+
+        // Check IAB TCF support
+        if ($merged['iab_tcf_supported']) {
+            $iabEnabled = (int) ($generalSettings['iab_support'] ?? 0);
+            if ($iabEnabled !== 1) {
+                $result['warnings'][] = [
+                    'framework' => 'gdpr',
+                    'check' => 'iab_tcf_recommended',
+                    'message' => 'IAB TCF support is recommended for your selected frameworks but not enabled.',
+                    'severity' => 'warning',
+                ];
+            }
+        }
+
+        // Check framework/country mismatch based on site TLD
+        $siteData = $siteData ?? $this->siteRepo->findById($siteId);
+        $domain = (string) ($siteData['domain'] ?? '');
+        $inferredCountry = $this->inferCountryFromDomain($domain);
+        if ($inferredCountry !== null) {
+            $applicableFrameworks = $this->frameworkService->getFrameworksForCountry($inferredCountry);
+            $missingFrameworks = array_diff($applicableFrameworks, $frameworkIds);
+            if ($missingFrameworks !== []) {
+                // Build a human-readable list of missing framework names
+                $missingNames = [];
+                foreach ($missingFrameworks as $fwId) {
+                    $fw = $this->frameworkService->getFramework($fwId);
+                    $missingNames[] = $fw['name'] ?? $fwId;
+                }
+                $result['warnings'][] = [
+                    'framework' => 'coverage',
+                    'check' => 'country_framework_mismatch',
+                    'message' => 'Your site domain (' . $domain . ') suggests visitors from ' . $inferredCountry
+                        . ', which is covered by: ' . implode(', ', $missingNames)
+                        . '. Consider enabling these frameworks for full compliance.',
+                    'severity' => 'error',
+                ];
+            }
+        }
+
+        // Check EU/EEA coverage gap — warn if no selected framework covers EU countries
+        $coveredCountries = [];
+        foreach ($frameworkIds as $fwId) {
+            $fw = $this->frameworkService->getFramework($fwId);
+            if ($fw !== null) {
+                $coveredCountries = array_merge($coveredCountries, $fw['countries'] ?? []);
+            }
+        }
+        $coveredCountries = array_unique(array_map('strtoupper', $coveredCountries));
+
+        // Get EU/EEA countries from the GDPR framework definition
+        $gdprFw = $this->frameworkService->getFramework('gdpr');
+        $euCountries = $gdprFw !== null
+            ? array_map('strtoupper', $gdprFw['countries'] ?? [])
+            : ['AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR', 'DE', 'GR', 'HU', 'IE', 'IT', 'LV', 'LT', 'LU', 'MT', 'NL', 'PL', 'PT', 'RO', 'SK', 'SI', 'ES', 'SE', 'IS', 'LI', 'NO'];
+
+        if (array_intersect($euCountries, $coveredCountries) === []) {
+            $result['warnings'][] = [
+                'framework' => 'coverage',
+                'check' => 'eu_coverage_gap',
+                'message' => 'No EU/EEA countries are covered by your selected frameworks. '
+                    . 'The consent banner will use fallback rules for EU visitors. '
+                    . 'Consider enabling GDPR for full EU compliance.',
+                'severity' => 'error',
+            ];
+        }
+
+        return $result;
+    }
+
+    /**
+     * Find which selected framework requires a specific button.
+     */
+    private function findFrameworkRequiringButton(array $frameworkIds, string $button): string
+    {
+        foreach ($frameworkIds as $fwId) {
+            $buttons = $this->frameworkService->getRequiredButtons($fwId);
+            if (in_array($button, $buttons, true)) {
+                $fw = $this->frameworkService->getFramework($fwId);
+
+                return $fw['name'] ?? $fwId;
+            }
+        }
+
+        return 'selected frameworks';
+    }
+
+    /**
+     * Find which selected framework requires Do Not Sell.
+     */
+    private function findFrameworkRequiringDoNotSell(array $frameworkIds): string
+    {
+        foreach ($frameworkIds as $fwId) {
+            if ($this->frameworkService->isDoNotSellRequired($fwId)) {
+                $fw = $this->frameworkService->getFramework($fwId);
+
+                return $fw['name'] ?? $fwId;
+            }
+        }
+
+        return 'selected frameworks';
+    }
+
+    /**
+     * Find which selected framework requires GPC.
+     */
+    private function findFrameworkRequiringGpc(array $frameworkIds): string
+    {
+        foreach ($frameworkIds as $fwId) {
+            if ($this->frameworkService->mustHonorGpc($fwId)) {
+                $fw = $this->frameworkService->getFramework($fwId);
+
+                return $fw['name'] ?? $fwId;
+            }
+        }
+
+        return 'selected frameworks';
+    }
+
     // ─── Private helpers ────────────────────────────────────
 
     /**
@@ -419,5 +661,66 @@ final class ComplianceCheckService
         unset($current);
 
         return $data;
+    }
+
+    /**
+     * Infer a country code from a domain's TLD.
+     *
+     * Returns null for generic TLDs (.com, .org, .net, .io, etc.)
+     * where the site's target audience cannot be determined.
+     */
+    private function inferCountryFromDomain(string $domain): ?string
+    {
+        // Strip port if present (e.g. localhost:8106)
+        $domain = strtolower(explode(':', $domain)[0]);
+
+        // Skip localhost/IP addresses
+        if ($domain === 'localhost' || filter_var($domain, FILTER_VALIDATE_IP)) {
+            return null;
+        }
+
+        // Check compound TLDs first (e.g. .co.uk, .com.br)
+        $compoundMap = [
+            'co.uk' => 'GB', 'org.uk' => 'GB', 'me.uk' => 'GB',
+            'com.au' => 'AU', 'com.br' => 'BR', 'co.nz' => 'NZ',
+            'co.za' => 'ZA', 'co.in' => 'IN', 'co.jp' => 'JP',
+            'co.kr' => 'KR', 'com.mx' => 'MX', 'com.ar' => 'AR',
+            'com.sg' => 'SG', 'com.hk' => 'HK', 'com.tw' => 'TW',
+        ];
+
+        $parts = explode('.', $domain);
+        if (\count($parts) >= 3) {
+            $compound = $parts[\count($parts) - 2] . '.' . $parts[\count($parts) - 1];
+            if (isset($compoundMap[$compound])) {
+                return $compoundMap[$compound];
+            }
+        }
+
+        // Single TLD map (ccTLDs → ISO country codes)
+        $tldMap = [
+            // Europe
+            'at' => 'AT', 'be' => 'BE', 'bg' => 'BG', 'hr' => 'HR',
+            'cy' => 'CY', 'cz' => 'CZ', 'dk' => 'DK', 'ee' => 'EE',
+            'fi' => 'FI', 'fr' => 'FR', 'de' => 'DE', 'gr' => 'GR',
+            'hu' => 'HU', 'ie' => 'IE', 'it' => 'IT', 'lv' => 'LV',
+            'lt' => 'LT', 'lu' => 'LU', 'mt' => 'MT', 'nl' => 'NL',
+            'pl' => 'PL', 'pt' => 'PT', 'ro' => 'RO', 'sk' => 'SK',
+            'si' => 'SI', 'es' => 'ES', 'se' => 'SE', 'is' => 'IS',
+            'li' => 'LI', 'no' => 'NO', 'ch' => 'CH', 'uk' => 'GB',
+            // Americas
+            'us' => 'US', 'ca' => 'CA', 'br' => 'BR', 'mx' => 'MX',
+            'ar' => 'AR', 'cl' => 'CL', 'co' => 'CO',
+            // Asia-Pacific
+            'au' => 'AU', 'nz' => 'NZ', 'jp' => 'JP', 'kr' => 'KR',
+            'cn' => 'CN', 'in' => 'IN', 'sg' => 'SG', 'hk' => 'HK',
+            'tw' => 'TW', 'th' => 'TH', 'my' => 'MY', 'ph' => 'PH',
+            'id' => 'ID', 'vn' => 'VN',
+            // Middle East / Africa
+            'za' => 'ZA', 'ae' => 'AE', 'il' => 'IL', 'sa' => 'SA',
+            'ng' => 'NG', 'ke' => 'KE', 'eg' => 'EG',
+        ];
+
+        $tld = end($parts);
+        return $tldMap[$tld] ?? null;
     }
 }

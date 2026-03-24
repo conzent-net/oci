@@ -8,6 +8,7 @@ use OCI\Http\Handler\RequestHandlerInterface;
 use OCI\Http\Response\ApiResponse;
 use OCI\Identity\Repository\UserRepositoryInterface;
 use OCI\Identity\Service\CsrfService;
+use OCI\Identity\Service\LegacyAccountMigrationService;
 use OCI\Identity\Service\UserService;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -24,6 +25,7 @@ final class AccountProfileHandler implements RequestHandlerInterface
         private readonly CsrfService $csrf,
         private readonly UserRepositoryInterface $userRepo,
         private readonly UserService $userService,
+        private readonly LegacyAccountMigrationService $legacyMigration,
     ) {}
 
     public function handle(ServerRequestInterface $request): ResponseInterface
@@ -44,6 +46,17 @@ final class AccountProfileHandler implements RequestHandlerInterface
     {
         $company = $this->userRepo->getUserCompany((int) $user['id']) ?? [];
 
+        // Legacy migration preview (only if not yet migrated and legacy DB is configured)
+        $legacyPreview = null;
+        $alreadyMigrated = !empty($user['legacy_migrated_at']);
+        if (!$alreadyMigrated && $this->legacyMigration->isAvailable()) {
+            try {
+                $legacyPreview = $this->legacyMigration->previewMigration((string) $user['email']);
+            } catch (\Throwable) {
+                // Silently ignore legacy DB errors on the profile page
+            }
+        }
+
         $html = $this->twig->render('pages/account/profile.html.twig', [
             'csrf_token' => $this->csrf->generate('account_profile'),
             'active_page' => 'account',
@@ -52,6 +65,8 @@ final class AccountProfileHandler implements RequestHandlerInterface
             'user' => $user,
             'company' => $company,
             'old' => $old,
+            'legacy_preview' => $legacyPreview,
+            'already_migrated' => $alreadyMigrated,
         ]);
 
         return ApiResponse::html($html);

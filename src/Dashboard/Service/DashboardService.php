@@ -33,6 +33,7 @@ final class DashboardService
         private readonly ScriptGenerationService $scriptService,
         private readonly ?PricingService $pricingService = null,
         private readonly ?SubscriptionService $subscriptionService = null,
+        private readonly ?ComplianceCheckService $complianceCheckService = null,
     ) {}
 
     /**
@@ -115,13 +116,20 @@ final class DashboardService
             ? strtoupper(str_replace('_', ' + ', $templateApplied))
             : '';
 
-        // Compliance score
-        $complianceStatus = (string) ($siteData['compliant_status'] ?? '');
-        $complianceScore = $this->calculateComplianceScore($complianceStatus, $siteData, $templateApplied);
+        // Framework compliance check (must run before score calculation and recommendations)
+        $frameworkCompliance = [];
+        if ($this->complianceCheckService !== null) {
+            try {
+                $frameworkCompliance = $this->complianceCheckService->checkFrameworkCompliance($siteId);
+            } catch (\Throwable) {
+                $frameworkCompliance = ['frameworks' => [], 'warnings' => [], 'merged_rules' => []];
+            }
+        }
 
         // Scan info
         $scanInfo = $this->scanRepo->getLastCompletedScan($siteId) ?? [];
         $nextScan = $this->scanRepo->getNextScheduledScan($siteId) ?? [];
+        $scanAnalysis = $this->buildScanAnalysis($scanInfo);
 
         // Wizard data
         $wizardData = $this->siteRepo->getWizard($siteId, $effectiveUserId) ?? [];
@@ -132,9 +140,17 @@ final class DashboardService
             $checkIab = true;
         }
 
-        // Recommendations checklist
-        $recommendations = $this->buildRecommendations($siteData, $planFeatures, $siteId, $checkIab);
+        // Derive bannerType from selected frameworks (overrides legacy column)
+        $bannerType = $this->deriveBannerType($siteData, $frameworkCompliance);
+
+        // Recommendations checklist (uses derived bannerType)
+        $recommendations = $this->buildRecommendations($siteData, $planFeatures, $siteId, $checkIab, $bannerType, $frameworkCompliance);
         $showRecommendations = true;
+
+        // Compliance score — derived from recommendations (single source of truth)
+        $siteStatus = (string) ($siteData['status'] ?? 'inactive');
+        $complianceScore = $this->scoreFromRecommendations($recommendations, $siteStatus);
+        $complianceStatus = $complianceScore === 100 ? 'full' : ($complianceScore >= 50 ? 'partial' : 'failed');
 
         // Recent consent logs
         $recentConsents = $this->consentRepo->getRecentLog($siteId);
@@ -150,11 +166,20 @@ final class DashboardService
             7,
         );
 
+        // Pageview usage (monthly limit)
+        $pageviewsUsed = $this->pageviewRepo->getMonthlyTotalForUser($effectiveUserId);
+        $pageviewsLimit = 0;
+        if ($this->pricingService !== null && $this->subscriptionService !== null) {
+            $planKey = $this->subscriptionService->getPlanKey($effectiveUserId);
+            if ($planKey !== null) {
+                $pageviewsLimit = $this->pricingService->getLimit($planKey, 'pageviews_per_month');
+            }
+        }
+
         // URLs
         $baseUrl = $_ENV['APP_URL'] ?? 'http://localhost:8098';
         $websiteKey = (string) ($siteData['website_key'] ?? '');
         $scriptUrl = $this->scriptService->getScriptUrl($websiteKey);
-        $bannerType = (string) ($siteData['display_banner_type'] ?? 'gdpr');
 
         return new CustomerDashboardData(
             selectedSiteId: $siteId,
@@ -174,6 +199,7 @@ final class DashboardService
             complianceScore: $complianceScore,
             complianceStatus: $complianceStatus,
             scanInfo: $scanInfo,
+            scanAnalysis: $scanAnalysis,
             nextScan: $nextScan,
             wizardData: $wizardData,
             recommendations: $recommendations,
@@ -188,6 +214,9 @@ final class DashboardService
             bannerType: $bannerType,
             checkIab: $checkIab,
             planFeatures: $planFeatures,
+            pageviewsUsed: $pageviewsUsed,
+            pageviewsLimit: $pageviewsLimit,
+            frameworkCompliance: $frameworkCompliance,
         );
     }
 
@@ -305,10 +334,15 @@ final class DashboardService
     public function resolveSiteId(array $currentUser, array $cookies): array
     {
         $userId = (int) $currentUser['id'];
+
+        // Include both active and suspended sites so users can navigate freely.
+        // Suspended sites already block script deployment — no need to block the UI.
         $sites = $this->siteRepo->findAllByUser($userId, 'active');
+        if (empty($sites)) {
+            $sites = $this->siteRepo->findAllByUser($userId, 'suspended');
+        }
 
         if (empty($sites)) {
-            // Check if user has any sites at all (including inactive/suspended)
             $allSites = $this->siteRepo->findAllByUser($userId);
             $company = $this->planRepo->getUserCompany($userId);
 
@@ -320,7 +354,6 @@ final class DashboardService
                 return ['siteId' => 0, 'sites' => [], 'redirect' => '/sites'];
             }
 
-            // Redirect to /sites — user will see their suspended sites with subscription banner
             return ['siteId' => 0, 'sites' => $allSites, 'redirect' => '/sites'];
         }
 
@@ -341,6 +374,72 @@ final class DashboardService
     }
 
     // ─── Private helpers ────────────────────────────────────
+
+    /**
+     * Build scan analysis from the last completed scan's cookie breakdown.
+     *
+     * @param array<string, mixed> $scanInfo
+     * @return array{total: int, necessary: int, non_necessary: int, unclassified: int, categories: array<string, int>, status: string}
+     */
+    private function buildScanAnalysis(array $scanInfo): array
+    {
+        $empty = [
+            'total' => 0,
+            'necessary' => 0,
+            'non_necessary' => 0,
+            'unclassified' => 0,
+            'categories' => [],
+            'status' => 'none',
+        ];
+
+        if (empty($scanInfo) || !isset($scanInfo['id'])) {
+            return $empty;
+        }
+
+        $breakdown = $this->scanRepo->getScanCookieBreakdown((int) $scanInfo['id']);
+        if (empty($breakdown)) {
+            $empty['status'] = 'clean';
+            return $empty;
+        }
+
+        $total = 0;
+        $necessary = 0;
+        $unclassified = 0;
+        $nonNecessary = 0;
+        $categories = [];
+
+        foreach ($breakdown as $row) {
+            $slug = (string) $row['category_slug'];
+            $count = (int) $row['total'];
+            $total += $count;
+            $categories[$slug] = $count;
+
+            if ($slug === 'necessary') {
+                $necessary = $count;
+            } elseif ($slug === 'unclassified') {
+                $unclassified = $count;
+            } else {
+                $nonNecessary += $count;
+            }
+        }
+
+        // Status: clean = only necessary, review = has non-necessary but all categorized, warning = has unclassified
+        $status = 'clean';
+        if ($unclassified > 0) {
+            $status = 'warning';
+        } elseif ($nonNecessary > 0) {
+            $status = 'review';
+        }
+
+        return [
+            'total' => $total,
+            'necessary' => $necessary,
+            'non_necessary' => $nonNecessary,
+            'unclassified' => $unclassified,
+            'categories' => $categories,
+            'status' => $status,
+        ];
+    }
 
     /**
      * @param array<int, array{consent_status: string, total: int}> $rows
@@ -530,40 +629,52 @@ final class DashboardService
      *
      * @param array<string, mixed> $siteData
      */
-    private function calculateComplianceScore(string $status, array $siteData, string $templateApplied): int
+    private function deriveBannerType(array $siteData, array $frameworkCompliance): string
     {
-        $siteStatus = (string) ($siteData['status'] ?? 'inactive');
+        $fwIds = $frameworkCompliance['frameworks'] ?? [];
+        if ($fwIds === []) {
+            // No frameworks selected — fall back to legacy column
+            return (string) ($siteData['display_banner_type'] ?? 'gdpr');
+        }
+
+        $hasGdpr = \in_array('gdpr', $fwIds, true) || \in_array('eprivacy_directive', $fwIds, true);
+        $hasCcpa = \in_array('ccpa_cpra', $fwIds, true);
+
+        if ($hasGdpr && $hasCcpa) {
+            return 'gdpr_ccpa';
+        }
+        if ($hasCcpa) {
+            return 'ccpa';
+        }
+
+        // Any other framework combination (GDPR, TDDDG, UK GDPR, etc.) → gdpr mode
+        return 'gdpr';
+    }
+
+    /**
+     * Derive compliance score from the recommendations checklist.
+     *
+     * Only 'done' and 'fail' items count — 'info' items are advisory.
+     * Inactive sites always return 25.
+     *
+     * @param array<int, array{text: string, status: string}> $recommendations
+     */
+    private function scoreFromRecommendations(array $recommendations, string $siteStatus): int
+    {
         if ($siteStatus !== 'active') {
             return 25;
         }
 
-        $siteId = (int) ($siteData['id'] ?? 0);
-        if ($siteId <= 0) {
-            return 25;
+        $scored = array_filter($recommendations, static fn (array $r): bool => $r['status'] === 'done' || $r['status'] === 'fail');
+        $total = \count($scored);
+
+        if ($total === 0) {
+            return 100;
         }
 
-        $gcmEnabled = (int) ($siteData['gcm_enabled'] ?? 0);
+        $passed = \count(array_filter($scored, static fn (array $r): bool => $r['status'] === 'done'));
 
-        $gdprBanners = $this->bannerRepo->getSiteBannerSettings($siteId, 'gdpr');
-        $gdprOptions = $this->parseBannerOptions($gdprBanners);
-
-        $checks = [
-            $gcmEnabled === 1,
-            $this->getBannerOption($gdprOptions, 'content.accept_all_button'),
-            $this->getBannerOption($gdprOptions, 'content.reject_all_button'),
-            $this->getBannerOption($gdprOptions, 'content.floating_button'),
-            $this->getBannerOption($gdprOptions, 'content.show_google_privacy_policy'),
-        ];
-
-        $passed = \count(array_filter($checks));
-        $total = \count($checks);
-
-        if ($passed === 0) {
-            return 25;
-        }
-
-        // Scale from 25 (none) to 100 (all passed)
-        return 25 + (int) round(($passed / $total) * 75);
+        return (int) round(($passed / $total) * 100);
     }
 
     /**
@@ -572,12 +683,26 @@ final class DashboardService
      * @param array<string, mixed> $currentUser
      * @return array<int, array{text: string, status: string}>
      */
+    /**
+     * @return array<int, array{text: string, status: string}>
+     */
     public function getRecommendations(array $currentUser, int $siteId): array
+    {
+        return $this->getRecommendationsWithScore($currentUser, $siteId)['recommendations'];
+    }
+
+    /**
+     * Return recommendations and the server-calculated compliance score.
+     *
+     * @param array<string, mixed> $currentUser
+     * @return array{recommendations: array<int, array{text: string, status: string}>, complianceScore: int}
+     */
+    public function getRecommendationsWithScore(array $currentUser, int $siteId): array
     {
         $userId = (int) $currentUser['id'];
         $siteData = $this->siteRepo->findById($siteId);
         if ($siteData === null) {
-            return [];
+            return ['recommendations' => [], 'complianceScore' => 25];
         }
 
         // Effective user for plan resolution
@@ -621,7 +746,25 @@ final class DashboardService
         $wizardData = $this->siteRepo->getWizard($siteId, $effectiveUserId) ?? [];
         $checkIab = !empty($wizardData) && isset($wizardData['ads_type']) && (int) $wizardData['ads_type'] === 1;
 
-        return $this->buildRecommendations($siteData, $planFeatures, $siteId, $checkIab);
+        $frameworkCompliance = [];
+        if ($this->complianceCheckService !== null) {
+            try {
+                $frameworkCompliance = $this->complianceCheckService->checkFrameworkCompliance($siteId);
+            } catch (\Throwable) {
+                $frameworkCompliance = ['frameworks' => [], 'warnings' => [], 'merged_rules' => []];
+            }
+        }
+
+        $bannerType = $this->deriveBannerType($siteData, $frameworkCompliance);
+        $recommendations = $this->buildRecommendations($siteData, $planFeatures, $siteId, $checkIab, $bannerType, $frameworkCompliance);
+
+        $siteStatus = (string) ($siteData['status'] ?? 'inactive');
+        $complianceScore = $this->scoreFromRecommendations($recommendations, $siteStatus);
+
+        return [
+            'recommendations' => $recommendations,
+            'complianceScore' => $complianceScore,
+        ];
     }
 
     /**
@@ -631,12 +774,11 @@ final class DashboardService
      * @param array<string, int|string> $planFeatures
      * @return array<int, array{text: string, status: string}>
      */
-    private function buildRecommendations(array $siteData, array $planFeatures, int $siteId, bool $checkIab): array
+    private function buildRecommendations(array $siteData, array $planFeatures, int $siteId, bool $checkIab, string $bannerType = 'gdpr', array $frameworkCompliance = []): array
     {
         $checklist = [];
-        $bannerType = (string) ($siteData['display_banner_type'] ?? 'gdpr');
-        $isGdpr = $bannerType === 'gdpr' || $bannerType === 'gdpr_ccpa';
-        $isCcpa = $bannerType === 'ccpa' || $bannerType === 'gdpr_ccpa';
+        $isGdpr = in_array($bannerType, ['gdpr', 'both', 'gdpr_ccpa', 'combined'], true);
+        $isCcpa = in_array($bannerType, ['ccpa', 'both', 'gdpr_ccpa', 'combined'], true);
 
         // Load banner options once per type
         $gdprOptions = [];
@@ -677,7 +819,7 @@ final class DashboardService
                         $checklist[] = ['text' => 'Google Tags (GTM or gtag.js) not detected - Install Google Tag Manager or gtag.js for Consent Mode to work', 'status' => 'fail'];
                     }
                 } else {
-                    $checklist[] = ['text' => 'Google Tag Manager not verified - You get the best compliance with Google Tag Manager', 'status' => 'fail'];
+                    $checklist[] = ['text' => 'Google Tag Manager not verified - You get the best compliance with Google Tag Manager', 'status' => 'info'];
                 }
             }
         }
@@ -731,6 +873,47 @@ final class DashboardService
             } else {
                 $checklist[] = ['text' => 'Enable IAB/TCF (Google Ads, AdSense or AdMob)', 'status' => 'fail'];
             }
+        }
+
+        // 6. Privacy frameworks selected
+        $hasFrameworks = ($frameworkCompliance['frameworks'] ?? []) !== [];
+        if ($hasFrameworks) {
+            $checklist[] = ['text' => 'Privacy framework configured', 'status' => 'done'];
+        } else {
+            $checklist[] = ['text' => 'Select at least one privacy framework (e.g. GDPR, CCPA) in the setup wizard', 'status' => 'fail'];
+        }
+
+        // 7. Compliance template applied
+        $templateApplied = (string) ($siteData['template_applied'] ?? '');
+        if ($templateApplied !== '') {
+            $checklist[] = ['text' => 'Compliance template applied', 'status' => 'done'];
+        } else {
+            $checklist[] = ['text' => 'Apply a compliance template to configure recommended settings', 'status' => 'fail'];
+        }
+
+        // 8. Framework compliance warnings
+        // Only actionable errors (missing buttons, missing Do Not Sell) count as 'fail'.
+        // Coverage suggestions (country mismatch, EU gap) and soft recommendations are 'info'.
+        $fwWarnings = $frameworkCompliance['warnings'] ?? [];
+        foreach ($fwWarnings as $w) {
+            $check = $w['check'] ?? '';
+            $severity = $w['severity'] ?? 'info';
+
+            // GPC is handled automatically — skip from recommendations entirely
+            if ($check === 'gpc_required') {
+                continue;
+            }
+
+            // Coverage suggestions are advisory, not requirements
+            $isCoverageSuggestion = \in_array($check, ['country_framework_mismatch', 'eu_coverage_gap', 'iab_tcf_recommended'], true);
+
+            if ($isCoverageSuggestion) {
+                $status = 'info';
+            } else {
+                $status = $severity === 'error' ? 'fail' : 'info';
+            }
+
+            $checklist[] = ['text' => $w['message'] ?? '', 'status' => $status];
         }
 
         return $checklist;

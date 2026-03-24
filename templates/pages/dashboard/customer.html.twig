@@ -17,6 +17,7 @@
     .recommendation-item:last-child { border-bottom: none; }
     .rec-done { color: #22b573; }
     .rec-fail { color: #ff4444; }
+    .rec-info { color: #3273dc; }
     .verify-check { display:flex; align-items:center; gap:0.75rem; padding:0.625rem 0; border-bottom:1px solid var(--oci-border, #f0f0f0); }
     .verify-check:last-child { border-bottom:none; }
     .verify-check .check-icon { width:28px; text-align:center; font-size:1.1rem; }
@@ -51,8 +52,8 @@
     {% if not dashboard.isSubscribed and not dashboard.isEnterprise %}
     {# ── Free Plan Notice ──────────────────────────────── #}
     <div class="notification is-warning is-light">
-        <strong>Free Plan</strong> — Upgrade to unlock GCM Advanced, IAB/TCF, and more features.
-        <a href="/billing" class="button is-small is-warning ml-3">Upgrade Now</a>
+        <strong>No active plan.</strong> Subscribe to a plan to deploy your consent banner.
+        <a href="/billing" class="button is-small is-warning ml-3">Choose a Plan</a>
     </div>
     {% endif %}
 
@@ -63,7 +64,7 @@
 
         {# ── Quick Configuration ─────────────────────────── #}
         <div class="column is-8">
-            <div class="box" style="height:100%">
+            <div class="box">
                 <h2 class="title is-5 mb-3">
                     <span class="icon"><i class="fas fa-wand-magic-sparkles"></i></span>
                     Quick Configuration
@@ -345,6 +346,78 @@
                     </div>
                 </div>
             </div>
+
+            {# ── Pageview Usage Gauge + Chart (below wizard, same column) ── #}
+            <div class="columns mt-4">
+                <div class="column is-4">
+                    <div class="box" style="height:100%">
+                        <h2 class="title is-5 mb-3">
+                            <span class="icon has-text-info"><i class="fas fa-chart-line"></i></span>
+                            Monthly Pageviews
+                        </h2>
+                        {% if dashboard.pageviewsLimit > 0 %}
+                            {% set pv_pct = ((dashboard.pageviewsUsed / dashboard.pageviewsLimit) * 100)|round %}
+                            {% set pv_pct = pv_pct > 100 ? 100 : pv_pct %}
+                            {% set pv_color = pv_pct < 50 ? '#23d160' : (pv_pct < 75 ? '#ffdd57' : (pv_pct < 90 ? '#ff9f43' : '#f14668')) %}
+                            <div class="has-text-centered mb-3">
+                                <svg viewBox="0 0 150 150" style="width:130px;height:130px">
+                                    <circle cx="75" cy="75" r="60" fill="none" stroke="#e9ecef" stroke-width="12"></circle>
+                                    <circle cx="75" cy="75" r="60" fill="none"
+                                            stroke="{{ pv_color }}" stroke-width="12"
+                                            stroke-dasharray="{{ (pv_pct / 100 * 376.99)|round(2) }} 376.99"
+                                            stroke-linecap="round"
+                                            transform="rotate(-90 75 75)"
+                                            style="transition:stroke-dasharray 0.3s"></circle>
+                                    <text x="75" y="70" text-anchor="middle" dominant-baseline="central"
+                                          fill="{{ pv_color }}" style="font-size:28px;font-weight:700">{{ pv_pct }}%</text>
+                                    <text x="75" y="95" text-anchor="middle" fill="#7a7a7a" style="font-size:11px">used</text>
+                                </svg>
+                            </div>
+                            <div class="has-text-centered">
+                                <p class="is-size-7" style="color:var(--oci-text-light)">
+                                    <strong>{{ dashboard.pageviewsUsed|number_format }}</strong> / {{ dashboard.pageviewsLimit|number_format }}
+                                </p>
+                            </div>
+                            {% if pv_pct >= 100 %}
+                            <div class="notification is-danger is-light is-size-7 py-2 px-3 mt-3 mb-0">
+                                <i class="fas fa-exclamation-triangle mr-1"></i>
+                                Pageview limit reached. Banner paused.
+                                <a href="/billing" style="color:#f14668;text-decoration:underline">Upgrade</a>
+                            </div>
+                            {% elseif pv_pct >= 80 %}
+                            <div class="notification is-warning is-light is-size-7 py-2 px-3 mt-3 mb-0">
+                                <i class="fas fa-exclamation-circle mr-1"></i>
+                                Approaching limit.
+                                <a href="/billing" style="color:#ff9f43;text-decoration:underline">Consider upgrading</a>
+                            </div>
+                            {% endif %}
+                        {% else %}
+                            <div class="has-text-centered" style="padding:2rem 0">
+                                <p class="is-size-7 has-text-grey">Unlimited pageviews</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="column is-8">
+                    <div class="box" style="height:100%">
+                        <div class="level mb-3">
+                            <div class="level-left">
+                                <h2 class="title is-5 mb-0">Page Views</h2>
+                            </div>
+                            <div class="level-right">
+                                <div class="select is-small">
+                                    <select @change="loadPageviewReport($event.target.value)" x-model="pageviewPeriod">
+                                        <option value="7days">7 Days</option>
+                                        <option value="30days">30 Days</option>
+                                        <option value="alltime">All Time</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="pageview-chart" style="min-height: 240px; overflow: hidden;"></div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         {# ── Site Status + Recommendations (right column) ─── #}
@@ -376,6 +449,57 @@
                     </svg>
                     <p class="is-size-7 has-text-grey">Compliance Score</p>
                 </div>
+
+                {# ── Privacy Frameworks Status (inside Site Status) ── #}
+                {% if dashboard.frameworkCompliance.frameworks is defined %}
+                <hr class="my-3">
+                <div class="level mb-2">
+                    <div class="level-left">
+                        <p class="has-text-weight-semibold is-size-7">
+                            <span class="icon is-small"><i class="fas fa-scale-balanced"></i></span>
+                            Frameworks
+                        </p>
+                    </div>
+                    <div class="level-right">
+                        <a href="/sites/frameworks" class="is-size-7">Manage</a>
+                    </div>
+                </div>
+
+                {% if dashboard.frameworkCompliance.frameworks|length > 0 %}
+                <div class="tags mb-2">
+                    {% for fwId in dashboard.frameworkCompliance.frameworks %}
+                        <span class="tag is-info is-light is-small">{{ fwId | replace({'_': ' '}) | title }}</span>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="is-size-7 has-text-grey mb-2">No frameworks selected. <a href="/sites/frameworks">Configure now</a></p>
+                {% endif %}
+
+                {% if dashboard.frameworkCompliance.warnings is defined and dashboard.frameworkCompliance.warnings|length > 0 %}
+                {% for warning in dashboard.frameworkCompliance.warnings %}
+                    {% if warning.severity == 'error' %}
+                    <div class="notification is-danger is-light is-size-7 py-2 px-3 mb-2">
+                        <strong>{{ warning.framework }}:</strong> {{ warning.message }}
+                    </div>
+                    {% elseif warning.severity == 'warning' %}
+                    <div class="notification is-warning is-light is-size-7 py-2 px-3 mb-2">
+                        <strong>{{ warning.framework }}:</strong> {{ warning.message }}
+                    </div>
+                    {% elseif warning.severity == 'info' %}
+                    <div class="notification is-info is-light is-size-7 py-2 px-3 mb-2">
+                        {{ warning.message }}
+                    </div>
+                    {% endif %}
+                {% endfor %}
+                {% else %}
+                    {% if dashboard.frameworkCompliance.frameworks|length > 0 %}
+                    <p class="is-size-7 has-text-success">
+                        <span class="icon is-small"><i class="fas fa-check-circle"></i></span>
+                        Compliant with selected frameworks
+                    </p>
+                    {% endif %}
+                {% endif %}
+                {% endif %}
             </div>
 
             {# Recommendations Card — Alpine-reactive so verify/template updates show immediately #}
@@ -391,10 +515,13 @@
                                 <template x-if="rec.status === 'checking'">
                                     <span class="icon"><span class="verify-spinner"></span></span>
                                 </template>
-                                <template x-if="rec.status !== 'done' && rec.status !== 'checking'">
+                                <template x-if="rec.status === 'info'">
+                                    <span class="icon rec-info"><i class="fas fa-info-circle"></i></span>
+                                </template>
+                                <template x-if="rec.status !== 'done' && rec.status !== 'checking' && rec.status !== 'info'">
                                     <span class="icon rec-fail"><i class="fas fa-times-circle"></i></span>
                                 </template>
-                                <span class="is-size-7" :class="{ 'has-text-danger': rec.status === 'fail' }" x-html="rec.text"></span>
+                                <span class="is-size-7" :class="{ 'has-text-danger': rec.status === 'fail', 'has-text-info': rec.status === 'info' }" x-html="rec.text"></span>
                             </div>
                         </template>
                     </div>
@@ -622,28 +749,68 @@
     </template>
 
     {# ══════════════════════════════════════════════════════ #}
-    {# ROW 2: Cookie Scan | Consent Overview | Page Views    #}
+    {# ROW 2: Cookie Scan | Consent Overview                 #}
     {# ══════════════════════════════════════════════════════ #}
     <div class="columns is-multiline">
 
         {# ── Cookie Scan ─────────────────────────────────── #}
-        <div class="column is-4">
+        <div class="column is-6">
             <div class="box" style="height:100%">
                 <h2 class="title is-5 mb-3">
                     <span class="icon has-text-info"><i class="fas fa-cookie-bite"></i></span>
                     Cookie Scan
                 </h2>
                 {% if dashboard.scanInfo is not empty %}
-                    <div class="content">
-                        <p>
-                            <strong>Last Scan:</strong>
-                            {{ dashboard.scanInfo.completed_at is defined ? dashboard.scanInfo.completed_at : 'N/A' }}
-                        </p>
-                        <p>
-                            <strong>Cookies Found:</strong>
-                            <span class="tag is-light is-medium">{{ dashboard.scanInfo.total_cookies is defined ? dashboard.scanInfo.total_cookies : '0' }}</span>
-                        </p>
+                    {% set analysis = dashboard.scanAnalysis %}
+
+                    {# Status badge #}
+                    {% if analysis.status == 'clean' %}
+                        <div class="notification is-success is-light py-2 px-3 mb-3">
+                            <span class="icon is-small"><i class="fas fa-check-circle"></i></span>
+                            <span class="is-size-7"><strong>All clear</strong> — only necessary cookies detected</span>
+                        </div>
+                    {% elseif analysis.status == 'warning' %}
+                        <div class="notification is-warning is-light py-2 px-3 mb-3">
+                            <span class="icon is-small"><i class="fas fa-exclamation-triangle"></i></span>
+                            <span class="is-size-7"><strong>{{ analysis.unclassified }} unclassified</strong> cookie{{ analysis.unclassified != 1 ? 's' : '' }} found</span>
+                        </div>
+                    {% elseif analysis.status == 'review' %}
+                        <div class="notification is-info is-light py-2 px-3 mb-3">
+                            <span class="icon is-small"><i class="fas fa-info-circle"></i></span>
+                            <span class="is-size-7"><strong>{{ analysis.non_necessary }}</strong> non-essential cookie{{ analysis.non_necessary != 1 ? 's' : '' }} require consent</span>
+                        </div>
+                    {% endif %}
+
+                    {# Cookie breakdown #}
+                    <div class="is-size-7 mb-3">
+                        <div class="level is-mobile mb-1">
+                            <span class="level-left">Total cookies</span>
+                            <span class="level-right"><strong>{{ analysis.total }}</strong></span>
+                        </div>
+                        {% if analysis.necessary > 0 %}
+                        <div class="level is-mobile mb-1">
+                            <span class="level-left"><span class="tag is-success is-light is-small mr-1">Necessary</span></span>
+                            <span class="level-right">{{ analysis.necessary }}</span>
+                        </div>
+                        {% endif %}
+                        {% if analysis.non_necessary > 0 %}
+                        <div class="level is-mobile mb-1">
+                            <span class="level-left"><span class="tag is-info is-light is-small mr-1">Requires consent</span></span>
+                            <span class="level-right">{{ analysis.non_necessary }}</span>
+                        </div>
+                        {% endif %}
+                        {% if analysis.unclassified > 0 %}
+                        <div class="level is-mobile mb-1">
+                            <span class="level-left"><span class="tag is-warning is-light is-small mr-1">Unclassified</span></span>
+                            <span class="level-right">{{ analysis.unclassified }}</span>
+                        </div>
+                        {% endif %}
                     </div>
+
+                    <p class="is-size-7 has-text-grey">
+                        <i class="fas fa-calendar-check"></i>
+                        Scanned {{ dashboard.scanInfo.completed_at is defined ? dashboard.scanInfo.completed_at : 'N/A' }}
+                    </p>
                 {% else %}
                     <p class="has-text-grey is-size-7">No scan results yet.
                         <a href="/scans">Run a scan</a>
@@ -659,7 +826,7 @@
         </div>
 
         {# ── Consent Chart ───────────────────────────────── #}
-        <div class="column is-4">
+        <div class="column is-6">
             <div class="box" style="height:100%">
                 <div class="level mb-3">
                     <div class="level-left">
@@ -679,26 +846,6 @@
             </div>
         </div>
 
-        {# ── Pageview Chart ──────────────────────────────── #}
-        <div class="column is-4">
-            <div class="box" style="height:100%">
-                <div class="level mb-3">
-                    <div class="level-left">
-                        <h2 class="title is-5 mb-0">Page Views</h2>
-                    </div>
-                    <div class="level-right">
-                        <div class="select is-small">
-                            <select @change="loadPageviewReport($event.target.value)" x-model="pageviewPeriod">
-                                <option value="7days">7 Days</option>
-                                <option value="30days">30 Days</option>
-                                <option value="alltime">All Time</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-                <div id="pageview-chart" style="min-height: 240px; overflow: hidden;"></div>
-            </div>
-        </div>
 
         {# ── Recent Consent Logs ─────────────────────────── #}
         <div class="column is-12">
@@ -831,9 +978,17 @@ function customerDashboard() {
             .then(data => {
                 if (data.success && data.data.installed) {
                     this.scriptCheckStatus = 'installed';
+                    // If site blocks iframing, use the built-in preview page
+                    if (data.data.frameable === false) {
+                        this.previewUrl = '/app/banners/preview?site_id={{ dashboard.selectedSiteId }}';
+                    }
                 } else {
                     this.scriptCheckStatus = 'not_installed';
                     this.scriptCheckReason = data.data?.reason || 'Consent script not found on the website.';
+                    // Even if script not installed, check if site blocks iframing
+                    if (data.data.frameable === false) {
+                        this.previewUrl = '/app/banners/preview?site_id={{ dashboard.selectedSiteId }}';
+                    }
                 }
             })
             .catch(() => {
@@ -859,6 +1014,9 @@ function customerDashboard() {
                 if (data.success) {
                     this.gtmSaved = true;
                     setTimeout(() => { this.gtmSaved = false; }, 4000);
+                    if (data.data && data.data.warning) {
+                        alert('GTM saved with warning: ' + data.data.warning);
+                    }
                 } else {
                     alert('Save failed: ' + (data.error?.message || 'Unknown error'));
                 }
@@ -1235,13 +1393,10 @@ function easyConfig() {
             fetch('/app/dashboard/recommendations?site_id=' + this.siteId)
                 .then(r => r.json())
                 .then(data => {
-                    if (data.success && Array.isArray(data.data)) {
-                        this.recommendations = data.data;
-                        // Update compliance score from recommendation pass/fail ratio
-                        const total = this.recommendations.length;
-                        const passed = this.recommendations.filter(r => r.status === 'done').length;
-                        if (total > 0) {
-                            this.complianceScore = Math.round((passed / total) * 100);
+                    if (data.success && data.data) {
+                        this.recommendations = data.data.recommendations || [];
+                        if (typeof data.data.complianceScore === 'number') {
+                            this.complianceScore = data.data.complianceScore;
                         }
                     }
                 })
@@ -1268,6 +1423,11 @@ function easyConfig() {
                     this.templateApplied = true;
                     this.wizardStep = 2;
                     this.refreshRecommendations();
+                    if (data.data && data.data.warning) {
+                        alert('Template applied with warning: ' + data.data.warning);
+                    }
+                } else {
+                    alert('Failed to apply template: ' + (data.error?.message || 'Unknown error'));
                 }
             })
             .catch(() => { this.applyingTemplate = false; });

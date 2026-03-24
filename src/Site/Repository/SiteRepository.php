@@ -133,6 +133,16 @@ final class SiteRepository implements SiteRepositoryInterface
         return $result !== false ? (int) $result : 0;
     }
 
+    public function countActiveByUser(int $userId): int
+    {
+        $result = $this->db->fetchOne(
+            "SELECT COUNT(*) FROM oci_sites WHERE user_id = :userId AND status = 'active' AND deleted_at IS NULL",
+            ['userId' => $userId],
+        );
+
+        return $result !== false ? (int) $result : 0;
+    }
+
     public function generateWebsiteKey(): string
     {
         // Mirror legacy: 24-char hex string from random data

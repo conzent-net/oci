@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace OCI\Banner\Service;
 
 use Doctrine\DBAL\Connection;
+use OCI\Compliance\Repository\PrivacyFrameworkRepositoryInterface;
+use OCI\Compliance\Service\PrivacyFrameworkService;
 use OCI\Monetization\Service\PricingService;
 use OCI\Monetization\Service\SubscriptionService;
+use OCI\Site\Repository\PageviewRepositoryInterface;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -37,8 +40,11 @@ final class ScriptGenerationService
         private readonly LoggerInterface $logger,
         private readonly CachePurgeService $cachePurge,
         private readonly LayoutService $layoutService,
+        private readonly PrivacyFrameworkService $frameworkService,
+        private readonly PrivacyFrameworkRepositoryInterface $frameworkRepo,
         private readonly ?PricingService $pricingService = null,
         private readonly ?SubscriptionService $subscriptionService = null,
+        private readonly ?PageviewRepositoryInterface $pageviewRepo = null,
     ) {
         $this->basePath = \dirname(__DIR__, 3);
         $this->resourcePath = $this->basePath . '/resources/consent';
@@ -75,9 +81,12 @@ final class ScriptGenerationService
             $isPaidPlan = $planData['is_paid'];
             $isEnterprise = $planData['is_enterprise'];
 
-            // Check pageview limits
+            // Check pageview limits — write exceeded flag to version.json
             if (!$isEnterprise && $planData['exceeded']) {
                 @file_put_contents($scriptPath, '');
+                $versionPath = $this->outputPath . '/' . $websiteKey . '/version.json';
+                $versionData = ['v' => '', 't' => time(), 'x' => true];
+                @file_put_contents($versionPath, json_encode($versionData));
                 return true;
             }
 
@@ -90,10 +99,10 @@ final class ScriptGenerationService
             $debugMode = $site['debug_mode'] ?? 0;
             $blockIframe = $site['block_iframe'] ?? 0;
             $allowCrossDomain = $site['cross_domain_enabled'] ?? ($site['allow_cross_domain'] ?? 0);
-            $defaultPrivacyPolicyUrl = $site['privacy_policy_url'] ?? ($site['privacy_policy'] ?? '');
+            $defaultPrivacyPolicyUrl = $this->normalizeUrl($site['privacy_policy_url'] ?? ($site['privacy_policy'] ?? ''));
             $consentSharing = (int) ($site['consent_sharing_enabled'] ?? ($site['consent_sharing'] ?? 0));
             $rootDomain = $consentSharing === 1 ? $siteDomainHostname : '';
-            $bannerDisplay = (string) ($site['display_banner_type'] ?? ($site['display_banner'] ?? 'gdpr'));
+            $bannerDisplay = $this->resolveBannerDisplay($siteId, (string) ($site['display_banner_type'] ?? ($site['display_banner'] ?? 'gdpr')));
             $supportGcm = $site['gcm_enabled'] ?? ($site['support_gcm'] ?? 0);
             $supportMetaConsent = $site['meta_consent_enabled'] ?? 1;
             $supportUet = $site['uet_enabled'] ?? 1;
@@ -138,13 +147,33 @@ final class ScriptGenerationService
             $associatedDomains = $this->loadAssociatedDomains($siteId, $userId);
             foreach ($associatedDomains as $ad) {
                 $allowedDomains[] = preg_replace('#:\d+$#', '', $ad['domain']);
-                $policyList[$this->getDomainOnly($ad['domain'])] = $ad['privacy_policy'] ?? '';
+                $policyList[$this->getDomainOnly($ad['domain'])] = $this->normalizeUrl($ad['privacy_policy'] ?? '');
             }
 
             // ── Load banners ───────────────────────────────────
             $bannerList = $this->loadBanners($siteId, $bannerDisplay);
 
-            $directSetting = '[]';
+            $directSetting = json_encode([
+                'allowed_categories' => ['necessary'],
+                'allowed_scripts' => [],
+                'allowed_cookies' => [],
+                'cookieTypes' => [],
+                'beaconsList' => [],
+                'cookiesList' => [],
+                'shortCodes' => new \stdClass(),
+                'allowedVendors' => [],
+                'allowedGoogleVendors' => [],
+                'policy_list' => new \stdClass(),
+                'themeSettings' => new \stdClass(),
+                'css_content' => '',
+                'html' => '',
+                'cookie_audit_table' => '',
+                'cookie_policy_html' => '',
+                'privacy_policy_html' => '',
+                'banner_type' => 'popup',
+                'banner_position' => '-center',
+                'geo_target_selected' => [],
+            ], JSON_THROW_ON_ERROR);
             $directCcpaSetting = '[]';
             $geoTarget = '';
             $isIab = 0;
@@ -214,7 +243,11 @@ final class ScriptGenerationService
                         $siteLanguages[] = $defaultLangCode;
                     }
                 }
+                // Ensure default language is first so fallback lookups work
                 $preferedLangs = $langList;
+                if (isset($preferedLangs[$defaultLangId])) {
+                    $preferedLangs = [$defaultLangId => $preferedLangs[$defaultLangId]] + $preferedLangs;
+                }
 
                 // ── Decode banner settings ─────────────────────
                 $cookieLaws = $bannerinfo['consent_type'] ?? 'gdpr';
@@ -230,14 +263,16 @@ final class ScriptGenerationService
                     $optionsVal = json_decode($bannerinfo['option_value'], true) ?: [];
                 } else {
                     // Reconstruct from OCI separate columns
+                    $colorData = \is_string($bannerinfo['color_setting'] ?? null) ? (json_decode($bannerinfo['color_setting'], true) ?: []) : ($bannerinfo['color_setting'] ?? []);
+                    $activeTheme = $colorData['_activeTheme'] ?? null;
                     $optionsVal = [
                         'general' => \is_string($bannerinfo['general_setting'] ?? null) ? (json_decode($bannerinfo['general_setting'], true) ?: []) : ($bannerinfo['general_setting'] ?? []),
                         'layout' => \is_string($bannerinfo['layout_setting'] ?? null) ? (json_decode($bannerinfo['layout_setting'], true) ?: []) : ($bannerinfo['layout_setting'] ?? []),
                         'content' => \is_string($bannerinfo['content_setting'] ?? null) ? (json_decode($bannerinfo['content_setting'], true) ?: []) : ($bannerinfo['content_setting'] ?? []),
-                        'colors' => \is_string($bannerinfo['color_setting'] ?? null) ? (json_decode($bannerinfo['color_setting'], true) ?: []) : ($bannerinfo['color_setting'] ?? []),
+                        'colors' => $colorData,
                         'custom_css' => $bannerinfo['custom_css'] ?? '',
-                        'color_theme' => $bannerinfo['color_theme'] ?? 'dark',
-                        'base_theme' => $bannerinfo['base_theme'] ?? 'dark',
+                        'color_theme' => $activeTheme ?? $bannerinfo['color_theme'] ?? 'dark',
+                        'base_theme' => $activeTheme ?? $bannerinfo['base_theme'] ?? 'dark',
                     ];
                 }
 
@@ -331,12 +366,28 @@ final class ScriptGenerationService
                         $fieldValue = $langItem['trans_value'] ?? $langItem['default_value'] ?? '';
 
                         if (isset($contentsByField[$fieldName])) {
-                            $fieldValue = $contentsByField[$fieldName]['u_field_value'] ?? $fieldValue;
+                            $userValue = $contentsByField[$fieldName]['u_field_value'] ?? '';
+                            if ($userValue !== '') {
+                                $fieldValue = $userValue;
+                            }
+                        }
+
+                        // For critical UI fields (buttons, labels), fall back to the
+                        // default language translation if the current language is empty.
+                        if ($fieldValue === '' && $langCode !== $defaultLangCode) {
+                            $translationKey = str_starts_with($fieldName, 'iab_')
+                                ? 'conzent_' . $fieldName
+                                : 'conzent_' . $fieldCategoryKey . '_' . $fieldName;
+                            $fieldValue = $translations[$translationKey][$defaultLangCode]
+                                ?? $translations[$translationKey][$defaultMainCode]
+                                ?? '';
                         }
 
                         if ($fieldName === 'cookie_policy_url') {
                             if ($fieldValue === '') {
                                 $fieldValue = $defaultPrivacyPolicyUrl;
+                            } else {
+                                $fieldValue = $this->normalizeUrl($fieldValue);
                             }
                             $policyList[$this->getDomainOnly($siteDomain)] = $fieldValue;
                         }
@@ -530,16 +581,21 @@ final class ScriptGenerationService
 
             // ── Show ads ───────────────────────────────────────
             $showAds = 'showInfo();';
-            if ($isPaidPlan) {
+            /*if ($isPaidPlan) {
                 $showAds = '';
-            }
+            }*/
 
             // ── Main script template replacement ───────────────
             $mainScript = (string) file_get_contents($this->resourcePath . '/js/conzent.script.js');
 
-            // IAB replacements
-            $mainScript = str_replace('[IAB2_STUB]', $IAB2_STUB, $mainScript);
-            $mainScript = str_replace('[IAB2_SCRIPT]', $IAB2_SCRIPT, $mainScript);
+            // IAB stub/script are already minified — use unique string tokens so we
+            // can inject them AFTER minification (the minifier chokes on re-minifying
+            // the 100 KB IAB bundle, producing truncated output).
+            // Tokens are string literals that survive minification (comments get stripped).
+            $iabStubToken = '"__IAB2_STUB_TOKEN__"';
+            $iabScriptToken = '"__IAB2_SCRIPT_TOKEN__"';
+            $mainScript = str_replace('[IAB2_STUB]', $IAB2_STUB !== '' ? $iabStubToken : '', $mainScript);
+            $mainScript = str_replace('[IAB2_SCRIPT]', $IAB2_SCRIPT !== '' ? $iabScriptToken : '', $mainScript);
             $mainScript = str_replace('[IAB2LOADTCF]', $IAB2LOADTCF, $mainScript);
             $mainScript = str_replace('[SAVE_TCF]', $SAVE_TCF, $mainScript);
             $mainScript = str_replace('[UPDATE_TCF]', $UPDATE_TCF, $mainScript);
@@ -547,6 +603,13 @@ final class ScriptGenerationService
             $mainScript = str_replace('[IAB_LOADELEMENT]', $Load_elements, $mainScript);
             $mainScript = str_replace('[IAB_REPLACE_TAGS]', $iab_replace_tags, $mainScript);
             $mainScript = str_replace('[IAB_REPLACE_COUNT]', $iab_replace_count, $mainScript);
+
+            // Advanced vs Basic Consent Mode: whitelist Google hosts only in Advanced mode
+            // Token is a string literal to survive minification (brackets get stripped).
+            $googleHostsWhitelist = (int) $allowTagFire === 1
+                ? '["www.googletagmanager.com","googletagmanager.com","www.google-analytics.com","google-analytics.com","www.googleadservices.com","googleads.g.doubleclick.net","pagead2.googlesyndication.com"]'
+                : '[]';
+            $mainScript = str_replace('"__GOOGLE_HOSTS__"', $googleHostsWhitelist, $mainScript);
 
             // Core replacements
             $mainScript = str_replace('[CNCMPID]', (string) self::CMP_ID, $mainScript);
@@ -590,6 +653,10 @@ final class ScriptGenerationService
             $mainScript = str_replace('[PROVIDERS_BLOCKED]', json_encode($providerBlockLists, JSON_THROW_ON_ERROR), $mainScript);
             $mainScript = str_replace('[BLOCKED_COOKIE_PATTERNS]', json_encode($this->loadBlockedCookiePatterns(), JSON_THROW_ON_ERROR), $mainScript);
 
+            // Privacy framework rules map (geo-aware behaviour)
+            $frameworkRules = $this->buildFrameworkRulesMap($siteId);
+            $mainScript = str_replace('[FRAMEWORK_RULES]', json_encode($frameworkRules, JSON_THROW_ON_ERROR), $mainScript);
+
             // Geo target
             if ($isIab === 1 && $geoTarget === 'all') {
                 $mainScript = str_replace('[GEO_TARGET]', '', $mainScript);
@@ -619,20 +686,20 @@ final class ScriptGenerationService
 
                 if ($isIab === 1) {
                     // For TCF: loadIabtcf() handles Conzent.init() after vendor list loads (iab-script.js:2608).
-                    // Do NOT call loadInit()/Conzent.init() in $directLoad — vendor data isn't ready yet.
-                    // Only defer scanCookie() to window.load.
-                    $readyScript = "\n\t\t\t\t\t\t\"complete\" === document.readyState ? scanCookie() : window.addEventListener(\"load\", scanCookie);";
+                    // Do NOT call Conzent.init() in $directLoad — vendor data isn't ready yet.
+                    // But loadInit() (GCM, GTM inject, consent listeners) must still run.
+                    $readyScript = "\n\t\t\t\t\t\tloadInit();\n\t\t\t\t\t\t\"complete\" === document.readyState ? scanCookie() : window.addEventListener(\"load\", scanCookie);";
                     $directLoad = '';
                 } else {
                     $readyScript = '';
-                    $directLoad = "\n\t\t\t\t\t\tvar show_banner_new = _showBanner();\n\t\t\t\t\t\tif(show_banner_new){\n\t\t\t\t\t\t\tConzent.init();\n\t\t\t\t\t\t}\n\t\t\t\t\t\tloadInit();\n\t\t\t\t\t\t\n\t\t\t\t\t\t\"complete\" === document.readyState ? scanCookie() : window.addEventListener(\"load\", scanCookie);\n\t\t\t\t\t\t";
+                    $directLoad = "\n\t\t\t\t\t\tvar show_banner_new = _showBanner();\n\t\t\t\t\t\tif(show_banner_new){\n\t\t\t\t\t\t\t_cnzDebug('show','Conzent.init() called — rendering banner');\n\t\t\t\t\t\t\tConzent.init();\n\t\t\t\t\t\t} else {\n\t\t\t\t\t\t\t_cnzDebug('hide','Conzent.init() skipped — _showBanner() returned 0');\n\t\t\t\t\t\t\t_showDebugState();\n\t\t\t\t\t\t}\n\t\t\t\t\t\tloadInit();\n\t\t\t\t\t\t\n\t\t\t\t\t\t\"complete\" === document.readyState ? scanCookie() : window.addEventListener(\"load\", scanCookie);\n\t\t\t\t\t\t";
                 }
 
                 $mainScript = str_replace('[LOAD_CONFIG]', $scriptCode, $mainScript);
                 $mainScript = str_replace('[DIRECT_LOAD]', $directLoad, $mainScript);
                 $mainScript = str_replace('[READY_LOAD]', $readyScript, $mainScript);
             } else {
-                $directLoad = "\n\t\t\t\t\tvar show_banner_new = _showBanner();\n\t\t\t\t\tif(show_banner_new){\n\t\t\t\t\t\tConzent.init();\n\t\t\t\t\t}\n\t\t\t\t\tloadInit();\n\t\t\t\t\t";
+                $directLoad = "\n\t\t\t\t\tvar show_banner_new = _showBanner();\n\t\t\t\t\tif(show_banner_new){\n\t\t\t\t\t\t_cnzDebug('show','Conzent.init() called — rendering banner');\n\t\t\t\t\t\tConzent.init();\n\t\t\t\t\t} else {\n\t\t\t\t\t\t_cnzDebug('hide','Conzent.init() skipped — _showBanner() returned 0');\n\t\t\t\t\t\t_showDebugState();\n\t\t\t\t\t}\n\t\t\t\t\tloadInit();\n\t\t\t\t\t";
                 $mainScript = str_replace('[LOAD_CONFIG]', '', $mainScript);
                 $mainScript = str_replace('[DIRECT_LOAD]', $directLoad, $mainScript);
                 $mainScript = str_replace('[READY_LOAD]', '', $mainScript);
@@ -648,7 +715,7 @@ final class ScriptGenerationService
             );
             $mainScript = str_replace('[AB_VARIANTS]', json_encode($abVariants, JSON_THROW_ON_ERROR), $mainScript);
 
-            // ── Write and minify ───────────────────────────────
+            // ── Write, minify, then inject pre-minified IAB code ─
             $written = file_put_contents($scriptPath, $mainScript);
             if ($written === false) {
                 throw new \RuntimeException('Failed to write script: ' . $scriptPath);
@@ -659,8 +726,29 @@ final class ScriptGenerationService
                 $this->minifyScript($scriptPath);
             }
 
+            // Inject pre-minified IAB stub/script after minification
+            if ($IAB2_STUB !== '' || $IAB2_SCRIPT !== '') {
+                $minified = (string) file_get_contents($scriptPath);
+                $minified = str_replace($iabStubToken, $IAB2_STUB, $minified);
+                $minified = str_replace($iabScriptToken, $IAB2_SCRIPT, $minified);
+                // The IAB script uses placeholders that need replacing after injection
+                $minified = str_replace('[CNCMPID]', (string) self::CMP_ID, $minified);
+                $minified = str_replace('[CNCMPVERSION]', (string) self::CMP_VERSION, $minified);
+                $minified = str_replace('[WEB_PATH]', $this->webRoot, $minified);
+                file_put_contents($scriptPath, $minified);
+            }
+
             // ── Cache-busting version file ────────────────────
-            $this->writeVersionFile($websiteKey, $scriptPath, $cacheDisabled);
+            // Pass user-defined script whitelist so the early blocker can skip them
+            $userAllowedRaw = (string) ($site['allowed_scripts'] ?? '');
+            $userWhitelist = [];
+            if ($userAllowedRaw !== '') {
+                $decoded = json_decode($userAllowedRaw, true);
+                if (\is_array($decoded)) {
+                    $userWhitelist = array_values(array_filter($decoded));
+                }
+            }
+            $this->writeVersionFile($websiteKey, $scriptPath, $cacheDisabled, $userWhitelist);
 
             // ── Purge caches ──────────────────────────────────
             if (!$cacheDisabled) {
@@ -757,6 +845,16 @@ final class ScriptGenerationService
                 if ($planKey !== null) {
                     $result['is_paid'] = true;
                     $result['max_lang'] = $this->pricingService->getLimit($planKey, 'max_languages');
+
+                    // Check monthly pageview limit
+                    $pvLimit = $this->pricingService->getLimit($planKey, 'pageviews_per_month');
+                    if ($pvLimit > 0 && $this->pageviewRepo !== null) {
+                        $monthlyTotal = $this->pageviewRepo->getMonthlyTotalForUser($userId);
+                        if ($monthlyTotal >= $pvLimit) {
+                            $result['exceeded'] = true;
+                            return $result;
+                        }
+                    }
 
                     // Convert feature keys to the array format that checkFeature() expects
                     $featureKeys = $this->pricingService->getFeatureKeys($planKey);
@@ -953,6 +1051,62 @@ final class ScriptGenerationService
         }
     }
 
+    /**
+     * Build the country→framework rules map for embedding in script.js.
+     *
+     * Returns a compact map that the client-side script uses to determine
+     * blocking, consent model, and required buttons per visitor country.
+     * Falls back to empty object if framework services are unavailable.
+     *
+     * @return array<string, mixed>
+     */
+    /**
+     * Derive banner display type from selected frameworks, falling back to the DB column.
+     */
+    private function resolveBannerDisplay(int $siteId, string $fallback): string
+    {
+        try {
+            $fwIds = $this->frameworkRepo->getFrameworksForSite($siteId);
+            if ($fwIds === []) {
+                return $fallback;
+            }
+
+            $hasGdpr = \in_array('gdpr', $fwIds, true) || \in_array('eprivacy_directive', $fwIds, true);
+            $hasCcpa = \in_array('ccpa_cpra', $fwIds, true);
+
+            if ($hasGdpr && $hasCcpa) {
+                return 'gdpr_ccpa';
+            }
+            if ($hasCcpa) {
+                return 'ccpa';
+            }
+
+            return 'gdpr';
+        } catch (\Throwable) {
+            return $fallback;
+        }
+    }
+
+    private function buildFrameworkRulesMap(int $siteId): array|object
+    {
+        try {
+            $frameworkIds = $this->frameworkRepo->getFrameworksForSite($siteId);
+
+            if ($frameworkIds === []) {
+                return new \stdClass();
+            }
+
+            return $this->frameworkService->getCountryToFrameworkMap($frameworkIds);
+        } catch (\Throwable $e) {
+            $this->logger->warning('Failed to build framework rules map', [
+                'site_id' => $siteId,
+                'error' => $e->getMessage(),
+            ]);
+
+            return new \stdClass();
+        }
+    }
+
     private function loadAssociatedDomains(int $siteId, int $userId): array
     {
         try {
@@ -967,7 +1121,7 @@ final class ScriptGenerationService
 
     private function loadBanners(int $siteId, string $bannerDisplay): array
     {
-        $sql = 'SELECT sb.*, bt.cookie_laws AS consent_type, bt.id AS template_id
+        $baseSql = 'SELECT sb.*, bt.cookie_laws AS consent_type, bt.id AS template_id
                 FROM oci_site_banners sb
                 LEFT JOIN oci_banner_templates bt ON bt.id = sb.banner_template_id
                 WHERE sb.site_id = :siteId';
@@ -975,6 +1129,7 @@ final class ScriptGenerationService
         $params = ['siteId' => $siteId];
 
         // cookie_laws may be stored as JSON (e.g. {"gdpr":1,"ccpa":0}) or plain string
+        $sql = $baseSql;
         if ($bannerDisplay === 'gdpr') {
             $sql .= " AND (bt.cookie_laws IS NULL OR bt.cookie_laws LIKE '%\"gdpr\":1%' OR bt.cookie_laws = 'gdpr')";
         } elseif ($bannerDisplay === 'ccpa') {
@@ -983,9 +1138,23 @@ final class ScriptGenerationService
 
         $banners = $this->db->fetchAllAssociative($sql, $params);
 
+        // Fallback: if no template matches the framework filter, load any banner
+        // assigned to the site. Override consent_type to match the target display
+        // so the correct layout is used even with a mismatched template.
+        $isFallback = false;
+        if ($banners === [] && $sql !== $baseSql) {
+            $banners = $this->db->fetchAllAssociative($baseSql, $params);
+            $isFallback = true;
+        }
+
         // Normalize consent_type from JSON to simple string
         foreach ($banners as &$b) {
-            $b['consent_type'] = $this->normalizeCookieLaws($b['consent_type'] ?? '', $bannerDisplay);
+            if ($isFallback) {
+                // Force consent_type to target display type for mismatched templates
+                $b['consent_type'] = $bannerDisplay === 'gdpr_ccpa' ? 'gdpr' : $bannerDisplay;
+            } else {
+                $b['consent_type'] = $this->normalizeCookieLaws($b['consent_type'] ?? '', $bannerDisplay);
+            }
         }
         unset($b);
 
@@ -1168,7 +1337,7 @@ final class ScriptGenerationService
         if (!empty($content['floating_button'])) {
             $revisitConsentButton['floating_button'] = '1';
         }
-        $revisitConsentButton['button_position'] = $content['button_position'] ?? 'right';
+        $revisitConsentButton['button_position'] = $content['button_position'] ?? 'left';
         if (isset($content['revisit_custom_icon'])) {
             $revisitConsentButton['custom_icon'] = $content['revisit_custom_icon'];
         }
@@ -1595,7 +1764,7 @@ final class ScriptGenerationService
                 $styles[] = $sideProperty . ':' . ((int) $offsetSide) . 'px';
             }
             $revisitStyle = !empty($styles) ? ' style="' . implode(';', $styles) . '"' : '';
-            $revisitButtonHtml = '<div class="cnz-btn-revisit-wrapper cnz-revisit-hide conzent-revisit-bottom-' . $revisitButtonPosition . '"' . $revisitStyle . ' data-tooltip="[conzent_revisit_consent_button_text_on_hover]"> <span class="conzent-revisit" id="revisitBtn"  title="[conzent_revisit_consent_button_text_on_hover]" aria-label="[conzent_revisit_consent_button_text_on_hover]">[conzent_revisit_icon]</span> </div>';
+            $revisitButtonHtml = '<div class="cnz-btn-revisit-wrapper cnz-revisit-hide conzent-revisit-bottom-' . $revisitButtonPosition . '"' . $revisitStyle . ' data-tooltip="[conzent_revisit_consent_button_text_on_hover]"> <span class="conzent-revisit" id="revisitBtn" role="button" tabindex="0" title="[conzent_revisit_consent_button_text_on_hover]" aria-label="[conzent_revisit_consent_button_text_on_hover]">[conzent_revisit_icon]</span> </div>';
         }
     }
 
@@ -1725,7 +1894,7 @@ final class ScriptGenerationService
             if (isset($revisitConsentButton['style']['background']) && $revisitConsentButton['style']['background'] !== '') {
                 $revisitStyle = ' style="background-color:' . $revisitConsentButton['style']['background'] . '"';
             }
-            $revisitButtonHtml = '<div class="cnz-btn-revisit-wrapper cnz-revisit-hide conzent-revisit-bottom-' . $revisitButtonPosition . '"' . $revisitStyle . ' data-tooltip="[conzent_revisit_consent_button_text_on_hover]"> <span class="conzent-revisit" id="revisitBtn" aria-label="[conzent_revisit_consent_button_text_on_hover]">[conzent_revisit_icon]</span> </div>';
+            $revisitButtonHtml = '<div class="cnz-btn-revisit-wrapper cnz-revisit-hide conzent-revisit-bottom-' . $revisitButtonPosition . '"' . $revisitStyle . ' data-tooltip="[conzent_revisit_consent_button_text_on_hover]"> <span class="conzent-revisit" id="revisitBtn" role="button" tabindex="0" aria-label="[conzent_revisit_consent_button_text_on_hover]">[conzent_revisit_icon]</span> </div>';
         }
     }
 
@@ -1793,21 +1962,24 @@ final class ScriptGenerationService
         $customLayoutId = isset($bannerRow['custom_layout_id']) ? (int) $bannerRow['custom_layout_id'] : null;
 
         if ($customLayoutId !== null && $customLayoutId > 0) {
-            // Custom layout from database — already flat HTML (no {% extends %})
+            // Custom layout from database — flat HTML but still has {{ }} Twig placeholders
             $html = $this->layoutService->getLayoutHtml(null, $customLayoutId, $siteId);
-            if ($html !== '') {
-                return $html;
+            if ($html === '') {
+                // Fall through to system layout
+                $customLayoutId = null;
             }
         }
 
-        // Default layout based on cookie law type
-        if ($layoutKey === null || $layoutKey === '') {
-            $layoutKey = $cookieLaws === 'ccpa' ? 'ccpa/classic' : 'gdpr/classic';
-        }
+        if ($customLayoutId === null || $customLayoutId <= 0) {
+            // Default layout based on cookie law type
+            if ($layoutKey === null || $layoutKey === '') {
+                $layoutKey = $cookieLaws === 'ccpa' ? 'ccpa/classic' : 'gdpr/classic';
+            }
 
-        $html = $this->layoutService->getLayoutHtml($layoutKey, null, $siteId);
-        if ($html === '') {
-            throw new \RuntimeException("Layout template not found: {$layoutKey}");
+            $html = $this->layoutService->getLayoutHtml($layoutKey, null, $siteId);
+            if ($html === '') {
+                throw new \RuntimeException("Layout template not found: {$layoutKey}");
+            }
         }
 
         return $this->layoutService->renderForScript($html, [
@@ -2042,6 +2214,22 @@ final class ScriptGenerationService
         return false;
     }
 
+    /**
+     * Ensure a URL has a protocol prefix so the browser doesn't treat it as a relative path.
+     */
+    private function normalizeUrl(string $url): string
+    {
+        $url = trim($url);
+        if ($url === '') {
+            return '';
+        }
+        // Already has a protocol or is a relative path starting with /
+        if (preg_match('#^https?://#i', $url) || str_starts_with($url, '/')) {
+            return $url;
+        }
+        return 'https://' . $url;
+    }
+
     private function getDomainOnly(string $domain): string
     {
         $domain = preg_replace('#^https?://#', '', $domain) ?? $domain;
@@ -2059,7 +2247,8 @@ final class ScriptGenerationService
      * The version file contains a short hash of the script content.
      * Clients load script.js?v={hash} to bypass browser and CDN caches.
      */
-    private function writeVersionFile(string $websiteKey, string $scriptPath, bool $cacheDisabled = false): void
+    /** @param list<string> $allowedScripts User-defined script whitelist patterns */
+    private function writeVersionFile(string $websiteKey, string $scriptPath, bool $cacheDisabled = false, array $allowedScripts = []): void
     {
         if (!file_exists($scriptPath)) {
             return;
@@ -2076,6 +2265,12 @@ final class ScriptGenerationService
             'v' => $hash,
             't' => time(),
         ];
+
+        // Include user-defined whitelist so the early blocker can skip them
+        if ($allowedScripts !== []) {
+            $versionData['a'] = $allowedScripts;
+        }
+
         @file_put_contents($versionPath, json_encode($versionData));
     }
 
@@ -2095,6 +2290,33 @@ final class ScriptGenerationService
         }
 
         return $base;
+    }
+
+    /**
+     * Mark a site's version.json as exceeded (pageview limit reached).
+     * Clears the script so the banner stops showing.
+     */
+    public function markSiteExceeded(string $websiteKey): void
+    {
+        $dir = $this->outputPath . '/' . $websiteKey;
+        if (!is_dir($dir)) {
+            return;
+        }
+
+        $scriptPath = $dir . '/script.js';
+        $versionPath = $dir . '/version.json';
+
+        @file_put_contents($scriptPath, '');
+        $versionData = ['v' => '', 't' => time(), 'x' => true];
+        @file_put_contents($versionPath, json_encode($versionData));
+    }
+
+    /**
+     * Clear the exceeded flag from a site's version.json and regenerate the script.
+     */
+    public function clearSiteExceeded(int $siteId): void
+    {
+        $this->generate($siteId);
     }
 
     /**
@@ -2325,6 +2547,15 @@ final class ScriptGenerationService
             'sites_data/' . $websiteKey . '/script.js',
         ];
 
+        // Merge user-defined script whitelist
+        $userAllowedRaw = (string) ($site['allowed_scripts'] ?? '');
+        if ($userAllowedRaw !== '') {
+            $userAllowed = json_decode($userAllowedRaw, true);
+            if (\is_array($userAllowed)) {
+                $allowedScripts = array_values(array_unique(array_merge($allowedScripts, array_filter($userAllowed))));
+            }
+        }
+
         // ── HTML template ──────────────────────────────
         $htmlContent = $this->loadHtmlTemplate($cookieLaws, $generalOption, $bannerRow, $siteId);
         $isIab = 0;
@@ -2389,7 +2620,7 @@ final class ScriptGenerationService
         ];
 
         // Banner type & position
-        $configArray['banner_type'] = $optionsVal['layout']['cookie_notice']['display_mode'] ?? 'box';
+        $configArray['banner_type'] = $optionsVal['layout']['cookie_notice']['display_mode'] ?? 'popup';
         if (isset($optionsVal['layout']['cookie_notice']['position'])) {
             $configArray['banner_position'] = '-' . str_replace('_', '-', $optionsVal['layout']['cookie_notice']['position']);
         } else {

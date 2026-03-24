@@ -396,12 +396,12 @@ final class LayoutService
                 'notice_title' => '#000000',
                 'notice_description' => '#000000',
             ],
-            'buttons_html' => '<button class="cnz-btn btn-cookieAccept" style="background:#0d6efd;color:#fff;border:2px solid #0d6efd;padding:8px 16px;border-radius:2px;cursor:pointer;font-size:14px;font-weight:500;flex:auto;">Accept All</button>'
-                . '<button class="cnz-btn btn-cookieReject" style="background:transparent;color:#0d6efd;border:2px solid #0d6efd;padding:8px 16px;border-radius:2px;cursor:pointer;font-size:14px;font-weight:500;flex:auto;">Reject All</button>'
-                . '<button class="cnz-btn btn-cookieCustomize" style="background:transparent;color:#0d6efd;border:2px solid #0d6efd;padding:8px 16px;border-radius:2px;cursor:pointer;font-size:14px;font-weight:500;flex:auto;">Customize</button>',
-            'pref_buttons_html' => '<button class="cnz-btn btn-savePref" style="background:transparent;color:#0d6efd;border:2px solid #0d6efd;padding:8px 16px;border-radius:2px;cursor:pointer;font-size:14px;font-weight:500;flex:auto;">Save My Preferences</button>'
-                . '<button class="cnz-btn btn-cookieAccept" style="background:#0d6efd;color:#fff;border:2px solid #0d6efd;padding:8px 16px;border-radius:2px;cursor:pointer;font-size:14px;font-weight:500;flex:auto;">Accept All</button>'
-                . '<button class="cnz-btn btn-cookieReject" style="background:transparent;color:#0d6efd;border:2px solid #0d6efd;padding:8px 16px;border-radius:2px;cursor:pointer;font-size:14px;font-weight:500;flex:auto;">Reject All</button>',
+            'buttons_html' => '<button class="cnz-btn btn-cookieAccept" style="background:#0d6efd;color:#fff;border:2px solid #0d6efd;padding:10px 20px;border-radius:4px;cursor:pointer;font-size:14px;font-weight:500;flex:auto;">Accept All</button>'
+                . '<button class="cnz-btn btn-cookieReject" style="background:transparent;color:#0d6efd;border:2px solid #0d6efd;padding:10px 20px;border-radius:4px;cursor:pointer;font-size:14px;font-weight:500;flex:auto;">Reject All</button>'
+                . '<button class="cnz-btn btn-cookieCustomize" style="background:transparent;color:#0d6efd;border:2px solid #0d6efd;padding:10px 20px;border-radius:4px;cursor:pointer;font-size:14px;font-weight:500;flex:auto;">Customize</button>',
+            'pref_buttons_html' => '<button class="cnz-btn btn-savePref" style="background:transparent;color:#0d6efd;border:2px solid #0d6efd;padding:10px 20px;border-radius:4px;cursor:pointer;font-size:14px;font-weight:500;flex:auto;">Save My Preferences</button>'
+                . '<button class="cnz-btn btn-cookieAccept" style="background:#0d6efd;color:#fff;border:2px solid #0d6efd;padding:10px 20px;border-radius:4px;cursor:pointer;font-size:14px;font-weight:500;flex:auto;">Accept All</button>'
+                . '<button class="cnz-btn btn-cookieReject" style="background:transparent;color:#0d6efd;border:2px solid #0d6efd;padding:10px 20px;border-radius:4px;cursor:pointer;font-size:14px;font-weight:500;flex:auto;">Reject All</button>',
             'revisit_html' => '<div class="conzent-revisit" style="position:fixed;bottom:16px;left:16px;">'
                 . '<button style="background:#0d6efd;color:#fff;border:none;padding:8px 14px;border-radius:4px;font-size:12px;cursor:pointer;" title="Consent Preferences">Consent Preferences</button>'
                 . '</div>',

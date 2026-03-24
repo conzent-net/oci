@@ -31,8 +31,8 @@ final class RecommendationsHandler implements RequestHandlerInterface
             return ApiResponse::error('Missing site_id', 400);
         }
 
-        $recommendations = $this->dashboardService->getRecommendations($user, $siteId);
+        $result = $this->dashboardService->getRecommendationsWithScore($user, $siteId);
 
-        return ApiResponse::success($recommendations);
+        return ApiResponse::success($result);
     }
 }

@@ -322,7 +322,7 @@
 .conzent-modal .btn-wrap {
   display: flex;
   justify-content: center;
-  align-items: center;
+  align-items: stretch;
   /*flex-wrap: wrap;*/
   gap: 8px;
   margin-top: 16px;
@@ -338,9 +338,9 @@
   font-size: 14px;
   font-family: inherit;
   line-height: 24px;
-  padding: 8px;
+  padding: 10px 20px;
   font-weight: 500;
-  border-radius: 2px;
+  border-radius: 4px;
   cursor: pointer;
   text-align: center;
   text-transform: none;
@@ -463,7 +463,10 @@
 .btn-cookieAccept {
   /* colors set via inline styles from banner config */
 }
-.conzent-notice .btn-wrap button:hover {
+.conzent-notice .btn-wrap button:hover,
+.conzent-notice .btn-wrap .cnz-btn:hover,
+.conzent-modal .btn-wrap button:hover,
+.conzent-modal .btn-wrap .cnz-btn:hover {
   transition:
     box-shadow 0.4s cubic-bezier(0.25, 0.8, 0.25, 1),
     transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
@@ -842,7 +845,7 @@
   width: 100%;
 }
 .cnz-arrow-right {
-  background: url("/app/css/chevron-right.svg") no-repeat;
+  background: url("data:image/svg+xml,%3Csvg width='6' height='10' viewBox='0 0 4 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0.98838 0.14318L3.84496 3.00015L0.988575 5.85692C0.797603 6.04769 0.488494 6.04769 0.298107 5.85692C0.10733 5.66614 0.107526 5.35723 0.298107 5.16645L2.46422 2.99995L0.297912 0.833062C0.107331 0.642285 0.107331 0.333371 0.297912 0.14279C0.488689 -0.0475968 0.797603 -0.0475966 0.98838 0.14318Z' fill='%23828282'/%3E%3C/svg%3E") no-repeat;
   width: 16px;
   height: 16px;
   display: block;
@@ -1176,8 +1179,21 @@
     padding-top: 10px;
     padding-bottom: 10px;
   }
-  .conzent-prefrence-btn-wrapper .cnz-btn {
+  .conzent-prefrence-btn-wrapper .cnz-btn,
+  .conzent-prefrence-btn-wrapper button {
     width: 100%;
+  }
+  .content-wrap .btn-wrap button {
+    width: 100%;
+  }
+  .cnz-sidebar {
+    width: 100vw;
+    box-shadow: none;
+  }
+  .cnz-card .conzent-inner-content-box,
+  .cnz-hero .conzent-inner-content-box {
+    max-width: 100%;
+    border-radius: 0;
   }
 }
 @media (max-width: 768px) {
@@ -1190,7 +1206,8 @@
     margin-top: 10px;
     justify-content: left;
   }
-  .content-wrap .btn-wrap .cnz-btn {
+  .content-wrap .btn-wrap .cnz-btn,
+  .content-wrap .btn-wrap button {
     flex: auto;
     max-width: 100%;
     margin-top: 10px;
@@ -1284,6 +1301,169 @@
     transform: scaleY(1);
     -webkit-transform: scaleY(1);
   }
+}
+
+/* ═══════════════════════════════════════════════════════
+   Layout: Minimal
+   Clean, compact banner — no title, row buttons
+   ═══════════════════════════════════════════════════════ */
+.cnz-minimal .btn-wrap {
+  flex-direction: row;
+  gap: 8px;
+}
+
+/* ═══════════════════════════════════════════════════════
+   Layout: Stacked
+   Full-width bar with vertically stacked buttons
+   ═══════════════════════════════════════════════════════ */
+.cnz-stacked .content-wrap {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.cnz-stacked .msg-wrap {
+  flex: 1;
+}
+.cnz-stacked .btn-wrap {
+  flex-direction: column;
+  gap: 8px;
+  min-width: 180px;
+  margin-top: 0;
+}
+
+/* ═══════════════════════════════════════════════════════
+   Layout: Card
+   Centered card overlay with shadow
+   ═══════════════════════════════════════════════════════ */
+.cnz-card .conzent-inner-content-box {
+  text-align: center;
+  max-width: 520px;
+  margin: auto;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+}
+.cnz-card .title-wrap {
+  justify-content: center;
+}
+.cnz-card .content-wrap {
+  display: block;
+}
+.cnz-card .msg-wrap {
+  text-align: center;
+  margin-bottom: 16px;
+}
+.cnz-card .btn-wrap {
+  justify-content: center;
+}
+.cnz-card .conzent-branding {
+  justify-content: center;
+  padding: 8px 0 0;
+  font-size: 11px;
+  opacity: 0.7;
+}
+.cnz-card .logo-wrap {
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+/* ═══════════════════════════════════════════════════════
+   Layout: Sidebar
+   Full-height panel that slides in from the side
+   ═══════════════════════════════════════════════════════ */
+.cnz-sidebar {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  width: 380px;
+  max-width: 100vw;
+  border-radius: 0;
+  box-shadow: 4px 0 24px rgba(0,0,0,0.15);
+}
+.cnz-sidebar .conzent-inner-content-box {
+  border: none;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  border-radius: 0;
+}
+.cnz-sidebar .conzent-notice {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+.cnz-sidebar .title-wrap {
+  padding: 24px 24px 0;
+}
+.cnz-sidebar-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 24px;
+}
+.cnz-sidebar-footer {
+  padding: 16px 24px;
+}
+.cnz-sidebar .btn-wrap {
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 0;
+}
+.cnz-sidebar .conzent-branding {
+  justify-content: flex-end;
+  padding: 8px 0 0;
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+/* ═══════════════════════════════════════════════════════
+   Layout: Hero
+   Large image header with gradient
+   ═══════════════════════════════════════════════════════ */
+.cnz-hero .conzent-inner-content-box {
+  border-radius: 12px;
+  overflow: hidden;
+  max-width: 560px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.12);
+}
+.cnz-hero.conzent-popup-center .conzent-inner-content-box {
+  margin: auto;
+}
+.cnz-hero-header {
+  padding: 28px 24px 20px;
+  text-align: center;
+  position: relative;
+}
+.cnz-hero-header .logo-wrap {
+  margin-bottom: 12px;
+}
+.cnz-hero .title-wrap {
+  justify-content: center;
+  margin: 0;
+  font-size: 1.2em;
+}
+.cnz-hero-body {
+  padding: 16px 24px;
+}
+.cnz-hero .content-wrap {
+  display: block;
+}
+.cnz-hero .msg-wrap {
+  margin-bottom: 16px;
+}
+.cnz-hero .btn-wrap {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 0;
+}
+.cnz-hero .notice_button_wrap {
+  margin-top: 12px;
+}
+.cnz-hero .conzent-branding {
+  justify-content: center;
+  padding: 8px 0 0;
+  font-size: 11px;
+  opacity: 0.7;
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -1431,7 +1611,7 @@
   margin-bottom: 8px;
 }
 .cnz-tabcard-message {
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.6;
 }
 .cnz-tabcard-footer {

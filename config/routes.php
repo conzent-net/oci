@@ -31,6 +31,8 @@ use OCI\Identity\Controller\ForgotPasswordHandler;
 use OCI\Identity\Controller\ForgotPasswordPageHandler;
 use OCI\Identity\Controller\LoginHandler;
 use OCI\Identity\Controller\LoginPageHandler;
+use OCI\Identity\Controller\RegisterHandler;
+use OCI\Identity\Controller\RegisterPageHandler;
 use OCI\Identity\Controller\LogoutHandler;
 use OCI\Identity\Controller\ResetPasswordHandler;
 use OCI\Identity\Controller\ResetPasswordPageHandler;
@@ -39,10 +41,12 @@ use OCI\Identity\Controller\GoogleCallbackHandler;
 use OCI\Identity\Controller\AccountSetupHandler;
 use OCI\Identity\Controller\AccountProfileHandler;
 use OCI\Identity\Controller\AccountDeleteHandler;
+use OCI\Identity\Controller\LegacyMigrateHandler;
 use OCI\Banner\Controller\BannerContentHandler;
 use OCI\Banner\Controller\BannerContentUpdateHandler;
 use OCI\Banner\Controller\BannerListHandler;
 use OCI\Banner\Controller\BannerUpdateHandler;
+use OCI\Banner\Controller\BannerPreviewHandler;
 use OCI\Banner\Controller\BannerPurgeCacheHandler;
 use OCI\Banner\Controller\GenerateScriptHandler;
 use OCI\Banner\Controller\TranslateContentHandler;
@@ -67,6 +71,7 @@ use OCI\Site\Controller\LanguageAddHandler;
 use OCI\Site\Controller\LanguageDefaultHandler;
 use OCI\Site\Controller\LanguageListHandler;
 use OCI\Site\Controller\LanguageRemoveHandler;
+use OCI\Site\Controller\SiteFrameworksHandler;
 use OCI\Site\Controller\SiteUpdateHandler;
 use OCI\Site\Controller\GtmAuthHandler;
 use OCI\Site\Controller\GtmCallbackHandler;
@@ -75,6 +80,10 @@ use OCI\Site\Controller\GtmWizardHandler;
 use OCI\Site\Controller\GtmWorkspacesHandler;
 use OCI\Site\Controller\GtmCreateWorkspaceHandler;
 use OCI\Site\Controller\GtmWizardApplyHandler;
+use OCI\Site\Controller\MatomoWizardHandler;
+use OCI\Site\Controller\MatomoValidateHandler;
+use OCI\Site\Controller\MatomoContainersHandler;
+use OCI\Site\Controller\MatomoWizardApplyHandler;
 use OCI\Cookie\Controller\CookieListHandler;
 use OCI\Cookie\Controller\CookieCreateHandler;
 use OCI\Cookie\Controller\CookieUpdateHandler;
@@ -139,6 +148,8 @@ return static function (RouteCollector $r): void {
     // ── Auth ─────────────────────────────────────────────
     $r->get('/login', ['handler' => LoginPageHandler::class, 'middleware' => 'guest']);
     $r->post('/login', ['handler' => LoginHandler::class, 'middleware' => 'guest']);
+    $r->get('/register', ['handler' => RegisterPageHandler::class, 'middleware' => 'guest']);
+    $r->post('/register', ['handler' => RegisterHandler::class, 'middleware' => 'guest']);
     $r->get('/logout', ['handler' => LogoutHandler::class, 'middleware' => 'web']);
     $r->get('/forgot-password', ['handler' => ForgotPasswordPageHandler::class, 'middleware' => 'guest']);
     $r->post('/forgot-password', ['handler' => ForgotPasswordHandler::class, 'middleware' => 'guest']);
@@ -160,6 +171,7 @@ return static function (RouteCollector $r): void {
     $r->get('/sites', ['handler' => SiteListHandler::class, 'middleware' => 'web']);
     $r->get('/sites/create', ['handler' => CreateSitePageHandler::class, 'middleware' => 'web']);
     $r->post('/sites/create', ['handler' => CreateSiteHandler::class, 'middleware' => 'web']);
+    $r->get('/sites/frameworks', ['handler' => SiteFrameworksHandler::class, 'middleware' => 'web']);
 
     // ── Language management ────────────────────────────────
     $r->get('/languages', ['handler' => LanguageListHandler::class, 'middleware' => 'web']);
@@ -248,6 +260,7 @@ return static function (RouteCollector $r): void {
         $r->post('/{id:\d+}/restore', ['handler' => SiteRestoreHandler::class, 'middleware' => 'web']);
         $r->post('/{id:\d+}/destroy', ['handler' => SiteDestroyHandler::class, 'middleware' => 'web']);
         $r->post('/{id:\d+}/generate-script', ['handler' => GenerateScriptHandler::class, 'middleware' => 'web']);
+        $r->post('/frameworks', ['handler' => SiteFrameworksHandler::class, 'middleware' => 'web']);
     });
 
     // ── GTM Pages ────────────────────────────────────────────
@@ -263,6 +276,18 @@ return static function (RouteCollector $r): void {
         $r->get('/workspaces', ['handler' => GtmWorkspacesHandler::class, 'middleware' => 'web']);
         $r->post('/workspaces/create', ['handler' => GtmCreateWorkspaceHandler::class, 'middleware' => 'web']);
         $r->post('/wizard/apply', ['handler' => GtmWizardApplyHandler::class, 'middleware' => 'web']);
+    });
+
+    // ── Matomo TM Pages ──────────────────────────────────────
+    $r->addGroup('/matomo', static function (RouteCollector $r): void {
+        $r->get('/wizard', ['handler' => MatomoWizardHandler::class, 'middleware' => 'web']);
+    });
+
+    // ── Matomo TM AJAX API ──────────────────────────────────
+    $r->addGroup('/app/matomo', static function (RouteCollector $r): void {
+        $r->post('/validate', ['handler' => MatomoValidateHandler::class, 'middleware' => 'web']);
+        $r->get('/containers', ['handler' => MatomoContainersHandler::class, 'middleware' => 'web']);
+        $r->post('/wizard/apply', ['handler' => MatomoWizardApplyHandler::class, 'middleware' => 'web']);
     });
 
     // ── Language AJAX API ───────────────────────────────────
@@ -298,6 +323,7 @@ return static function (RouteCollector $r): void {
 
     // ── Banner AJAX API ─────────────────────────────────────
     $r->addGroup('/app/banners', static function (RouteCollector $r): void {
+        $r->get('/preview', ['handler' => BannerPreviewHandler::class, 'middleware' => 'web']);
         $r->put('/{id:\d+}', ['handler' => BannerUpdateHandler::class, 'middleware' => 'web']);
         $r->post('/purge', ['handler' => BannerPurgeCacheHandler::class, 'middleware' => 'web']);
         $r->post('/content', ['handler' => BannerContentUpdateHandler::class, 'middleware' => 'web']);
@@ -309,6 +335,7 @@ return static function (RouteCollector $r): void {
 
     // ── Account AJAX API ─────────────────────────────────────
     $r->post('/app/account/delete', ['handler' => AccountDeleteHandler::class, 'middleware' => 'web']);
+    $r->post('/app/account/legacy-migrate', ['handler' => LegacyMigrateHandler::class, 'middleware' => 'web']);
     $r->post('/app/onboarding/complete', ['handler' => OnboardingCompleteHandler::class, 'middleware' => 'web']);
 
     // ── Consent AJAX API ─────────────────────────────────────

@@ -117,6 +117,13 @@ interface ScanRepositoryInterface
 
     public function countScanCookies(int $scanId): int;
 
+    /**
+     * Get cookie count grouped by category_slug for a scan.
+     *
+     * @return array<int, array{category_slug: string, total: int}>
+     */
+    public function getScanCookieBreakdown(int $scanId): array;
+
     // ── Scan Servers ─────────────────────────────────────
 
     /**

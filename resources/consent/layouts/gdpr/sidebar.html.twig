@@ -7,23 +7,23 @@
 {% extends "gdpr/base.html.twig" %}
 
 {% block banner %}
-<div id="Conzent" tabindex="0" class="conzent-{{ banner_type }}{{ display_position }}" style="position:fixed;top:0;bottom:0;width:380px;max-width:100vw;border-radius:0;box-shadow:4px 0 24px rgba(0,0,0,0.15);">
-  <div class="conzent-inner-content-box" style="border:none;background-color:{{ colors.notice_bg }};height:100%;display:flex;flex-direction:column;border-radius:0;">
-    <div class="conzent-notice" style="flex:1;display:flex;flex-direction:column;">
-      <p class="title-wrap" style="color:{{ colors.notice_title }};padding:24px 24px 0;">{{ logo_html|raw }} [conzent_cookie_notice_banner_title]</p>
+<div id="Conzent" tabindex="0" class="conzent-{{ banner_type }}{{ display_position }} cnz-sidebar">
+  <div class="conzent-inner-content-box" style="background-color:{{ colors.notice_bg }}">
+    <div class="conzent-notice">
+      <p class="title-wrap" style="color:{{ colors.notice_title }}">{{ logo_html|raw }} [conzent_cookie_notice_banner_title]</p>
 
-      <div style="flex:1;overflow-y:auto;padding:0 24px;">
+      <div class="cnz-sidebar-scroll">
         <div class="msg-wrap" style="color:{{ colors.notice_description }}">
           [conzent_cookie_notice_message]
           {{ privacy_policy_link|raw }}
         </div>
       </div>
 
-      <div style="padding:16px 24px;border-top:1px solid {{ colors.notice_border }};">
-        <div class="btn-wrap" style="flex-direction:column;gap:8px;">
+      <div class="cnz-sidebar-footer" style="border-top:1px solid {{ colors.notice_border }}">
+        <div class="btn-wrap">
           {{ buttons_html|raw }}
         </div>
-        <div class="conzent-branding" style="display:flex;justify-content:flex-end;padding:8px 0 0;font-size:11px;opacity:0.7;">
+        <div class="conzent-branding">
           {{ branding_html|raw }}
         </div>
       </div>

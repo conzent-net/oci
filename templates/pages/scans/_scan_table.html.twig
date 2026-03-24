@@ -4,10 +4,7 @@
     <table class="table is-fullwidth is-hoverable is-striped">
         <thead>
             <tr>
-                <th>#</th>
-                <th>Type</th>
                 <th>Status</th>
-                <th>Pages</th>
                 <th>Cookies</th>
                 <th>Beacons</th>
                 <th>Started</th>
@@ -18,23 +15,6 @@
         <tbody>
             {% for scan in scans %}
             <tr>
-                <td>
-                    <a href="/scans/{{ scan.id }}" class="has-text-link">
-                        {{ scan.id }}
-                    </a>
-                </td>
-                <td>
-                    {% if scan.is_scheduled %}
-                        <span class="tag is-info is-light">
-                            <i class="fas fa-clock mr-1"></i>
-                            {{ scan.frequency|default('once')|capitalize }}
-                        </span>
-                    {% else %}
-                        <span class="tag is-light">
-                            {{ scan.scan_type|default('full')|capitalize }}
-                        </span>
-                    {% endif %}
-                </td>
                 <td>
                     {% if scan.scan_status == 'completed' %}
                         <span class="tag is-success is-light">
@@ -64,7 +44,6 @@
                         <span class="tag is-light">{{ scan.scan_status }}</span>
                     {% endif %}
                 </td>
-                <td>{{ scan.total_pages }}</td>
                 <td>{{ scan.total_cookies }}</td>
                 <td>{{ scan.total_scripts }}</td>
                 <td>

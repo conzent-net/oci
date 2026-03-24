@@ -67,6 +67,11 @@ RUN composer install --no-dev --optimize-autoloader --no-interaction \
     && composer clear-cache \
     && rm /usr/bin/composer
 
+# Stash a copy of public assets so the entrypoint can sync them
+# into the named Docker volume on every container start (volumes
+# preserve old content across image rebuilds).
+RUN cp -a /var/www/html/public /usr/src/oci-public
+
 # Ensure correct permissions for writable directories
 RUN mkdir -p /var/www/html/var /var/www/html/public/sites_data \
     && chown -R www-data:www-data /var/www/html/var /var/www/html/public/sites_data

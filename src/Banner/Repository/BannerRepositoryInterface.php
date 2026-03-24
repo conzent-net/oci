@@ -90,4 +90,16 @@ interface BannerRepositoryInterface
      * Insert or update a site banner field translation.
      */
     public function upsertFieldTranslation(int $siteBannerId, int $fieldId, int $languageId, string $value): void;
+
+    /**
+     * Set the cookie_policy_url field for all languages of a site banner.
+     */
+    public function setCookiePolicyUrl(int $siteBannerId, int $siteId, string $url): void;
+
+    /**
+     * Find a banner template that supports the given cookie law ('gdpr' or 'ccpa').
+     *
+     * @return array<string, mixed>|null
+     */
+    public function findTemplateForLaw(string $law): ?array;
 }

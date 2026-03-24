@@ -69,11 +69,14 @@ final class ScriptCheckHandler implements RequestHandlerInterface
         }
         $result = $this->checkScriptInstalled($url, $websiteKey);
 
-        return ApiResponse::success($result + ['domain' => $domain]);
+        return ApiResponse::success($result + [
+            'domain' => $domain,
+            'frameable' => $result['frameable'] ?? true,
+        ]);
     }
 
     /**
-     * @return array{installed: bool, reason: string}
+     * @return array{installed: bool, reason: string, frameable: bool}
      */
     private function checkScriptInstalled(string $url, string $websiteKey): array
     {
@@ -92,19 +95,26 @@ final class ScriptCheckHandler implements RequestHandlerInterface
             ]);
 
             $html = @file_get_contents($url, false, $context);
+            /** @var array<int, string> $responseHeaders */
+            $responseHeaders = $http_response_header ?? [];
 
             if ($html === false) {
                 // Try http:// fallback
                 $httpUrl = str_replace('https://', 'http://', $url);
                 $html = @file_get_contents($httpUrl, false, $context);
+                $responseHeaders = $http_response_header ?? [];
 
                 if ($html === false) {
                     return [
                         'installed' => false,
+                        'frameable' => false,
                         'reason' => 'Could not reach the website. Make sure the domain is accessible.',
                     ];
                 }
             }
+
+            // Check if the site allows iframing
+            $frameable = $this->isFrameable($responseHeaders, $html);
 
             // Check for the consent script — look for common patterns:
             // 1. The website key in a script src
@@ -124,6 +134,7 @@ final class ScriptCheckHandler implements RequestHandlerInterface
                 if ($pattern !== '' && stripos($html, $pattern) !== false) {
                     return [
                         'installed' => true,
+                        'frameable' => $frameable,
                         'reason' => 'Consent script detected on site.',
                     ];
                 }
@@ -131,6 +142,7 @@ final class ScriptCheckHandler implements RequestHandlerInterface
 
             return [
                 'installed' => false,
+                'frameable' => $frameable,
                 'reason' => 'Consent script not found on the website. Add the script tag to your site\'s <head> section.',
             ];
         } catch (\Throwable $e) {
@@ -138,8 +150,47 @@ final class ScriptCheckHandler implements RequestHandlerInterface
 
             return [
                 'installed' => false,
+                'frameable' => false,
                 'reason' => 'Could not check the website: ' . $e->getMessage(),
             ];
         }
+    }
+
+    /**
+     * Check HTTP headers and HTML meta tags for frame-blocking directives.
+     *
+     * @param array<int, string> $headers Raw $http_response_header lines
+     */
+    private function isFrameable(array $headers, string $html): bool
+    {
+        // Check X-Frame-Options header
+        foreach ($headers as $header) {
+            if (stripos($header, 'X-Frame-Options') !== false) {
+                $value = strtolower(trim(explode(':', $header, 2)[1] ?? ''));
+                if ($value === 'deny' || $value === 'sameorigin') {
+                    return false;
+                }
+            }
+            // Check Content-Security-Policy frame-ancestors
+            if (stripos($header, 'Content-Security-Policy') !== false) {
+                $value = strtolower($header);
+                if (preg_match('/frame-ancestors\s+[\'"]?none[\'"]?/', $value)) {
+                    return false;
+                }
+                if (str_contains($value, 'frame-ancestors') && str_contains($value, "'self'")) {
+                    return false;
+                }
+            }
+        }
+
+        // Check HTML meta http-equiv for X-Frame-Options
+        if (preg_match('/<meta[^>]+http-equiv=["\']X-Frame-Options["\'][^>]+content=["\'](\w+)["\']/i', $html, $m)) {
+            $val = strtolower($m[1]);
+            if ($val === 'deny' || $val === 'sameorigin') {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

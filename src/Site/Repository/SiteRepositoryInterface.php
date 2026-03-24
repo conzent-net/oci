@@ -75,6 +75,11 @@ interface SiteRepositoryInterface
     public function countByUser(int $userId): int;
 
     /**
+     * Count active sites for a user (status = 'active', excluding soft-deleted).
+     */
+    public function countActiveByUser(int $userId): int;
+
+    /**
      * Soft-delete a site (sets deleted_at and status).
      */
     public function softDelete(int $siteId): void;

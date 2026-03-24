@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace OCI\Site\Service;
 
 use OCI\Banner\Repository\BannerRepositoryInterface;
+use OCI\Banner\Service\ScriptGenerationService;
+use OCI\Compliance\Repository\PrivacyFrameworkRepositoryInterface;
 use OCI\Cookie\Repository\CookieCategoryRepositoryInterface;
 use OCI\Shared\Repository\PlanRepositoryInterface;
 use OCI\Shared\Service\EditionService;
@@ -14,6 +16,7 @@ use OCI\Site\DTO\CreateSiteInput;
 use OCI\Site\DTO\CreateSiteResult;
 use OCI\Site\Repository\LanguageRepositoryInterface;
 use OCI\Site\Repository\SiteRepositoryInterface;
+use Psr\Log\LoggerInterface;
 
 /**
  * Orchestrates the full site creation flow.
@@ -32,7 +35,10 @@ final class SiteCreationService
         private readonly PlanRepositoryInterface $planRepo,
         private readonly ScanRepositoryInterface $scanRepo,
         private readonly EditionService $edition,
+        private readonly PrivacyFrameworkRepositoryInterface $frameworkRepo,
         private readonly ?SubscriptionService $subscriptionService = null,
+        private readonly ?ScriptGenerationService $scriptService = null,
+        private readonly ?LoggerInterface $logger = null,
     ) {}
 
     /**
@@ -59,11 +65,8 @@ final class SiteCreationService
             throw new \RuntimeException('Domain already exists in system');
         }
 
-        // ── Step 3: Check plan limits (only domain count, not subscription) ──
-        $this->checkDomainLimit($userId);
-
-        // ── Step 3b: Determine initial status ──────────────
-        $needsSuspend = $this->shouldSuspendNewSite($userId);
+        // ── Step 3: Determine initial status (suspend if no subscription or at plan limit) ──
+        $suspendReason = $this->getSuspendReason($userId);
 
         // ── Step 4: Resolve defaults ─────────────────────
         $defaultLang = $this->resolveDefaultLanguage();
@@ -78,15 +81,15 @@ final class SiteCreationService
             'site_name' => $siteName,
             'domain' => $domain,
             'website_key' => $websiteKey,
-            'status' => $needsSuspend ? 'suspended' : 'active',
-            'suspended_reason' => $needsSuspend ? 'no_subscription' : null,
+            'status' => $suspendReason !== null ? 'suspended' : 'active',
+            'suspended_reason' => $suspendReason,
             'setup_status' => 0,
             'consent_log_enabled' => 1,
             'consent_sharing_enabled' => 1,
             'gcm_enabled' => 1,
             'tag_fire_enabled' => 1,
             'display_banner_type' => $input->bannerType,
-            'banner_delay_ms' => 2000,
+            'banner_delay_ms' => 100,
             'include_all_languages' => 1,
             'privacy_policy_url' => $input->privacyPolicyUrl,
             'created_by' => $userId,
@@ -101,10 +104,25 @@ final class SiteCreationService
         $this->copyDefaultCategories($siteId, $languageId);
 
         // ── Step 8: Create default banner settings ───────
-        $this->createDefaultBannerSettings($siteId, $languageId);
+        $this->createDefaultBannerSettings($siteId, $languageId, $input->privacyPolicyUrl);
+
+        // ── Step 8b: Assign default privacy frameworks ──
+        $this->assignDefaultFrameworks($siteId, $input->bannerType, $input->frameworkIds);
+
+        // ── Step 8c: Generate initial consent script ────
+        if ($this->scriptService !== null) {
+            try {
+                $this->scriptService->generate($siteId);
+            } catch (\Throwable $e) {
+                $this->logger?->warning('Initial script generation failed', [
+                    'site_id' => $siteId,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
 
         // ── Step 9: Initiate first scan (skip for suspended sites) ──
-        if (!$needsSuspend) {
+        if ($suspendReason === null) {
             $this->initiateFirstScan($siteId, $domain, $userId);
         }
 
@@ -141,12 +159,6 @@ final class SiteCreationService
             $errors['domain'] = 'Invalid domain name';
         } elseif ($this->siteRepo->domainExists($domain)) {
             $errors['domain'] = 'Domain already exists in system';
-        }
-
-        $userId = (int) $user['id'];
-        $limitError = $this->getDomainLimitError($userId);
-        if ($limitError !== null) {
-            $errors['plan'] = $limitError;
         }
 
         return $errors;
@@ -243,74 +255,41 @@ final class SiteCreationService
     }
 
     /**
-     * @throws \RuntimeException If domain limit exceeded (but NOT for missing subscription)
+     * Determine if a newly created site should start as suspended, and why.
+     * Returns null if the site should be active, or a suspended_reason string.
      */
-    private function checkDomainLimit(int $userId): void
-    {
-        $error = $this->getDomainLimitError($userId);
-        if ($error !== null) {
-            throw new \RuntimeException($error);
-        }
-    }
-
-    /**
-     * Check only the domain count limit (not subscription existence).
-     * Users without a subscription can still create sites — they'll be suspended.
-     */
-    private function getDomainLimitError(int $userId): ?string
+    private function getSuspendReason(int $userId): ?string
     {
         if (!$this->edition->arePlanLimitsEnforced()) {
             return null;
         }
 
-        $isEnterprise = $this->planRepo->isEnterprise($userId);
-        if ($isEnterprise) {
+        if ($this->planRepo->isEnterprise($userId)) {
             return null;
         }
 
         if ($this->subscriptionService !== null) {
             if (!$this->subscriptionService->hasActiveAccess($userId)) {
-                // No subscription — allow creation (site will be suspended)
-                return null;
+                return 'no_subscription';
             }
 
             $maxDomains = $this->subscriptionService->getAllowedDomainCount($userId);
-
-            if ($maxDomains <= 0) {
-                return null;
-            }
-
-            $currentCount = $this->siteRepo->countByUser($userId);
-
-            if ($currentCount >= $maxDomains) {
-                return 'You have reached the maximum number of sites for your plan. Please upgrade your subscription.';
+            if ($maxDomains > 0) {
+                $activeCount = $this->siteRepo->countActiveByUser($userId);
+                if ($activeCount >= $maxDomains) {
+                    return 'plan_limit';
+                }
             }
 
             return null;
         }
 
-        return null;
-    }
-
-    /**
-     * Determine if a newly created site should start as suspended (no active subscription).
-     */
-    private function shouldSuspendNewSite(int $userId): bool
-    {
-        if (!$this->edition->arePlanLimitsEnforced()) {
-            return false;
-        }
-
-        if ($this->planRepo->isEnterprise($userId)) {
-            return false;
-        }
-
-        if ($this->subscriptionService !== null) {
-            return !$this->subscriptionService->hasActiveAccess($userId);
-        }
-
         // Legacy: no plan = suspend
-        return $this->planRepo->getUserPlan($userId) === null;
+        if ($this->planRepo->getUserPlan($userId) === null) {
+            return 'no_subscription';
+        }
+
+        return null;
     }
 
     /**
@@ -350,7 +329,7 @@ final class SiteCreationService
         }
     }
 
-    private function createDefaultBannerSettings(int $siteId, int $languageId): void
+    private function createDefaultBannerSettings(int $siteId, int $languageId, string $privacyPolicyUrl = ''): void
     {
         $template = $this->bannerRepo->getDefaultBannerTemplate();
 
@@ -391,6 +370,11 @@ final class SiteCreationService
 
         // Copy default banner field translations
         $this->bannerRepo->copyDefaultBannerTranslations($siteBannerId, $templateId, $languageId);
+
+        // Set cookie_policy_url if site has a privacy policy URL
+        if ($privacyPolicyUrl !== '') {
+            $this->bannerRepo->setCookiePolicyUrl($siteBannerId, $siteId, $privacyPolicyUrl);
+        }
     }
 
     private function initiateFirstScan(int $siteId, string $domain, int $userId): void
@@ -482,5 +466,30 @@ final class SiteCreationService
         }
 
         return (int) $features[$featureKey] === 1 || $features[$featureKey] === '1';
+    }
+
+    /**
+     * Assign privacy frameworks — use user-selected frameworks if provided,
+     * otherwise fall back to defaults based on banner type.
+     *
+     * @param list<string> $selectedFrameworks
+     */
+    private function assignDefaultFrameworks(int $siteId, string $bannerType, array $selectedFrameworks = []): void
+    {
+        $frameworks = $selectedFrameworks !== [] ? $selectedFrameworks : match ($bannerType) {
+            'gdpr' => ['gdpr', 'eprivacy_directive'],
+            'ccpa' => ['ccpa_cpra'],
+            'gdpr_ccpa' => ['gdpr', 'eprivacy_directive', 'ccpa_cpra'],
+            default => ['gdpr', 'eprivacy_directive'],
+        };
+
+        try {
+            $this->frameworkRepo->setFrameworksForSite($siteId, $frameworks);
+        } catch (\Throwable $e) {
+            $this->logger?->warning('Failed to assign default privacy frameworks', [
+                'site_id' => $siteId,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 }

@@ -107,9 +107,12 @@ final class BannerRepository implements BannerRepositoryInterface
 
     public function copyDefaultBannerTranslations(int $siteBannerId, int $templateId, int $languageId): void
     {
-        // Get all fields for this template and copy their default translations
+        // Get all fields for this template and copy their default translations.
+        // COALESCE ensures we fall back to bf.default_value when no translation
+        // exists for the requested language (e.g., English defaults for Danish).
         $sql = <<<'SQL'
-            SELECT bf.id AS field_id, bft.label AS default_value
+            SELECT bf.id AS field_id,
+                   COALESCE(bft.label, bf.default_value, '') AS default_value
             FROM oci_banner_fields AS bf
             INNER JOIN oci_banner_field_categories AS bfc ON bfc.id = bf.field_category_id
             LEFT JOIN oci_banner_field_translations AS bft ON bft.field_id = bf.id AND bft.language_id = :langId
@@ -220,5 +223,47 @@ final class BannerRepository implements BannerRepositoryInterface
                 'value' => $value,
             ]);
         }
+    }
+
+    public function setCookiePolicyUrl(int $siteBannerId, int $siteId, string $url): void
+    {
+        // Find all cookie_policy_url field IDs
+        $fieldIds = $this->db->fetchFirstColumn(
+            'SELECT bf.id FROM oci_banner_fields bf
+             INNER JOIN oci_banner_field_categories bfc ON bfc.id = bf.field_category_id
+             WHERE bf.field_key = :fieldKey',
+            ['fieldKey' => 'cookie_policy_url'],
+        );
+
+        if (empty($fieldIds)) {
+            return;
+        }
+
+        // Get all languages for this site
+        $languageIds = $this->db->fetchFirstColumn(
+            'SELECT language_id FROM oci_site_languages WHERE site_id = :siteId',
+            ['siteId' => $siteId],
+        );
+
+        if (empty($languageIds)) {
+            return;
+        }
+
+        // Set cookie_policy_url for each language and each matching field
+        foreach ($fieldIds as $fieldId) {
+            foreach ($languageIds as $languageId) {
+                $this->upsertFieldTranslation($siteBannerId, (int) $fieldId, (int) $languageId, $url);
+            }
+        }
+    }
+
+    public function findTemplateForLaw(string $law): ?array
+    {
+        $row = $this->db->fetchAssociative(
+            "SELECT * FROM oci_banner_templates WHERE is_active = 1 AND (cookie_laws LIKE :pattern OR cookie_laws = :law) LIMIT 1",
+            ['pattern' => '%"' . $law . '":1%', 'law' => $law],
+        );
+
+        return $row !== false ? $row : null;
     }
 }

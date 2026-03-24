@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OCI\Site\Controller;
 
+use OCI\Compliance\Service\PrivacyFrameworkService;
 use OCI\Http\Handler\RequestHandlerInterface;
 use OCI\Http\Response\ApiResponse;
 use OCI\Site\DTO\CreateSiteInput;
@@ -23,6 +24,7 @@ final class CreateSiteHandler implements RequestHandlerInterface
     public function __construct(
         private readonly SiteCreationService $siteCreationService,
         private readonly TwigEnvironment $twig,
+        private readonly PrivacyFrameworkService $frameworkService,
     ) {}
 
     public function handle(ServerRequestInterface $request): ResponseInterface
@@ -43,6 +45,20 @@ final class CreateSiteHandler implements RequestHandlerInterface
         $privacyPolicyUrl = trim((string) ($body['privacy_policy_url'] ?? ''));
         $bannerType = trim((string) ($body['banner_type'] ?? 'gdpr'));
         $languageIds = array_map('intval', (array) ($body['language_ids'] ?? []));
+        $frameworkIds = array_filter(array_map('trim', (array) ($body['frameworks'] ?? [])));
+
+        // Derive banner_type from selected frameworks for backward compatibility
+        if ($frameworkIds !== []) {
+            $hasGdpr = in_array('gdpr', $frameworkIds, true) || in_array('eprivacy_directive', $frameworkIds, true);
+            $hasCcpa = in_array('ccpa_cpra', $frameworkIds, true);
+            if ($hasGdpr && $hasCcpa) {
+                $bannerType = 'gdpr_ccpa';
+            } elseif ($hasCcpa) {
+                $bannerType = 'ccpa';
+            } else {
+                $bannerType = 'gdpr';
+            }
+        }
 
         $input = new CreateSiteInput(
             domain: $domain,
@@ -50,6 +66,7 @@ final class CreateSiteHandler implements RequestHandlerInterface
             privacyPolicyUrl: $privacyPolicyUrl,
             bannerType: $bannerType,
             languageIds: $languageIds,
+            frameworkIds: $frameworkIds,
         );
 
         // Validate
@@ -121,12 +138,15 @@ final class CreateSiteHandler implements RequestHandlerInterface
         $languages = $this->siteCreationService->getAvailableLanguages();
         $isFirstSite = $siteCount === 0;
 
+        $groupedFrameworks = $this->frameworkService->getFrameworksGroupedByRegion();
+
         $html = $this->twig->render('pages/sites/create.html.twig', [
             'title' => $isFirstSite ? 'Welcome — Add Your First Site' : 'Add New Site',
             'user' => $user,
             'isFirstSite' => $isFirstSite,
             'siteCount' => $siteCount,
             'languages' => $languages,
+            'groupedFrameworks' => $groupedFrameworks,
             'errors' => $errors,
             'old' => $old,
         ]);

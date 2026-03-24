@@ -75,6 +75,12 @@
             </a>
         </li>
         <li>
+            <a href="/matomo/wizard" class="{% if active_page is defined and active_page == 'matomo-wizard' %}is-active{% endif %}">
+                <span class="menu-icon"><i class="fas fa-wand-magic-sparkles"></i></span>
+                Matomo TM Wizard
+            </a>
+        </li>
+        <li>
             <a href="/compliance" class="{% if active_page is defined and active_page == 'compliance-checklist' %}is-active{% endif %}">
                 <span class="menu-icon"><i class="fas fa-list-check"></i></span>
                 Compliance Checklist
@@ -85,6 +91,12 @@
 
     <p class="menu-label">Compliance</p>
     <ul class="menu-list">
+        <li>
+            <a href="/sites/frameworks" class="{% if active_page is defined and active_page == 'frameworks' %}is-active{% endif %}">
+                <span class="menu-icon"><i class="fas fa-scale-balanced"></i></span>
+                Privacy Frameworks
+            </a>
+        </li>
         <li>
             <a href="/scans" class="{% if active_page is defined and active_page == 'scans' %}is-active{% endif %}">
                 <span class="menu-icon"><i class="fas fa-magnifying-glass-chart"></i></span>

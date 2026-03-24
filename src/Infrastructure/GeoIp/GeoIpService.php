@@ -5,18 +5,16 @@ declare(strict_types=1);
 namespace OCI\Infrastructure\GeoIp;
 
 use GeoIp2\Database\Reader;
+use Psr\Log\LoggerInterface;
 
 /**
- * Resolves visitor IP to country using MaxMind GeoLite2 Country database.
+ * Resolves visitor IP to country using a multi-layer lookup:
  *
- * Fallback: when no .mmdb file is present, uses a static EU country list
- * and defaults to "unknown" country — the banner still works, it just
- * can't do geo-targeted consent (GDPR vs CCPA per region).
- *
- * To enable full GeoIP:
- *   1. Sign up at https://dev.maxmind.com/geoip/geolite2-free-geolocation-data
- *   2. Download GeoLite2-Country.mmdb
- *   3. Place it at storage/geoip/GeoLite2-Country.mmdb
+ *   1. Local/private IP → "local"
+ *   2. MaxMind GeoLite2 → country (if DB present and IP found)
+ *   3. DB cache (oci_ip_geolocation) by SHA-256(ip) → cached result
+ *   4. ipregistry API → fetches + caches → country
+ *   5. All failed → "unknown"
  */
 final class GeoIpService
 {
@@ -34,8 +32,12 @@ final class GeoIpService
     private ?Reader $reader = null;
     private string $dbPath;
 
-    public function __construct(string $storagePath = '')
-    {
+    public function __construct(
+        private readonly IpGeolocationRepository $geoRepo,
+        private readonly LoggerInterface $logger,
+        private readonly string $ipregistryApiKey = '',
+        string $storagePath = '',
+    ) {
         $this->dbPath = $storagePath !== ''
             ? $storagePath
             : dirname(__DIR__, 3) . '/storage/geoip/GeoLite2-Country.mmdb';
@@ -54,7 +56,7 @@ final class GeoIpService
      */
     public function lookup(string $ip): array
     {
-        // Skip local/private IPs — return neutral result
+        // 1. Skip local/private IPs
         if ($this->isLocalIp($ip)) {
             return [
                 'country' => 'local',
@@ -63,10 +65,42 @@ final class GeoIpService
             ];
         }
 
+        // 2. Try MaxMind
         if ($this->reader !== null) {
-            return $this->lookupMaxMind($ip);
+            $result = $this->lookupMaxMind($ip);
+            if ($result['country'] !== 'unknown') {
+                return $result;
+            }
         }
 
+        // 3. Check DB cache by hashed IP
+        $ipHash = hash('sha256', $ip);
+        $cached = $this->geoRepo->findByIpHash($ipHash);
+
+        if ($cached !== null) {
+            return [
+                'country' => $cached['country_code'],
+                'in_eu' => $cached['in_eu'],
+                'source' => 'cache',
+            ];
+        }
+
+        // 4. Call ipregistry API (only if key is configured)
+        if ($this->ipregistryApiKey !== '') {
+            $apiResult = $this->lookupIpregistry($ip);
+            if ($apiResult !== null) {
+                // Cache the result
+                $this->geoRepo->save($ipHash, $apiResult['country'], $apiResult['in_eu'], 'ipregistry');
+
+                return [
+                    'country' => $apiResult['country'],
+                    'in_eu' => $apiResult['in_eu'],
+                    'source' => 'ipregistry',
+                ];
+            }
+        }
+
+        // 5. All failed
         return [
             'country' => 'unknown',
             'in_eu' => false,
@@ -99,6 +133,52 @@ final class GeoIpService
                 'in_eu' => false,
                 'source' => 'maxmind_error',
             ];
+        }
+    }
+
+    /**
+     * @return array{country: string, in_eu: bool}|null
+     */
+    private function lookupIpregistry(string $ip): ?array
+    {
+        $url = 'https://api.ipregistry.co/' . urlencode($ip) . '?key=' . urlencode($this->ipregistryApiKey);
+
+        try {
+            $context = stream_context_create([
+                'http' => [
+                    'method' => 'GET',
+                    'timeout' => 5,
+                    'header' => "Accept: application/json\r\n",
+                ],
+            ]);
+
+            $response = @file_get_contents($url, false, $context);
+
+            if ($response === false) {
+                $this->logger->warning('ipregistry API request failed', ['ip_hash' => hash('sha256', $ip)]);
+                return null;
+            }
+
+            $data = json_decode($response, true);
+
+            if (!is_array($data) || !isset($data['location']['country']['code'])) {
+                $this->logger->warning('ipregistry API returned unexpected response', ['ip_hash' => hash('sha256', $ip)]);
+                return null;
+            }
+
+            $country = strtolower($data['location']['country']['code']);
+            $inEu = $data['location']['in_eu'] ?? \in_array($country, self::EU_COUNTRIES, true);
+
+            return [
+                'country' => $country,
+                'in_eu' => (bool) $inEu,
+            ];
+        } catch (\Throwable $e) {
+            $this->logger->warning('ipregistry API error', [
+                'ip_hash' => hash('sha256', $ip),
+                'error' => $e->getMessage(),
+            ]);
+            return null;
         }
     }
 

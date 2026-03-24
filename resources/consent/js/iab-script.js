@@ -2434,24 +2434,24 @@
 		
 		if(_QS("#cnzIABNoticeButton")){
 			_QS("#cnzIABNoticeButton").addEventListener("click",function(){
-				_QS("#cnzIABTabVendor").click();
+				if(_QS("#cnzIABTabVendor")) _QS("#cnzIABTabVendor").click();
 				_QS("#cookieSettings").click();
 				
 			});
 		}
 		if(_QS("#cnzIABPreferenceButton")){
 			_QS("#cnzIABPreferenceButton").addEventListener("click",function(){
-				_QS("#cnzIABTabVendor").click();
+				if(_QS("#cnzIABTabVendor")) _QS("#cnzIABTabVendor").click();
 				scrollToElm('#cnzIABvendors_thirdparty');
-				_QS("#cnzIABvendors_thirdparty").classList.add('cnz-active');
+				if(_QS("#cnzIABvendors_thirdparty")) _QS("#cnzIABvendors_thirdparty").classList.add('cnz-active');
 					
 			});
 		}
 		if(_QS("#cnzIABGACMPreferenceButton")){
 			_QS("#cnzIABGACMPreferenceButton").addEventListener("click",function(){
-				_QS("#cnzIABTabVendor").click();
+				if(_QS("#cnzIABTabVendor")) _QS("#cnzIABTabVendor").click();
 				scrollToElm('#cnzIABvendors_google_ad');				
-				_QS("#cnzIABvendors_google_ad").classList.add('cnz-active');
+				if(_QS("#cnzIABvendors_google_ad")) _QS("#cnzIABvendors_google_ad").classList.add('cnz-active');
 			});
 		}
 		

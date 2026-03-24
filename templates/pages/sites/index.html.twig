@@ -74,6 +74,30 @@
     </div>
     {% endif %}
 
+    {# ── Plan Limit Notification ─────────────────────── #}
+    {% if hasSubscription and maxDomains > 0 and activeSiteCount >= maxDomains and statusCounts.all > maxDomains %}
+    <div class="notification is-info is-light mb-4">
+        <div class="columns is-vcentered">
+            <div class="column">
+                <p class="has-text-weight-semibold">
+                    <span class="icon"><i class="fas fa-info-circle"></i></span>
+                    Plan limit reached
+                </p>
+                <p class="mt-1">
+                    Your plan allows {{ maxDomains }} active site{{ maxDomains != 1 ? 's' : '' }}, and you have {{ statusCounts.all }} sites total.
+                    To activate another site, upgrade your plan or disable an active site to free up a slot.
+                </p>
+            </div>
+            <div class="column is-narrow">
+                <a href="/billing" class="button is-info">
+                    <span class="icon"><i class="fas fa-arrow-up"></i></span>
+                    <span>Upgrade Plan</span>
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     {# ── Status Filter Tabs ────────────────────────────── #}
     <div class="tabs is-boxed mb-4">
         <ul>
@@ -161,6 +185,13 @@
                             <span class="tag is-danger is-light">Deleted</span>
                         {% elseif site.status == 'suspended' %}
                             <span class="tag is-dark is-light">Suspended</span>
+                            {% if site.suspended_reason is defined and site.suspended_reason == 'plan_limit' %}
+                                <span class="is-size-7 has-text-grey">Plan limit</span>
+                            {% elseif site.suspended_reason is defined and site.suspended_reason == 'no_subscription' %}
+                                <span class="is-size-7 has-text-grey">No subscription</span>
+                            {% elseif site.suspended_reason is defined and site.suspended_reason == 'subscription_ended' %}
+                                <span class="is-size-7 has-text-grey">Subscription ended</span>
+                            {% endif %}
                         {% else %}
                             <span class="tag is-light">{{ site.status is defined ? site.status : 'Unknown' }}</span>
                         {% endif %}
@@ -201,7 +232,7 @@
                                         @click="toggleSiteStatus({{ site.id }}, 'disabled')">
                                     <span class="icon"><i class="fas fa-pause"></i></span>
                                 </button>
-                                {% elseif site.status == 'disabled' %}
+                                {% elseif site.status == 'disabled' or site.status == 'suspended' %}
                                 <button class="button is-success is-light" title="Enable"
                                         @click="toggleSiteStatus({{ site.id }}, 'active')">
                                     <span class="icon"><i class="fas fa-play"></i></span>
@@ -243,7 +274,7 @@
                 <button class="delete" aria-label="close" @click="createModal.open = false"></button>
             </header>
             <section class="modal-card-body">
-                {{ ui.wizardSteps(['Website', 'Languages', 'Banner Type'], 'createModal.step') }}
+                {{ ui.wizardSteps(['Website', 'Languages', 'Frameworks'], 'createModal.step') }}
 
                 {# ── Step 1: Website Info ── #}
                 <div x-show="createModal.step === 1" x-transition>
@@ -294,14 +325,89 @@
                     </p>
                 </div>
 
-                {# ── Step 3: Banner Type ── #}
+                {# ── Step 3: Privacy Frameworks ── #}
                 <div x-show="createModal.step === 3" x-transition>
-                    <p class="mb-3 has-text-grey">Choose the type of consent banner for your site.</p>
-                    <div class="oci-template-grid" style="grid-template-columns:repeat(3,1fr)">
-                        {{ ui.templateCard('createModal.bannerType', 'gdpr', 'GDPR', 'EU General Data Protection Regulation', 'shield-halved', '#3273dc', false) }}
-                        {{ ui.templateCard('createModal.bannerType', 'ccpa', 'US Privacy', 'CCPA / US State Privacy Laws', 'flag-usa', '#ff3860', false) }}
-                        {{ ui.templateCard('createModal.bannerType', 'both', 'Combined', 'GDPR + US Privacy (recommended)', 'globe', '#23d160', false) }}
+                    <p class="mb-3 has-text-grey">Select the privacy frameworks that apply to your website visitors.</p>
+
+                    {# Main frameworks — big cards (shortcuts for the two most common) #}
+                    <div class="columns is-mobile mb-3">
+                        <div class="column is-6">
+                            <div class="card" style="cursor:pointer; border: 2px solid transparent; transition: all 0.15s; position:relative;"
+                                 :style="createModal.frameworks.includes('gdpr') ? 'border-color:#3273dc; background:#3273dc08' : ''"
+                                 @click="toggleCreateGdpr()">
+                                <span style="position:absolute;top:8px;right:8px;width:20px;height:20px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:12px;transition:all 0.15s"
+                                      :style="createModal.frameworks.includes('gdpr') ? 'background:#3273dc;color:#fff' : 'background:#f0f0f0;color:transparent'">
+                                    <i class="fas fa-check"></i>
+                                </span>
+                                <div class="card-content has-text-centered py-4 px-3">
+                                    <div style="width:48px;height:48px;border-radius:50%;margin:0 auto 0.5rem;display:flex;align-items:center;justify-content:center;background:#3273dc20;color:#3273dc">
+                                        <i class="fas fa-shield-halved fa-lg"></i>
+                                    </div>
+                                    <p class="has-text-weight-bold is-size-6">GDPR</p>
+                                    <p class="is-size-7 has-text-grey">EU & EEA</p>
+                                    <span class="tag is-danger is-light is-small mt-2">opt-in</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="column is-6">
+                            <div class="card" style="cursor:pointer; border: 2px solid transparent; transition: all 0.15s; position:relative;"
+                                 :style="createModal.frameworks.includes('ccpa_cpra') ? 'border-color:#ff3860; background:#ff386008' : ''"
+                                 @click="toggleCreateFw('ccpa_cpra')">
+                                <span style="position:absolute;top:8px;right:8px;width:20px;height:20px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:12px;transition:all 0.15s"
+                                      :style="createModal.frameworks.includes('ccpa_cpra') ? 'background:#ff3860;color:#fff' : 'background:#f0f0f0;color:transparent'">
+                                    <i class="fas fa-check"></i>
+                                </span>
+                                <div class="card-content has-text-centered py-4 px-3">
+                                    <div style="width:48px;height:48px;border-radius:50%;margin:0 auto 0.5rem;display:flex;align-items:center;justify-content:center;background:#ff386020;color:#ff3860">
+                                        <i class="fas fa-flag-usa fa-lg"></i>
+                                    </div>
+                                    <p class="has-text-weight-bold is-size-6">US Privacy</p>
+                                    <p class="is-size-7 has-text-grey">CCPA / CPRA</p>
+                                    <span class="tag is-warning is-light is-small mt-2">opt-out</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
+
+                    {# Additional frameworks — compact checkboxes grouped by region #}
+                    <div class="mb-3">
+                        <p class="is-size-7 has-text-weight-semibold has-text-grey mb-2" style="cursor:pointer"
+                           @click="createModal.showMore = !createModal.showMore">
+                            <span class="icon is-small">
+                                <i class="fas" :class="createModal.showMore ? 'fa-minus-circle' : 'fa-plus-circle'"></i>
+                            </span>
+                            More frameworks
+                            <span class="tag is-light is-small ml-1" x-text="createModal.frameworks.filter(f => !['gdpr','eprivacy_directive','ccpa_cpra'].includes(f)).length + ' selected'"></span>
+                        </p>
+                        <div x-show="createModal.showMore" x-transition x-cloak>
+                            {% for groupKey, group in groupedFrameworks %}
+                            <p class="has-text-weight-semibold is-size-7 has-text-grey mt-2 mb-1">{{ group.label }}</p>
+                            <div class="columns is-multiline is-gapless">
+                                {% for fw in group.frameworks %}
+                                {% if fw.id not in ['gdpr', 'eprivacy_directive', 'ccpa_cpra'] %}
+                                <div class="column is-6">
+                                    <label class="checkbox is-size-7 py-1 px-2 is-block" style="cursor:pointer"
+                                           :class="{'has-text-primary has-text-weight-semibold': createModal.frameworks.includes('{{ fw.id }}')}">
+                                        <input type="checkbox" class="mr-1"
+                                               value="{{ fw.id }}"
+                                               x-model="createModal.frameworks">
+                                        {{ fw.name }}
+                                        {% if fw.consent.model is defined %}
+                                        <span class="tag is-rounded ml-1 {{ fw.consent.model == 'opt_in' ? 'is-danger' : (fw.consent.model == 'opt_out' ? 'is-warning' : 'is-info') }} is-light" style="font-size:0.6rem;height:1.2em">{{ fw.consent.model|replace({'_':'-'}) }}</span>
+                                        {% endif %}
+                                    </label>
+                                </div>
+                                {% endif %}
+                                {% endfor %}
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <p class="help is-info">
+                        <span class="icon is-small"><i class="fas fa-info-circle"></i></span>
+                        The banner will auto-adjust blocking, buttons, and signals per visitor location based on selected frameworks.
+                    </p>
                     <p class="help is-danger" x-show="createModal.errors.plan" x-text="createModal.errors.plan"></p>
                 </div>
             </section>
@@ -339,7 +445,7 @@
                 <button class="delete" aria-label="close" @click="editModal.open = false"></button>
             </header>
             <section class="modal-card-body">
-                {{ ui.wizardSteps(['Website', 'Languages', 'Banner Type'], 'editModal.step') }}
+                {{ ui.wizardSteps(['Website', 'Languages', 'Frameworks'], 'editModal.step') }}
 
                 {# ── Step 1: Website Info ── #}
                 <div x-show="editModal.step === 1" x-transition>
@@ -388,14 +494,89 @@
                     </p>
                 </div>
 
-                {# ── Step 3: Banner Type ── #}
+                {# ── Step 3: Privacy Frameworks ── #}
                 <div x-show="editModal.step === 3" x-transition>
-                    <p class="mb-3 has-text-grey">Choose the type of consent banner for your site.</p>
-                    <div class="oci-template-grid" style="grid-template-columns:repeat(3,1fr)">
-                        {{ ui.templateCard('editModal.bannerType', 'gdpr', 'GDPR', 'EU General Data Protection Regulation', 'shield-halved', '#3273dc', false) }}
-                        {{ ui.templateCard('editModal.bannerType', 'ccpa', 'US Privacy', 'CCPA / US State Privacy Laws', 'flag-usa', '#ff3860', false) }}
-                        {{ ui.templateCard('editModal.bannerType', 'both', 'Combined', 'GDPR + US Privacy (recommended)', 'globe', '#23d160', false) }}
+                    <p class="mb-3 has-text-grey">Select the privacy frameworks that apply to your website visitors.</p>
+
+                    {# Main frameworks — big cards (shortcuts for the two most common) #}
+                    <div class="columns is-mobile mb-3">
+                        <div class="column is-6">
+                            <div class="card" style="cursor:pointer; border: 2px solid transparent; transition: all 0.15s; position:relative;"
+                                 :style="editModal.frameworks.includes('gdpr') ? 'border-color:#3273dc; background:#3273dc08' : ''"
+                                 @click="toggleEditGdpr()">
+                                <span style="position:absolute;top:8px;right:8px;width:20px;height:20px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:12px;transition:all 0.15s"
+                                      :style="editModal.frameworks.includes('gdpr') ? 'background:#3273dc;color:#fff' : 'background:#f0f0f0;color:transparent'">
+                                    <i class="fas fa-check"></i>
+                                </span>
+                                <div class="card-content has-text-centered py-4 px-3">
+                                    <div style="width:48px;height:48px;border-radius:50%;margin:0 auto 0.5rem;display:flex;align-items:center;justify-content:center;background:#3273dc20;color:#3273dc">
+                                        <i class="fas fa-shield-halved fa-lg"></i>
+                                    </div>
+                                    <p class="has-text-weight-bold is-size-6">GDPR</p>
+                                    <p class="is-size-7 has-text-grey">EU & EEA</p>
+                                    <span class="tag is-danger is-light is-small mt-2">opt-in</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="column is-6">
+                            <div class="card" style="cursor:pointer; border: 2px solid transparent; transition: all 0.15s; position:relative;"
+                                 :style="editModal.frameworks.includes('ccpa_cpra') ? 'border-color:#ff3860; background:#ff386008' : ''"
+                                 @click="toggleEditFw('ccpa_cpra')">
+                                <span style="position:absolute;top:8px;right:8px;width:20px;height:20px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:12px;transition:all 0.15s"
+                                      :style="editModal.frameworks.includes('ccpa_cpra') ? 'background:#ff3860;color:#fff' : 'background:#f0f0f0;color:transparent'">
+                                    <i class="fas fa-check"></i>
+                                </span>
+                                <div class="card-content has-text-centered py-4 px-3">
+                                    <div style="width:48px;height:48px;border-radius:50%;margin:0 auto 0.5rem;display:flex;align-items:center;justify-content:center;background:#ff386020;color:#ff3860">
+                                        <i class="fas fa-flag-usa fa-lg"></i>
+                                    </div>
+                                    <p class="has-text-weight-bold is-size-6">US Privacy</p>
+                                    <p class="is-size-7 has-text-grey">CCPA / CPRA</p>
+                                    <span class="tag is-warning is-light is-small mt-2">opt-out</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
+
+                    {# Additional frameworks — compact checkboxes grouped by region #}
+                    <div class="mb-3">
+                        <p class="is-size-7 has-text-weight-semibold has-text-grey mb-2" style="cursor:pointer"
+                           @click="editModal.showMore = !editModal.showMore">
+                            <span class="icon is-small">
+                                <i class="fas" :class="editModal.showMore ? 'fa-minus-circle' : 'fa-plus-circle'"></i>
+                            </span>
+                            More frameworks
+                            <span class="tag is-light is-small ml-1" x-text="editModal.frameworks.filter(f => !['gdpr','eprivacy_directive','ccpa_cpra'].includes(f)).length + ' selected'"></span>
+                        </p>
+                        <div x-show="editModal.showMore" x-transition x-cloak>
+                            {% for groupKey, group in groupedFrameworks %}
+                            <p class="has-text-weight-semibold is-size-7 has-text-grey mt-2 mb-1">{{ group.label }}</p>
+                            <div class="columns is-multiline is-gapless">
+                                {% for fw in group.frameworks %}
+                                {% if fw.id not in ['gdpr', 'eprivacy_directive', 'ccpa_cpra'] %}
+                                <div class="column is-6">
+                                    <label class="checkbox is-size-7 py-1 px-2 is-block" style="cursor:pointer"
+                                           :class="{'has-text-primary has-text-weight-semibold': editModal.frameworks.includes('{{ fw.id }}')}">
+                                        <input type="checkbox" class="mr-1"
+                                               value="{{ fw.id }}"
+                                               x-model="editModal.frameworks">
+                                        {{ fw.name }}
+                                        {% if fw.consent.model is defined %}
+                                        <span class="tag is-rounded ml-1 {{ fw.consent.model == 'opt_in' ? 'is-danger' : (fw.consent.model == 'opt_out' ? 'is-warning' : 'is-info') }} is-light" style="font-size:0.6rem;height:1.2em">{{ fw.consent.model|replace({'_':'-'}) }}</span>
+                                        {% endif %}
+                                    </label>
+                                </div>
+                                {% endif %}
+                                {% endfor %}
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <p class="help is-info">
+                        <span class="icon is-small"><i class="fas fa-info-circle"></i></span>
+                        The banner will auto-adjust blocking, buttons, and signals per visitor location based on selected frameworks.
+                    </p>
                 </div>
             </section>
             <footer class="modal-card-foot" style="justify-content:space-between">
@@ -443,6 +624,30 @@
         </div>
     </div>
 
+    {# ── Error Modal (plan limit, etc.) ─────────────────── #}
+    <div class="modal" :class="{ 'is-active': errorModal.open }">
+        <div class="modal-background" @click="errorModal.open = false"></div>
+        <div class="modal-card">
+            <header class="modal-card-head has-background-warning-light">
+                <p class="modal-card-title">
+                    <span class="icon has-text-warning"><i class="fas fa-exclamation-triangle"></i></span>
+                    Plan limit reached
+                </p>
+                <button class="delete" aria-label="close" @click="errorModal.open = false"></button>
+            </header>
+            <section class="modal-card-body">
+                <p x-text="errorModal.message"></p>
+            </section>
+            <footer class="modal-card-foot">
+                <a href="/billing" class="button is-info">
+                    <span class="icon"><i class="fas fa-arrow-up"></i></span>
+                    <span>Upgrade Plan</span>
+                </a>
+                <button class="button" @click="errorModal.open = false">Close</button>
+            </footer>
+        </div>
+    </div>
+
     {# ── Permanent Destroy Modal ────────────────────────── #}
     <div class="modal" :class="{ 'is-active': destroyModal.open }">
         <div class="modal-background" @click="destroyModal.open = false"></div>
@@ -474,19 +679,20 @@ function sitesPage() {
         createModal: {
             open: {{ autoOpenCreate ? 'true' : 'false' }}, saving: false, step: 1,
             domain: '', siteName: '', privacyPolicyUrl: '',
-            bannerType: 'gdpr', languageIds: [],
-            errors: {}
+            frameworks: ['gdpr', 'eprivacy_directive'], languageIds: [],
+            showMore: false, errors: {}
         },
-        editModal: { open: false, saving: false, step: 1, siteId: 0, siteName: '', domain: '', privacyPolicyUrl: '', bannerType: 'gdpr', languageIds: [], errors: {} },
+        editModal: { open: false, saving: false, step: 1, siteId: 0, siteName: '', domain: '', privacyPolicyUrl: '', frameworks: [], languageIds: [], showMore: false, errors: {} },
         deleteModal: { open: false, saving: false, siteId: 0, domain: '' },
         destroyModal: { open: false, saving: false, siteId: 0, domain: '' },
+        errorModal: { open: false, message: '' },
 
         openCreateModal() {
             this.createModal = {
                 open: true, saving: false, step: 1,
                 domain: '', siteName: '', privacyPolicyUrl: '',
-                bannerType: 'gdpr', languageIds: [],
-                errors: {}
+                frameworks: ['gdpr', 'eprivacy_directive'], languageIds: [],
+                showMore: false, errors: {}
             };
         },
 
@@ -513,6 +719,24 @@ function sitesPage() {
             }
         },
 
+        toggleCreateFw(fwId) {
+            const idx = this.createModal.frameworks.indexOf(fwId);
+            if (idx >= 0) {
+                this.createModal.frameworks.splice(idx, 1);
+            } else {
+                this.createModal.frameworks.push(fwId);
+            }
+        },
+
+        toggleCreateGdpr() {
+            const has = this.createModal.frameworks.includes('gdpr');
+            if (has) {
+                this.createModal.frameworks = this.createModal.frameworks.filter(f => f !== 'gdpr' && f !== 'eprivacy_directive');
+            } else {
+                this.createModal.frameworks.push('gdpr', 'eprivacy_directive');
+            }
+        },
+
         submitCreateSite() {
             this.createModal.saving = true;
             this.createModal.errors = {};
@@ -523,7 +747,7 @@ function sitesPage() {
                     domain: this.createModal.domain,
                     site_name: this.createModal.siteName,
                     privacy_policy_url: this.createModal.privacyPolicyUrl,
-                    banner_type: this.createModal.bannerType,
+                    frameworks: this.createModal.frameworks,
                     language_ids: this.createModal.languageIds
                 })
             })
@@ -546,9 +770,11 @@ function sitesPage() {
             this.editModal.siteName = site.site_name || '';
             this.editModal.domain = site.domain || '';
             this.editModal.privacyPolicyUrl = site.privacy_policy_url || '';
-            this.editModal.bannerType = site.display_banner_type || 'gdpr';
+            this.editModal.frameworks = Array.isArray(site.framework_ids) ? [...site.framework_ids] : [];
             this.editModal.languageIds = Array.isArray(site.language_ids) ? [...site.language_ids] : [];
             this.editModal.step = 1;
+            // Auto-expand "More frameworks" if any non-big-card frameworks are selected
+            this.editModal.showMore = this.editModal.frameworks.some(f => !['gdpr','eprivacy_directive','ccpa_cpra'].includes(f));
             this.editModal.errors = {};
             this.editModal.open = true;
         },
@@ -576,6 +802,24 @@ function sitesPage() {
             }
         },
 
+        toggleEditFw(fwId) {
+            const idx = this.editModal.frameworks.indexOf(fwId);
+            if (idx >= 0) {
+                this.editModal.frameworks.splice(idx, 1);
+            } else {
+                this.editModal.frameworks.push(fwId);
+            }
+        },
+
+        toggleEditGdpr() {
+            const has = this.editModal.frameworks.includes('gdpr');
+            if (has) {
+                this.editModal.frameworks = this.editModal.frameworks.filter(f => f !== 'gdpr' && f !== 'eprivacy_directive');
+            } else {
+                this.editModal.frameworks.push('gdpr', 'eprivacy_directive');
+            }
+        },
+
         saveSiteEdit() {
             this.editModal.saving = true;
             this.editModal.errors = {};
@@ -586,7 +830,7 @@ function sitesPage() {
                     site_name: this.editModal.siteName,
                     domain: this.editModal.domain,
                     privacy_policy_url: this.editModal.privacyPolicyUrl,
-                    banner_type: this.editModal.bannerType,
+                    frameworks: this.editModal.frameworks,
                     language_ids: this.editModal.languageIds
                 })
             })
@@ -613,6 +857,9 @@ function sitesPage() {
             .then(data => {
                 if (data.success) {
                     window.location.reload();
+                } else {
+                    this.errorModal.message = (data.error && data.error.message) || 'Unable to change site status.';
+                    this.errorModal.open = true;
                 }
             });
         },

@@ -9,7 +9,7 @@ use OCI\Banner\Service\LayoutService;
 use OCI\Http\Handler\RequestHandlerInterface;
 use OCI\Http\Response\ApiResponse;
 use OCI\Monetization\Service\PricingService;
-use OCI\Shared\Repository\PlanRepositoryInterface;
+use OCI\Monetization\Service\SubscriptionService;
 use OCI\Site\Repository\SiteRepositoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -23,8 +23,8 @@ final class LayoutDuplicateHandler implements RequestHandlerInterface
         private readonly SiteRepositoryInterface $siteRepo,
         private readonly LayoutService $layoutService,
         private readonly AuditLogService $auditLogService,
-        private readonly PlanRepositoryInterface $planRepo,
         private readonly PricingService $pricingService,
+        private readonly ?SubscriptionService $subscriptionService = null,
     ) {}
 
     public function handle(ServerRequestInterface $request): ResponseInterface
@@ -52,8 +52,20 @@ final class LayoutDuplicateHandler implements RequestHandlerInterface
             return ApiResponse::error('Forbidden', 403);
         }
 
+        // Enforce plan feature: custom layouts require business plan (branding bypass prevention)
+        // Self-hosted (no SubscriptionService): all features unlocked
+        // Cloud with no/personal plan: blocked
+        $isCloud = $this->subscriptionService !== null;
+        $planKey = $this->subscriptionService?->getPlanKey($userId);
+        if ($isCloud && ($planKey === null || !$this->pricingService->hasFeature($planKey, 'custom_layouts'))) {
+            return ApiResponse::error(
+                'Custom layouts are available on the Agencies and E-commerce plan. Please upgrade to create custom layouts.',
+                422,
+            );
+        }
+
         // Enforce plan layout limit
-        $maxLayouts = $this->resolveLimit($userId, 'max_layouts');
+        $maxLayouts = $planKey !== null ? $this->pricingService->getLimit($planKey, 'max_layouts') : 0;
 
         if ($maxLayouts > 0) {
             $currentLayouts = $this->layoutService->getCustomLayouts($siteId);
@@ -81,24 +93,5 @@ final class LayoutDuplicateHandler implements RequestHandlerInterface
             'id' => $layoutId,
             'redirect' => '/layouts/' . $layoutId . '/edit',
         ]);
-    }
-
-    private function resolveLimit(int $userId, string $limitKey): int
-    {
-        if ($this->planRepo->isEnterprise($userId)) {
-            return 0;
-        }
-
-        $userPlan = $this->planRepo->getUserPlan($userId);
-        if ($userPlan === null) {
-            return 0;
-        }
-
-        $planKey = $userPlan['plan_key'] ?? null;
-        if ($planKey !== null) {
-            return $this->pricingService->getLimit($planKey, $limitKey);
-        }
-
-        return 0;
     }
 }

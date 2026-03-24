@@ -11,6 +11,7 @@ final readonly class CreateSiteInput
 {
     /**
      * @param list<int> $languageIds
+     * @param list<string> $frameworkIds
      */
     public function __construct(
         public string $domain,
@@ -18,5 +19,6 @@ final readonly class CreateSiteInput
         public string $privacyPolicyUrl = '',
         public string $bannerType = 'gdpr',
         public array $languageIds = [],
+        public array $frameworkIds = [],
     ) {}
 }

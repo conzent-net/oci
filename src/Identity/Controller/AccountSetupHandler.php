@@ -8,6 +8,7 @@ use OCI\Http\Handler\RequestHandlerInterface;
 use OCI\Http\Response\ApiResponse;
 use OCI\Identity\Repository\UserRepositoryInterface;
 use OCI\Identity\Service\CsrfService;
+use OCI\Identity\Service\LegacyAccountMigrationService;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Twig\Environment as TwigEnvironment;
@@ -22,6 +23,7 @@ final class AccountSetupHandler implements RequestHandlerInterface
         private readonly TwigEnvironment $twig,
         private readonly CsrfService $csrf,
         private readonly UserRepositoryInterface $userRepo,
+        private readonly LegacyAccountMigrationService $legacyMigration,
     ) {}
 
     public function handle(ServerRequestInterface $request): ResponseInterface
@@ -48,11 +50,23 @@ final class AccountSetupHandler implements RequestHandlerInterface
 
     private function renderForm(array $user, ?string $error = null, array $old = []): ResponseInterface
     {
+        // Check if legacy account exists for this email
+        $legacyPreview = null;
+        if ($this->legacyMigration->isAvailable()) {
+            try {
+                $legacyPreview = $this->legacyMigration->previewMigration((string) $user['email']);
+            } catch (\Throwable) {
+                // Legacy DB unreachable — silently skip migration offer
+            }
+        }
+
         $html = $this->twig->render('pages/account/setup.html.twig', [
             'csrf_token' => $this->csrf->generate('account_setup'),
+            'csrf_token_migrate' => $this->csrf->generate('account_profile'),
             'error' => $error,
             'user' => $user,
             'old' => $old,
+            'legacy_preview' => $legacyPreview,
         ]);
 
         return ApiResponse::html($html);

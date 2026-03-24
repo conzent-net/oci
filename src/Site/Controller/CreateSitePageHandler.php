@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OCI\Site\Controller;
 
+use OCI\Compliance\Service\PrivacyFrameworkService;
 use OCI\Http\Handler\RequestHandlerInterface;
 use OCI\Http\Response\ApiResponse;
 use OCI\Site\Service\SiteCreationService;
@@ -22,6 +23,7 @@ final class CreateSitePageHandler implements RequestHandlerInterface
     public function __construct(
         private readonly SiteCreationService $siteCreationService,
         private readonly TwigEnvironment $twig,
+        private readonly PrivacyFrameworkService $frameworkService,
     ) {}
 
     public function handle(ServerRequestInterface $request): ResponseInterface
@@ -37,12 +39,15 @@ final class CreateSitePageHandler implements RequestHandlerInterface
         $languages = $this->siteCreationService->getAvailableLanguages();
         $isFirstSite = $siteCount === 0;
 
+        $groupedFrameworks = $this->frameworkService->getFrameworksGroupedByRegion();
+
         $html = $this->twig->render('pages/sites/create.html.twig', [
             'title' => $isFirstSite ? 'Welcome — Add Your First Site' : 'Add New Site',
             'user' => $user,
             'isFirstSite' => $isFirstSite,
             'siteCount' => $siteCount,
             'languages' => $languages,
+            'groupedFrameworks' => $groupedFrameworks,
             'errors' => [],
             'old' => [],
         ]);

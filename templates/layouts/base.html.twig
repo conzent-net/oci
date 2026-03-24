@@ -146,6 +146,24 @@
     }
     </script>
 
+    <!-- Conzent Chat Widget -->
+    <script>
+    window.ConzentChatConfig = {
+      serviceUrl: '{{ chat_service_url|default("/chat") }}',
+      {% if current_user is defined and current_user %}
+      visitor: {
+        name: "{{ current_user.first_name|e('js') }} {{ current_user.last_name|default('')|e('js') }}",
+        email: "{{ current_user.email|e('js') }}"
+      },
+      meta: { source: 'dashboard', user_id: '{{ current_user.id|default('') }}', plan: '{{ current_user.plan|default('free') }}', page: window.location.pathname }
+      {% else %}
+      meta: { source: 'public' }
+      {% endif %}
+    };
+    </script>
+    <script async src="{{ chat_service_url|default('/chat') }}/widget/conzent-chat.js?v={{ chat_widget_version|default('2') }}" onerror=""></script>
+    <!-- /Conzent Chat Widget -->
+
     {# Page-specific scripts #}
     {% block scripts %}{% endblock %}
 </body>
