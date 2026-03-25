@@ -582,10 +582,19 @@ start_services() {
 
         # Stop containers but KEEP volumes (preserves database)
         compose down --remove-orphans > /dev/null 2>&1 || true
+
+        # Remove the public assets volume so stale CSS/JS/media is replaced
+        docker volume rm "$(compose config --volumes 2>/dev/null | grep -E 'app-public' | head -1)" 2>/dev/null || true
     fi
 
-    run_with_spinner "Building containers (this may take a few minutes)" \
-        compose up -d --build
+    if [ "$IS_FRESH" = true ]; then
+        run_with_spinner "Building containers (this may take a few minutes)" \
+            compose up -d --build
+    else
+        # Force full rebuild on updates — Docker cache can serve stale code
+        run_with_spinner "Rebuilding containers (no cache — this may take a few minutes)" \
+            compose up -d --build --no-cache
+    fi
 
     # Wait for MariaDB with spinner
     spinner_start "Waiting for MariaDB"
@@ -622,6 +631,14 @@ start_services() {
     # Run migrations (safe to run on existing DB — only applies new ones)
     run_with_spinner "Running database migrations" \
         compose exec -T app php bin/oci migrations:migrate
+
+    # Flush caches on update so stale compiled templates / session data is cleared
+    if [ "$IS_FRESH" = false ]; then
+        compose exec -T redis redis-cli FLUSHALL > /dev/null 2>&1 && \
+            success "Redis cache flushed" || true
+        compose exec -T app rm -rf /var/www/html/var/cache/twig/* 2>/dev/null && \
+            success "Template cache cleared" || true
+    fi
 
     # Only create admin on fresh install
     if [ "$IS_FRESH" = true ]; then

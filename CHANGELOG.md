@@ -4,6 +4,18 @@ All notable changes to the Conzent OCI core will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/).
 
+## [v2.4.1] - 2026-03-25
+
+### Fixed
+- **Stale code after update** — `--update` now forces a full Docker rebuild with `--no-cache` to prevent cached layers from serving old code
+- **Stale public assets** — The `app-public` Docker volume is now removed before rebuild on updates, ensuring CSS/JS/media files are refreshed
+- **Cache flush on update** — Redis and Twig template caches are now flushed automatically after an update
+
+### Added
+- **Force update script** — New `scripts/update.sh` for a one-command clean rebuild: pulls latest code, rebuilds containers without cache, runs migrations, and flushes all caches
+
+---
+
 ## [v2.4.0] - 2026-03-25
 
 ### Added
