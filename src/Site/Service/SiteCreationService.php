@@ -104,7 +104,7 @@ final class SiteCreationService
         $this->copyDefaultCategories($siteId, $languageId);
 
         // ── Step 8: Create default banner settings ───────
-        $this->createDefaultBannerSettings($siteId, $languageId, $input->privacyPolicyUrl);
+        $this->createDefaultBannerSettings($siteId, $languageId, $input->privacyPolicyUrl, $input->bannerType);
 
         // ── Step 8b: Assign default privacy frameworks ──
         $this->assignDefaultFrameworks($siteId, $input->bannerType, $input->frameworkIds);
@@ -329,18 +329,33 @@ final class SiteCreationService
         }
     }
 
-    private function createDefaultBannerSettings(int $siteId, int $languageId, string $privacyPolicyUrl = ''): void
+    private function createDefaultBannerSettings(int $siteId, int $languageId, string $privacyPolicyUrl = '', string $bannerType = 'gdpr'): void
     {
-        $template = $this->bannerRepo->getDefaultBannerTemplate();
+        // Determine which banner templates are needed based on consent model:
+        // - gdpr/default: one GDPR banner (opt-in)
+        // - ccpa: one CCPA banner (opt-out)
+        // - gdpr_ccpa: both GDPR and CCPA banners
+        $lawsNeeded = match ($bannerType) {
+            'ccpa' => ['ccpa'],
+            'gdpr_ccpa' => ['gdpr', 'ccpa'],
+            default => ['gdpr'],
+        };
 
-        if ($template === null) {
-            // No templates available — skip banner setup
-            return;
+        foreach ($lawsNeeded as $law) {
+            $template = $law === 'gdpr'
+                ? $this->bannerRepo->getDefaultBannerTemplate()
+                : $this->bannerRepo->findTemplateForLaw($law);
+
+            if ($template === null) {
+                continue;
+            }
+
+            $this->createBannerForTemplate($siteId, $languageId, (int) $template['id'], $privacyPolicyUrl);
         }
+    }
 
-        $templateId = (int) $template['id'];
-
-        // Create default general settings matching legacy defaults
+    private function createBannerForTemplate(int $siteId, int $languageId, int $templateId, string $privacyPolicyUrl = ''): void
+    {
         $generalSetting = [
             'geo_target' => 'all',
             'google_additional_consent' => 1,

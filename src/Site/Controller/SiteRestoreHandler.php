@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OCI\Site\Controller;
 
+use OCI\Banner\Service\ScriptGenerationService;
 use OCI\Http\Handler\RequestHandlerInterface;
 use OCI\Http\Response\ApiResponse;
 use OCI\Site\Repository\SiteRepositoryInterface;
@@ -14,12 +15,14 @@ use Psr\Http\Message\ServerRequestInterface;
  * POST /app/sites/{id}/restore — Restore a soft-deleted site.
  *
  * Sets status back to 'active' and clears deleted_at.
+ * Regenerates the consent script so the banner works again.
  * Mirrors legacy: action.php → restore_website
  */
 final class SiteRestoreHandler implements RequestHandlerInterface
 {
     public function __construct(
         private readonly SiteRepositoryInterface $siteRepository,
+        private readonly ScriptGenerationService $scriptService,
     ) {}
 
     public function handle(ServerRequestInterface $request): ResponseInterface
@@ -41,6 +44,9 @@ final class SiteRestoreHandler implements RequestHandlerInterface
         }
 
         $this->siteRepository->restore($siteId);
+
+        // Regenerate the consent script now that the site is active again
+        $this->scriptService->generate($siteId);
 
         return ApiResponse::success(['message' => 'Site restored']);
     }

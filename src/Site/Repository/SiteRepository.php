@@ -209,6 +209,16 @@ final class SiteRepository implements SiteRepositoryInterface
         }
     }
 
+    public function getWebsiteKey(int $siteId): ?string
+    {
+        $result = $this->db->fetchOne(
+            'SELECT website_key FROM oci_sites WHERE id = :id',
+            ['id' => $siteId],
+        );
+
+        return $result !== false ? (string) $result : null;
+    }
+
     public function belongsToUser(int $siteId, int $userId): bool
     {
         $result = $this->db->fetchOne(

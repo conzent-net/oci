@@ -53,6 +53,29 @@ final class ScriptGenerationService
     }
 
     /**
+     * Delete the generated script files for a site and purge caches.
+     */
+    public function deleteScriptFiles(string $websiteKey, string $domain = ''): void
+    {
+        $dir = $this->outputPath . '/' . $websiteKey;
+
+        if (is_dir($dir)) {
+            $files = glob($dir . '/*');
+            if ($files !== false) {
+                foreach ($files as $file) {
+                    if (is_file($file)) {
+                        @unlink($file);
+                    }
+                }
+            }
+            @rmdir($dir);
+        }
+
+        $this->cachePurge->purgeForSite($websiteKey, $domain);
+        $this->logger->info('Script files deleted for site', ['website_key' => $websiteKey]);
+    }
+
+    /**
      * Generate the consent script for a site.
      */
     public function generate(int $siteId): bool

@@ -4,6 +4,24 @@ All notable changes to the Conzent OCI core will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/).
 
+## [v2.4.0] - 2026-03-25
+
+### Added
+- **Internationalization** — Extracted ~194 hardcoded English strings from templates into locale YAML files for full i18n support
+- **Danish translations** — Complete Danish language support across the platform
+
+### Changed
+- **Twig locale rendering** — Fixed locale context to pass via `render()` instead of `addGlobal()`, ensuring correct per-request translations
+- **Twig environment** — Creates fresh Twig environment per language to prevent stale globals
+- **Pricing configuration** — Updated plan pricing
+
+### Fixed
+- **CCPA/GDPR templates** — Fixed framework-specific consent template rendering
+- **Site deletion** — Script files are now properly deleted when a site is removed
+- **Translation frontmatter** — Fixed broken frontmatter in translated markdown files
+
+---
+
 ## [v2.3.0] - 2026-03-24
 
 ### Added

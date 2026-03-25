@@ -183,6 +183,7 @@ final class SiteFrameworksHandler implements RequestHandlerInterface
     /**
      * Ensure banner template and settings are compatible with the new frameworks.
      *
+     * - For gdpr_ccpa: ensures two site_banner records exist (one per consent model)
      * - Switches banner template when current one doesn't match the new display type
      * - Disables IAB support when GDPR is removed
      *
@@ -211,6 +212,13 @@ final class SiteFrameworksHandler implements RequestHandlerInterface
             return;
         }
 
+        // For gdpr_ccpa: ensure both GDPR and CCPA banner records exist
+        if ($newDisplay === 'gdpr_ccpa') {
+            $this->ensureBothBannersExist($siteId, $banners);
+            // Re-fetch after potential creation
+            $banners = $this->bannerRepo->getSiteBannerSettings($siteId);
+        }
+
         foreach ($banners as $banner) {
             $bannerId = (int) $banner['id'];
             $templateId = (int) ($banner['banner_template_id'] ?? 0);
@@ -219,25 +227,23 @@ final class SiteFrameworksHandler implements RequestHandlerInterface
 
             // Switch template if the current one doesn't support the new display type
             $needsTemplateSwitch = false;
-            if ($newDisplay === 'ccpa' || $newDisplay === 'gdpr_ccpa') {
-                // Check if current template supports CCPA
+            if ($newDisplay === 'ccpa') {
                 $templateRow = $this->db_getTemplate($templateId);
-                $laws = $templateRow ? json_decode((string) ($templateRow['cookie_laws'] ?? '{}'), true) : [];
-                if (empty($laws['ccpa']) && $newDisplay === 'ccpa') {
+                $templateLaw = $this->getTemplateLaw($templateRow);
+                if ($templateLaw !== 'ccpa') {
                     $needsTemplateSwitch = true;
                 }
             }
             if ($newDisplay === 'gdpr') {
                 $templateRow = $this->db_getTemplate($templateId);
-                $laws = $templateRow ? json_decode((string) ($templateRow['cookie_laws'] ?? '{}'), true) : [];
-                if (empty($laws['gdpr'])) {
+                $templateLaw = $this->getTemplateLaw($templateRow);
+                if ($templateLaw !== 'gdpr') {
                     $needsTemplateSwitch = true;
                 }
             }
 
             if ($needsTemplateSwitch) {
-                $targetLaw = $newDisplay === 'gdpr_ccpa' ? 'gdpr' : $newDisplay;
-                $newTemplate = $this->bannerRepo->findTemplateForLaw($targetLaw);
+                $newTemplate = $this->bannerRepo->findTemplateForLaw($newDisplay);
                 if ($newTemplate !== null) {
                     $updates['banner_template_id'] = (int) $newTemplate['id'];
                 }
@@ -253,6 +259,118 @@ final class SiteFrameworksHandler implements RequestHandlerInterface
                 $this->bannerRepo->updateBannerSetting($bannerId, $updates);
             }
         }
+    }
+
+    /**
+     * For gdpr_ccpa display mode, ensure the site has both a GDPR and a CCPA
+     * banner record. Creates the missing one by cloning settings from the existing banner.
+     *
+     * @param array<int, array<string, mixed>> $banners Existing site banners
+     */
+    private function ensureBothBannersExist(int $siteId, array $banners): void
+    {
+        $hasGdprBanner = false;
+        $hasCcpaBanner = false;
+
+        foreach ($banners as $banner) {
+            $templateId = (int) ($banner['banner_template_id'] ?? 0);
+            $templateRow = $this->db_getTemplate($templateId);
+            $law = $this->getTemplateLaw($templateRow);
+
+            if ($law === 'gdpr') {
+                $hasGdprBanner = true;
+            } elseif ($law === 'ccpa') {
+                $hasCcpaBanner = true;
+            }
+        }
+
+        if (!$hasGdprBanner) {
+            $this->createBannerForLaw($siteId, 'gdpr');
+        }
+        if (!$hasCcpaBanner) {
+            $this->createBannerForLaw($siteId, 'ccpa');
+        }
+    }
+
+    /**
+     * Create a new site banner record for a given law type with default settings.
+     */
+    private function createBannerForLaw(int $siteId, string $law): void
+    {
+        $template = $this->bannerRepo->findTemplateForLaw($law);
+        if ($template === null) {
+            return;
+        }
+
+        $templateId = (int) $template['id'];
+
+        $generalSetting = [
+            'geo_target' => 'all',
+            'google_additional_consent' => 1,
+        ];
+
+        $contentSetting = [
+            'cookie_notice' => [
+                'accept_all_button' => 1,
+            ],
+            'revisit_consent_button' => [
+                'floating_button' => 1,
+            ],
+        ];
+
+        $siteBannerId = $this->bannerRepo->createSiteBanner([
+            'site_id' => $siteId,
+            'banner_template_id' => $templateId,
+            'general_setting' => json_encode($generalSetting, JSON_THROW_ON_ERROR),
+            'layout_setting' => null,
+            'content_setting' => json_encode($contentSetting, JSON_THROW_ON_ERROR),
+            'color_setting' => json_encode(['light' => []], JSON_THROW_ON_ERROR),
+        ]);
+
+        // Resolve the site's default language for banner translations
+        $langId = $this->resolveDefaultLanguageId($siteId);
+        $this->bannerRepo->copyDefaultBannerTranslations($siteBannerId, $templateId, $langId);
+    }
+
+    /**
+     * Get the default language ID for a site.
+     * Falls back to 1 (English) which matches system defaults.
+     */
+    private function resolveDefaultLanguageId(int $siteId): int
+    {
+        // Site languages are not accessible here — use English as the base
+        // language for default translations. Users can customize via the UI.
+        return 1;
+    }
+
+    /**
+     * Resolve the cookie_laws of a template to a simple string ('gdpr' or 'ccpa').
+     */
+    private function getTemplateLaw(?array $templateRow): string
+    {
+        if ($templateRow === null) {
+            return 'gdpr';
+        }
+
+        $raw = (string) ($templateRow['cookie_laws'] ?? '');
+
+        // Plain string: 'gdpr' or 'ccpa'
+        if (\in_array($raw, ['gdpr', 'ccpa'], true)) {
+            return $raw;
+        }
+
+        // JSON format: {"gdpr":1,"ccpa":0}
+        $decoded = json_decode($raw, true);
+        if (\is_array($decoded)) {
+            if (!empty($decoded['ccpa'])) {
+                return 'ccpa';
+            }
+            if (!empty($decoded['gdpr'])) {
+                return 'gdpr';
+            }
+        }
+
+        return 'gdpr';
     }
 
     /**

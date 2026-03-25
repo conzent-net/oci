@@ -95,6 +95,11 @@ interface SiteRepositoryInterface
     public function destroy(int $siteId): void;
 
     /**
+     * Get the website_key for a site (even if soft-deleted).
+     */
+    public function getWebsiteKey(int $siteId): ?string;
+
+    /**
      * Check if a site belongs to a user.
      */
     public function belongsToUser(int $siteId, int $userId): bool;
