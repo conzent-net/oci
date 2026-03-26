@@ -1,0 +1,773 @@
+{
+  "version": "2.0",
+  "last_updated": "2026-03-15",
+  "categories": [
+    {
+      "id": "europe-international",
+      "name": "Europe & International",
+      "regulations": [
+        {
+          "id": "gdpr",
+          "name": "GDPR (EU)",
+          "region": "EU",
+          "type": "law",
+          "effective_date": "2018-05-25",
+          "items": [
+            { "id": "gdpr-001", "text": "Establish and document a lawful basis for each data processing activity" },
+            { "id": "gdpr-002", "text": "Display a clear, pre-action consent banner with granular opt-in choices" },
+            { "id": "gdpr-003", "text": "Ensure no tracking cookies or scripts fire before consent is obtained" },
+            { "id": "gdpr-004", "text": "Provide a comprehensive, accessible privacy policy" },
+            { "id": "gdpr-005", "text": "Implement a mechanism for data subject access requests (DSARs)" },
+            { "id": "gdpr-006", "text": "Support the right to erasure (right to be forgotten)" },
+            { "id": "gdpr-007", "text": "Support data portability — export user data in machine-readable format" },
+            { "id": "gdpr-008", "text": "Maintain a Record of Processing Activities (ROPA)" },
+            { "id": "gdpr-009", "text": "Conduct Data Protection Impact Assessments (DPIAs) for high-risk processing" },
+            { "id": "gdpr-010", "text": "Appoint a Data Protection Officer (DPO) if required" },
+            { "id": "gdpr-011", "text": "Establish a 72-hour data breach notification procedure" },
+            { "id": "gdpr-012", "text": "Ensure all third-party processors have signed Data Processing Agreements" },
+            { "id": "gdpr-013", "text": "Implement cross-border data transfer safeguards (SCCs, adequacy decisions)" },
+            { "id": "gdpr-014", "text": "Store consent records with timestamps, versions, and user choices" }
+          ]
+        },
+        {
+          "id": "eprivacy",
+          "name": "ePrivacy Directive (EU)",
+          "region": "EU",
+          "type": "law",
+          "effective_date": "2002-07-12",
+          "items": [
+            { "id": "epriv-001", "text": "Obtain informed consent before placing non-essential cookies or trackers" },
+            { "id": "epriv-002", "text": "Provide clear information about each cookie's purpose before consent" },
+            { "id": "epriv-003", "text": "Allow users to refuse non-essential cookies without loss of access" },
+            { "id": "epriv-004", "text": "Ensure reject option is equally prominent as accept (per enforcement guidance)" },
+            { "id": "epriv-005", "text": "Respect cookie consent on a per-purpose basis (analytics, advertising, functional)" },
+            { "id": "epriv-006", "text": "Do not use cookie walls that force consent as a condition of access" },
+            { "id": "epriv-007", "text": "Maintain a record of cookies and trackers deployed on the site" },
+            { "id": "epriv-008", "text": "Ensure confidentiality of electronic communications data" }
+          ]
+        },
+        {
+          "id": "dma",
+          "name": "DMA (EU)",
+          "region": "EU",
+          "type": "law",
+          "effective_date": "2023-05-01",
+          "items": [
+            { "id": "dma-001", "text": "Obtain explicit end-user consent before combining data across gatekeeper services" },
+            { "id": "dma-002", "text": "Provide a clear, separate consent flow for cross-service data linking" },
+            { "id": "dma-003", "text": "Allow users to decline cross-service profiling without losing core functionality" },
+            { "id": "dma-004", "text": "Support consent signals for gatekeeper platforms (Google, Apple, Meta, etc.)" },
+            { "id": "dma-005", "text": "Audit data flows to identify where gatekeeper consent requirements apply" },
+            { "id": "dma-006", "text": "Document compliance measures for each designated gatekeeper interaction" }
+          ]
+        },
+        {
+          "id": "eu-ai-act",
+          "name": "EU AI Act",
+          "region": "EU",
+          "type": "law",
+          "effective_date": "2026-08-02",
+          "items": [
+            { "id": "euai-001", "text": "Conduct an inventory of all AI systems used in your organization" },
+            { "id": "euai-002", "text": "Classify each AI system by risk level (unacceptable, high, limited, minimal)" },
+            { "id": "euai-003", "text": "Eliminate any AI systems classified as unacceptable risk" },
+            { "id": "euai-004", "text": "Implement conformity assessments for high-risk AI systems" },
+            { "id": "euai-005", "text": "Ensure transparency obligations for AI systems interacting with individuals" },
+            { "id": "euai-006", "text": "Maintain technical documentation and logging for high-risk AI systems" },
+            { "id": "euai-007", "text": "Implement human oversight mechanisms for high-risk AI systems" },
+            { "id": "euai-008", "text": "Disclose when content is AI-generated (deepfakes, synthetic text)" },
+            { "id": "euai-009", "text": "Register high-risk AI systems in the EU public database" }
+          ]
+        },
+        {
+          "id": "uk-gdpr",
+          "name": "UK GDPR & DUAA",
+          "region": "UK",
+          "type": "law",
+          "effective_date": "2021-01-01",
+          "items": [
+            { "id": "ukgdpr-001", "text": "Comply with UK GDPR data protection principles (lawfulness, fairness, transparency)" },
+            { "id": "ukgdpr-002", "text": "Appoint a UK representative if processing UK residents' data from abroad" },
+            { "id": "ukgdpr-003", "text": "Use UK-specific International Data Transfer Agreement (IDTA) for transfers" },
+            { "id": "ukgdpr-004", "text": "Register with the ICO if required and pay the data protection fee" },
+            { "id": "ukgdpr-005", "text": "Comply with DUAA reforms: updated lawful bases and recognized legitimate interests" },
+            { "id": "ukgdpr-006", "text": "Follow updated DUAA cookie rules and consent requirements" },
+            { "id": "ukgdpr-007", "text": "Support data subject rights: access, rectification, erasure, portability" },
+            { "id": "ukgdpr-008", "text": "Implement a 72-hour breach notification process to the ICO" }
+          ]
+        },
+        {
+          "id": "fadp",
+          "name": "FADP (Switzerland)",
+          "region": "Switzerland",
+          "type": "law",
+          "effective_date": "2023-09-01",
+          "items": [
+            { "id": "fadp-001", "text": "Inform users about data collection purposes before processing begins" },
+            { "id": "fadp-002", "text": "Obtain explicit consent for processing sensitive personal data" },
+            { "id": "fadp-003", "text": "Maintain a register of processing activities" },
+            { "id": "fadp-004", "text": "Conduct DPIAs for high-risk data processing" },
+            { "id": "fadp-005", "text": "Ensure cross-border transfers comply with Swiss adequacy requirements" },
+            { "id": "fadp-006", "text": "Appoint a representative in Switzerland if processing from abroad" },
+            { "id": "fadp-007", "text": "Implement a 72-hour breach notification process to FDPIC" },
+            { "id": "fadp-008", "text": "Provide data subject rights: access, rectification, deletion, portability" }
+          ]
+        },
+        {
+          "id": "lgpd",
+          "name": "LGPD (Brazil)",
+          "region": "Brazil",
+          "type": "law",
+          "effective_date": "2020-09-18",
+          "items": [
+            { "id": "lgpd-001", "text": "Define and document a legal basis for each processing activity" },
+            { "id": "lgpd-002", "text": "Obtain free, informed, and unambiguous consent where consent is the legal basis" },
+            { "id": "lgpd-003", "text": "Display a Portuguese-language consent banner for Brazilian users" },
+            { "id": "lgpd-004", "text": "Appoint a Data Protection Officer (Encarregado)" },
+            { "id": "lgpd-005", "text": "Provide data subject rights: confirmation, access, correction, anonymization, deletion" },
+            { "id": "lgpd-006", "text": "Allow data portability to another service provider" },
+            { "id": "lgpd-007", "text": "Maintain processing records and submit to ANPD upon request" },
+            { "id": "lgpd-008", "text": "Implement an incident response plan for data breaches" },
+            { "id": "lgpd-009", "text": "Ensure international data transfers have adequate safeguards" }
+          ]
+        },
+        {
+          "id": "popia",
+          "name": "POPIA (South Africa)",
+          "region": "South Africa",
+          "type": "law",
+          "effective_date": "2021-07-01",
+          "items": [
+            { "id": "popia-001", "text": "Register with the Information Regulator if required" },
+            { "id": "popia-002", "text": "Appoint an Information Officer and register with the Regulator" },
+            { "id": "popia-003", "text": "Obtain consent or identify another lawful condition for processing" },
+            { "id": "popia-004", "text": "Provide notice to data subjects about the purpose of collection" },
+            { "id": "popia-005", "text": "Implement appropriate security safeguards for personal information" },
+            { "id": "popia-006", "text": "Support data subject rights: access, correction, deletion, objection" },
+            { "id": "popia-007", "text": "Restrict cross-border transfers to countries with adequate protection" },
+            { "id": "popia-008", "text": "Notify the Regulator and data subjects of security compromises" }
+          ]
+        },
+        {
+          "id": "pipeda",
+          "name": "PIPEDA (Canada)",
+          "region": "Canada",
+          "type": "law",
+          "effective_date": "2004-01-01",
+          "items": [
+            { "id": "pipeda-001", "text": "Obtain meaningful consent before collecting, using, or disclosing personal information" },
+            { "id": "pipeda-002", "text": "Limit collection to what is necessary for identified purposes" },
+            { "id": "pipeda-003", "text": "Provide clear notice of purposes at or before the time of collection" },
+            { "id": "pipeda-004", "text": "Allow individuals to access and correct their personal information" },
+            { "id": "pipeda-005", "text": "Appoint a Privacy Officer responsible for compliance" },
+            { "id": "pipeda-006", "text": "Implement safeguards appropriate to the sensitivity of the data" },
+            { "id": "pipeda-007", "text": "Report breaches of security safeguards to the OPC and affected individuals" },
+            { "id": "pipeda-008", "text": "Retain personal information only as long as necessary for the identified purpose" }
+          ]
+        },
+        {
+          "id": "pipl",
+          "name": "PIPL (China)",
+          "region": "China",
+          "type": "law",
+          "effective_date": "2021-11-01",
+          "items": [
+            { "id": "pipl-001", "text": "Obtain separate consent for processing sensitive personal information" },
+            { "id": "pipl-002", "text": "Conduct a Personal Information Protection Impact Assessment for high-risk processing" },
+            { "id": "pipl-003", "text": "Store personal information of Chinese residents within China or pass security assessment" },
+            { "id": "pipl-004", "text": "Appoint a personal information protection officer if processing thresholds are met" },
+            { "id": "pipl-005", "text": "Provide data subject rights: access, correction, deletion, portability, withdrawal of consent" },
+            { "id": "pipl-006", "text": "Use standard contracts, certification, or security assessment for cross-border transfers" },
+            { "id": "pipl-007", "text": "Maintain processing records for at least three years" },
+            { "id": "pipl-008", "text": "Notify authorities and affected individuals in case of a data breach" }
+          ]
+        },
+        {
+          "id": "dpdp",
+          "name": "DPDP Act (India)",
+          "region": "India",
+          "type": "law",
+          "effective_date": "2025-11-13",
+          "items": [
+            { "id": "dpdp-001", "text": "Obtain verifiable consent before processing digital personal data" },
+            { "id": "dpdp-002", "text": "Provide notice of purpose, categories of data, and rights at the point of collection" },
+            { "id": "dpdp-003", "text": "Obtain verifiable parental consent before processing children's data" },
+            { "id": "dpdp-004", "text": "Support data principal rights: access, correction, erasure, grievance redressal" },
+            { "id": "dpdp-005", "text": "Implement appropriate security safeguards for personal data" },
+            { "id": "dpdp-006", "text": "Report data breaches to the Data Protection Board and affected data principals" },
+            { "id": "dpdp-007", "text": "Delete personal data once the purpose is fulfilled and retention period expires" },
+            { "id": "dpdp-008", "text": "Ensure cross-border transfers comply with government-notified restrictions" },
+            { "id": "dpdp-009", "text": "Register as a Consent Manager if operating as a third-party consent platform" }
+          ]
+        },
+        {
+          "id": "appi",
+          "name": "APPI (Japan)",
+          "region": "Japan",
+          "type": "law",
+          "effective_date": "2022-04-01",
+          "items": [
+            { "id": "appi-001", "text": "Specify and publicly announce the purpose of use of personal information" },
+            { "id": "appi-002", "text": "Obtain consent before providing personal data to third parties" },
+            { "id": "appi-003", "text": "Implement security controls appropriate to the data handled" },
+            { "id": "appi-004", "text": "Respond to individual requests for disclosure, correction, and cessation of use" },
+            { "id": "appi-005", "text": "Report data breaches to the PPC and affected individuals" },
+            { "id": "appi-006", "text": "Ensure overseas data transfers meet APPI adequacy or consent requirements" },
+            { "id": "appi-007", "text": "Maintain records of third-party data provision and receipt" }
+          ]
+        },
+        {
+          "id": "pipa-kr",
+          "name": "PIPA (South Korea)",
+          "region": "South Korea",
+          "type": "law",
+          "effective_date": "2023-09-15",
+          "items": [
+            { "id": "pipa-001", "text": "Obtain consent for collection, use, and third-party provision of personal data" },
+            { "id": "pipa-002", "text": "Appoint a Chief Privacy Officer (CPO)" },
+            { "id": "pipa-003", "text": "Conduct a Privacy Impact Assessment for high-risk processing" },
+            { "id": "pipa-004", "text": "Support data subject rights: access, correction, deletion, suspension of processing" },
+            { "id": "pipa-005", "text": "Implement technical and organizational security measures" },
+            { "id": "pipa-006", "text": "Notify PIPC and affected individuals within 72 hours of a data breach" },
+            { "id": "pipa-007", "text": "Comply with cross-border transfer restrictions and consent or safeguard requirements" },
+            { "id": "pipa-008", "text": "Appoint a local representative if processing from outside South Korea" }
+          ]
+        },
+        {
+          "id": "pdpa-th",
+          "name": "PDPA (Thailand)",
+          "region": "Thailand",
+          "type": "law",
+          "effective_date": "2022-06-01",
+          "items": [
+            { "id": "pdpath-001", "text": "Obtain explicit consent before collecting personal data unless an exemption applies" },
+            { "id": "pdpath-002", "text": "Provide a privacy notice with purpose, legal basis, and retention period" },
+            { "id": "pdpath-003", "text": "Appoint a Data Protection Officer if required" },
+            { "id": "pdpath-004", "text": "Support data subject rights: access, correction, deletion, portability, objection" },
+            { "id": "pdpath-005", "text": "Implement appropriate security measures for personal data" },
+            { "id": "pdpath-006", "text": "Notify the PDPC and data subjects within 72 hours of a breach" },
+            { "id": "pdpath-007", "text": "Ensure cross-border transfers have adequate safeguards or consent" }
+          ]
+        },
+        {
+          "id": "pdp-id",
+          "name": "PDP Law (Indonesia)",
+          "region": "Indonesia",
+          "type": "law",
+          "effective_date": "2024-10-17",
+          "items": [
+            { "id": "pdpid-001", "text": "Obtain valid consent before processing personal data" },
+            { "id": "pdpid-002", "text": "Provide clear notice of processing purposes and legal basis" },
+            { "id": "pdpid-003", "text": "Support data subject rights: access, correction, deletion, withdrawal of consent" },
+            { "id": "pdpid-004", "text": "Implement technical and organizational security measures" },
+            { "id": "pdpid-005", "text": "Notify data subjects and authorities within 72 hours of a breach" },
+            { "id": "pdpid-006", "text": "Ensure cross-border transfers meet adequacy or safeguard requirements" },
+            { "id": "pdpid-007", "text": "Appoint a Data Protection Officer if required by processing scale" }
+          ]
+        },
+        {
+          "id": "pdpa-sg",
+          "name": "PDPA (Singapore)",
+          "region": "Singapore",
+          "type": "law",
+          "effective_date": "2014-07-02",
+          "items": [
+            { "id": "pdpasg-001", "text": "Obtain consent before collecting, using, or disclosing personal data" },
+            { "id": "pdpasg-002", "text": "Notify individuals of purposes before or at the time of collection" },
+            { "id": "pdpasg-003", "text": "Appoint a Data Protection Officer" },
+            { "id": "pdpasg-004", "text": "Implement reasonable security measures to protect personal data" },
+            { "id": "pdpasg-005", "text": "Support access and correction requests from individuals" },
+            { "id": "pdpasg-006", "text": "Comply with data breach notification requirements to PDPC and individuals" },
+            { "id": "pdpasg-007", "text": "Ensure cross-border transfers maintain comparable protection levels" },
+            { "id": "pdpasg-008", "text": "Retain personal data only as long as necessary for business or legal purposes" }
+          ]
+        },
+        {
+          "id": "pdpa-my",
+          "name": "PDPA (Malaysia)",
+          "region": "Malaysia",
+          "type": "law",
+          "effective_date": "2013-11-15",
+          "items": [
+            { "id": "pdpamy-001", "text": "Appoint a Data Protection Officer (mandatory per 2024 amendments)" },
+            { "id": "pdpamy-002", "text": "Obtain consent before processing personal data" },
+            { "id": "pdpamy-003", "text": "Provide a clear written notice of purposes at the time of collection" },
+            { "id": "pdpamy-004", "text": "Implement data breach notification procedures (per 2024 amendments)" },
+            { "id": "pdpamy-005", "text": "Support data portability rights (per 2024 amendments)" },
+            { "id": "pdpamy-006", "text": "Implement security safeguards appropriate to the data processed" },
+            { "id": "pdpamy-007", "text": "Ensure cross-border transfers comply with adequacy requirements" }
+          ]
+        },
+        {
+          "id": "privacy-act-au",
+          "name": "Privacy Act (Australia)",
+          "region": "Australia",
+          "type": "law",
+          "effective_date": "1988-12-01",
+          "items": [
+            { "id": "privau-001", "text": "Comply with the Australian Privacy Principles (APPs) for handling personal information" },
+            { "id": "privau-002", "text": "Publish a clear and up-to-date privacy policy" },
+            { "id": "privau-003", "text": "Notify individuals about the collection of their personal information and its purpose" },
+            { "id": "privau-004", "text": "Implement reasonable security measures to protect personal information" },
+            { "id": "privau-005", "text": "Report eligible data breaches to the OAIC and affected individuals" },
+            { "id": "privau-006", "text": "Support individual rights: access and correction of personal information" },
+            { "id": "privau-007", "text": "Ensure cross-border disclosures comply with APP 8 requirements" },
+            { "id": "privau-008", "text": "Comply with updated reforms on children's privacy and impact assessments" }
+          ]
+        },
+        {
+          "id": "uae-pdpl",
+          "name": "PDPL (UAE)",
+          "region": "UAE",
+          "type": "law",
+          "effective_date": "2022-01-02",
+          "items": [
+            { "id": "uaepdpl-001", "text": "Obtain consent or identify a lawful basis before processing personal data" },
+            { "id": "uaepdpl-002", "text": "Provide a privacy notice with processing purposes and data categories" },
+            { "id": "uaepdpl-003", "text": "Support data subject rights: access, correction, deletion, restriction" },
+            { "id": "uaepdpl-004", "text": "Implement appropriate technical and organizational security measures" },
+            { "id": "uaepdpl-005", "text": "Ensure cross-border transfers comply with UAE adequacy or safeguard requirements" },
+            { "id": "uaepdpl-006", "text": "Notify the UAE Data Office and affected individuals of data breaches" }
+          ]
+        },
+        {
+          "id": "vietnam-pdpl",
+          "name": "PDPL (Vietnam)",
+          "region": "Vietnam",
+          "type": "law",
+          "effective_date": "2026-01-01",
+          "items": [
+            { "id": "vnpdpl-001", "text": "Obtain consent before collecting and processing personal data" },
+            { "id": "vnpdpl-002", "text": "Provide clear notification of processing purposes and methods" },
+            { "id": "vnpdpl-003", "text": "Support data subject rights: access, correction, deletion, restriction of processing" },
+            { "id": "vnpdpl-004", "text": "Conduct impact assessments for processing sensitive personal data" },
+            { "id": "vnpdpl-005", "text": "Register cross-border transfer activities with competent authorities" },
+            { "id": "vnpdpl-006", "text": "Implement technical and organizational security measures" },
+            { "id": "vnpdpl-007", "text": "Notify authorities within 72 hours of a data breach" }
+          ]
+        },
+        {
+          "id": "tcf-2-3",
+          "name": "TCF 2.3 (IAB)",
+          "region": "EU",
+          "type": "framework",
+          "effective_date": "2023-11-20",
+          "items": [
+            { "id": "tcf-001", "text": "Register as a CMP with IAB Europe and obtain CMP ID" },
+            { "id": "tcf-002", "text": "Implement IAB TCF 2.3 CMP API (__tcfapi) on all pages" },
+            { "id": "tcf-003", "text": "Display all IAB-registered purposes and legitimate interest options" },
+            { "id": "tcf-004", "text": "Generate and store valid TC strings per the specification" },
+            { "id": "tcf-005", "text": "Support vendor-level consent granularity from the Global Vendor List" },
+            { "id": "tcf-006", "text": "Implement the Right to Object flow for legitimate interest purposes" },
+            { "id": "tcf-007", "text": "Store TC string in cookie (euconsent-v2) and make available via API" },
+            { "id": "tcf-008", "text": "Pass TC string to ad tech vendors in bid requests" },
+            { "id": "tcf-009", "text": "Provide a mechanism for users to withdraw consent at any time" },
+            { "id": "tcf-010", "text": "Run IAB CMP Validator to confirm compliance" }
+          ]
+        },
+        {
+          "id": "google-consent-mode",
+          "name": "Google Consent Mode (EU)",
+          "region": "EU",
+          "type": "platform",
+          "effective_date": null,
+          "items": [
+            { "id": "gcm-001", "text": "Integrate Google Consent Mode v2 via gtag.js or GTM" },
+            { "id": "gcm-002", "text": "Set default consent states (denied) before any Google tags load" },
+            { "id": "gcm-003", "text": "Map CMP consent categories to Google's consent types (ad_storage, analytics_storage, ad_user_data, ad_personalization)" },
+            { "id": "gcm-004", "text": "Fire consent update command when user grants or revokes consent" },
+            { "id": "gcm-005", "text": "Enable Advanced Consent Mode for modeled conversions if applicable" },
+            { "id": "gcm-006", "text": "Verify implementation with Google Tag Assistant" },
+            { "id": "gcm-007", "text": "Confirm Google Ads and GA4 receive correct consent signals" }
+          ]
+        },
+        {
+          "id": "amazon-consent-signal",
+          "name": "Amazon Consent Signal",
+          "region": "EU",
+          "type": "platform",
+          "effective_date": null,
+          "items": [
+            { "id": "acs-001", "text": "Implement Amazon Ads consent signal API on your website" },
+            { "id": "acs-002", "text": "Map CMP consent categories to Amazon's signal parameters" },
+            { "id": "acs-003", "text": "Send consent status before any Amazon ad tags fire" },
+            { "id": "acs-004", "text": "Handle consent revocation and forward updated signals to Amazon" },
+            { "id": "acs-005", "text": "Test signal delivery in Amazon Ads console sandbox" },
+            { "id": "acs-006", "text": "Validate that Amazon tags respect denied consent states" }
+          ]
+        },
+        {
+          "id": "microsoft-uet-consent-mode",
+          "name": "Microsoft UET Consent Mode",
+          "region": "EU",
+          "type": "platform",
+          "effective_date": null,
+          "items": [
+            { "id": "msuet-001", "text": "Add Microsoft UET consent mode parameter to your UET tag" },
+            { "id": "msuet-002", "text": "Set default consent state to denied before UET tag loads" },
+            { "id": "msuet-003", "text": "Map CMP consent signals to Microsoft's ad_storage consent type" },
+            { "id": "msuet-004", "text": "Update consent state dynamically when user grants or denies consent" },
+            { "id": "msuet-005", "text": "Verify consent mode behavior in Microsoft Advertising UI" },
+            { "id": "msuet-006", "text": "Test conversion tracking under both granted and denied states" }
+          ]
+        },
+        {
+          "id": "microsoft-clarity-consent-mode",
+          "name": "Microsoft Clarity Consent Mode",
+          "region": "EU",
+          "type": "platform",
+          "effective_date": null,
+          "items": [
+            { "id": "msclr-001", "text": "Configure Clarity tag to respect consent before initializing" },
+            { "id": "msclr-002", "text": "Implement consent check before Clarity's tracking script loads" },
+            { "id": "msclr-003", "text": "Map analytics_storage consent type to Clarity initialization" },
+            { "id": "msclr-004", "text": "Ensure session recordings only start after valid consent" },
+            { "id": "msclr-005", "text": "Verify Clarity dashboard reflects consent-aware data collection" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "usa",
+      "name": "United States",
+      "regulations": [
+        {
+          "id": "ccpa",
+          "name": "CCPA (California)",
+          "state": "CA",
+          "type": "law",
+          "effective_date": "2020-01-01",
+          "items": [
+            { "id": "ccpa-001", "text": "Add a 'Do Not Sell My Personal Information' link on your homepage" },
+            { "id": "ccpa-002", "text": "Disclose data collection categories and purposes in your privacy policy" },
+            { "id": "ccpa-003", "text": "Implement mechanisms to process consumer opt-out requests" },
+            { "id": "ccpa-004", "text": "Respond to verifiable consumer requests within 45 days" },
+            { "id": "ccpa-005", "text": "Provide at least two methods for consumers to submit requests" },
+            { "id": "ccpa-006", "text": "Do not discriminate against consumers who exercise their rights" },
+            { "id": "ccpa-007", "text": "Disclose financial incentive programs and their material terms" }
+          ]
+        },
+        {
+          "id": "cpra",
+          "name": "CPRA (California)",
+          "state": "CA",
+          "type": "law",
+          "effective_date": "2023-01-01",
+          "items": [
+            { "id": "cpra-001", "text": "Add 'Limit the Use of My Sensitive Personal Information' link" },
+            { "id": "cpra-002", "text": "Implement opt-out preference signals (GPC) support" },
+            { "id": "cpra-003", "text": "Minimize data collection to what is reasonably necessary" },
+            { "id": "cpra-004", "text": "Define and enforce data retention schedules per purpose" },
+            { "id": "cpra-005", "text": "Conduct regular cybersecurity audits and risk assessments" },
+            { "id": "cpra-006", "text": "Ensure service providers and contractors comply via updated agreements" },
+            { "id": "cpra-007", "text": "Support the right to correct inaccurate personal information" },
+            { "id": "cpra-008", "text": "Implement annual disclosure of data sharing for cross-context advertising" }
+          ]
+        },
+        {
+          "id": "cpa-colorado",
+          "name": "CPA (Colorado)",
+          "state": "CO",
+          "type": "law",
+          "effective_date": "2023-07-01",
+          "items": [
+            { "id": "cpaco-001", "text": "Provide clear opt-out mechanisms for targeted advertising and data sales" },
+            { "id": "cpaco-002", "text": "Honor universal opt-out mechanisms (e.g., GPC signals)" },
+            { "id": "cpaco-003", "text": "Conduct Data Protection Assessments for high-risk processing" },
+            { "id": "cpaco-004", "text": "Obtain consent before processing sensitive personal data" },
+            { "id": "cpaco-005", "text": "Provide privacy notice with data categories, purposes, and third-party sharing" },
+            { "id": "cpaco-006", "text": "Support consumer rights: access, correction, deletion, portability" },
+            { "id": "cpaco-007", "text": "Respond to consumer rights requests within 45 days" }
+          ]
+        },
+        {
+          "id": "ctdpa",
+          "name": "CTDPA (Connecticut)",
+          "state": "CT",
+          "type": "law",
+          "effective_date": "2023-07-01",
+          "items": [
+            { "id": "ctdpa-001", "text": "Provide opt-out for targeted advertising, sale of data, and profiling" },
+            { "id": "ctdpa-002", "text": "Honor universal opt-out preference signals" },
+            { "id": "ctdpa-003", "text": "Obtain consent before processing sensitive data" },
+            { "id": "ctdpa-004", "text": "Provide clear and accessible privacy notice" },
+            { "id": "ctdpa-005", "text": "Support consumer rights: access, correction, deletion, portability" },
+            { "id": "ctdpa-006", "text": "Respond to requests within 45 days (one 45-day extension allowed)" },
+            { "id": "ctdpa-007", "text": "Conduct Data Protection Assessments for high-risk activities" },
+            { "id": "ctdpa-008", "text": "Add neural data to sensitive data category protections (effective July 2026)" }
+          ]
+        },
+        {
+          "id": "vcdpa",
+          "name": "VCDPA (Virginia)",
+          "state": "VA",
+          "type": "law",
+          "effective_date": "2023-01-01",
+          "items": [
+            { "id": "vcdpa-001", "text": "Provide opt-out for targeted advertising, sale of data, and profiling" },
+            { "id": "vcdpa-002", "text": "Obtain consent before processing sensitive personal data" },
+            { "id": "vcdpa-003", "text": "Conduct Data Protection Assessments for targeted advertising and profiling" },
+            { "id": "vcdpa-004", "text": "Provide a clear, reasonably accessible privacy notice" },
+            { "id": "vcdpa-005", "text": "Support consumer rights: access, correction, deletion, portability, opt-out" },
+            { "id": "vcdpa-006", "text": "Respond to consumer requests within 45 days" },
+            { "id": "vcdpa-007", "text": "Limit data collection to what is adequate, relevant, and necessary" }
+          ]
+        },
+        {
+          "id": "ucpa",
+          "name": "UCPA (Utah)",
+          "state": "UT",
+          "type": "law",
+          "effective_date": "2023-12-31",
+          "items": [
+            { "id": "ucpa-001", "text": "Provide opt-out for targeted advertising and data sales" },
+            { "id": "ucpa-002", "text": "Provide a clear and conspicuous privacy notice" },
+            { "id": "ucpa-003", "text": "Obtain consent before processing sensitive personal data" },
+            { "id": "ucpa-004", "text": "Support consumer rights: access, deletion, portability" },
+            { "id": "ucpa-005", "text": "Respond to consumer rights requests within 45 days" },
+            { "id": "ucpa-006", "text": "Disclose whether you sell personal data or use it for targeted advertising" }
+          ]
+        },
+        {
+          "id": "mtcdpa",
+          "name": "MTCDPA (Montana)",
+          "state": "MT",
+          "type": "law",
+          "effective_date": "2024-10-01",
+          "items": [
+            { "id": "mtcdpa-001", "text": "Provide opt-out for targeted advertising, sale of data, and profiling" },
+            { "id": "mtcdpa-002", "text": "Honor universal opt-out preference signals" },
+            { "id": "mtcdpa-003", "text": "Obtain consent before processing sensitive personal data" },
+            { "id": "mtcdpa-004", "text": "Provide a clear, accessible privacy notice with explanation of consumer rights" },
+            { "id": "mtcdpa-005", "text": "Support consumer rights: access, correction, deletion, portability" },
+            { "id": "mtcdpa-006", "text": "Respond to consumer requests within 45 days (one 15-day extension)" },
+            { "id": "mtcdpa-007", "text": "Conduct Data Protection Assessments for high-risk activities" }
+          ]
+        },
+        {
+          "id": "ocpa",
+          "name": "OCPA (Oregon)",
+          "state": "OR",
+          "type": "law",
+          "effective_date": "2024-07-01",
+          "items": [
+            { "id": "ocpa-001", "text": "Provide opt-out for targeted advertising, sale of data, and profiling" },
+            { "id": "ocpa-002", "text": "Obtain consent before processing sensitive data including demographic data" },
+            { "id": "ocpa-003", "text": "Provide a clear privacy notice with categories, purposes, and third-party recipients" },
+            { "id": "ocpa-004", "text": "Support consumer rights: access, correction, deletion, portability, list of third parties" },
+            { "id": "ocpa-005", "text": "Respond to consumer requests within 45 days" },
+            { "id": "ocpa-006", "text": "Conduct Data Protection Assessments for high-risk processing" },
+            { "id": "ocpa-007", "text": "Note: extends to nonprofit organizations (unique among US state laws)" }
+          ]
+        },
+        {
+          "id": "tdpsa",
+          "name": "TDPSA (Texas)",
+          "state": "TX",
+          "type": "law",
+          "effective_date": "2024-07-01",
+          "items": [
+            { "id": "tdpsa-001", "text": "Provide opt-out for targeted advertising, sale of data, and profiling" },
+            { "id": "tdpsa-002", "text": "Honor universal opt-out mechanisms" },
+            { "id": "tdpsa-003", "text": "Obtain consent before processing sensitive personal data" },
+            { "id": "tdpsa-004", "text": "Provide a privacy notice disclosing data practices" },
+            { "id": "tdpsa-005", "text": "Support consumer rights: access, correction, deletion, portability" },
+            { "id": "tdpsa-006", "text": "Respond to consumer requests within 45 days" },
+            { "id": "tdpsa-007", "text": "Conduct Data Protection Assessments for high-risk processing" }
+          ]
+        },
+        {
+          "id": "fdbr",
+          "name": "FDBR (Florida)",
+          "state": "FL",
+          "type": "law",
+          "effective_date": "2024-07-01",
+          "items": [
+            { "id": "fdbr-001", "text": "Provide opt-out for targeted advertising, sale of data, and profiling" },
+            { "id": "fdbr-002", "text": "Obtain consent before processing sensitive personal data" },
+            { "id": "fdbr-003", "text": "Provide a clear and accessible privacy notice" },
+            { "id": "fdbr-004", "text": "Support consumer rights: access, correction, deletion, opt-out" },
+            { "id": "fdbr-005", "text": "Respond to consumer requests within 45 days" },
+            { "id": "fdbr-006", "text": "Additional protections for children's data (under 18 on certain platforms)" },
+            { "id": "fdbr-007", "text": "Implement data security practices appropriate to data sensitivity" }
+          ]
+        },
+        {
+          "id": "icdpa-iowa",
+          "name": "ICDPA (Iowa)",
+          "state": "IA",
+          "type": "law",
+          "effective_date": "2025-01-01",
+          "items": [
+            { "id": "icdpaia-001", "text": "Provide opt-out for targeted advertising and sale of personal data" },
+            { "id": "icdpaia-002", "text": "Obtain consent before processing sensitive personal data" },
+            { "id": "icdpaia-003", "text": "Provide a clear and reasonably accessible privacy notice" },
+            { "id": "icdpaia-004", "text": "Support consumer rights: access, deletion, portability" },
+            { "id": "icdpaia-005", "text": "Respond to consumer requests within 90 days" },
+            { "id": "icdpaia-006", "text": "Note: no right to correction and no universal opt-out signal requirement" }
+          ]
+        },
+        {
+          "id": "dpdpa-delaware",
+          "name": "DPDPA (Delaware)",
+          "state": "DE",
+          "type": "law",
+          "effective_date": "2025-01-01",
+          "items": [
+            { "id": "dpdpade-001", "text": "Provide opt-out for targeted advertising, sale of data, and profiling" },
+            { "id": "dpdpade-002", "text": "Obtain consent before processing sensitive personal data" },
+            { "id": "dpdpade-003", "text": "Heightened protections for children's data (13-17 requires opt-in)" },
+            { "id": "dpdpade-004", "text": "Provide a clear and accessible privacy notice" },
+            { "id": "dpdpade-005", "text": "Support consumer rights: access, correction, deletion, portability" },
+            { "id": "dpdpade-006", "text": "Respond to consumer requests within 45 days" },
+            { "id": "dpdpade-007", "text": "Conduct Data Protection Assessments for high-risk processing" }
+          ]
+        },
+        {
+          "id": "nhdpa",
+          "name": "NHDPA (New Hampshire)",
+          "state": "NH",
+          "type": "law",
+          "effective_date": "2025-01-01",
+          "items": [
+            { "id": "nhdpa-001", "text": "Provide opt-out for targeted advertising, sale of data, and profiling" },
+            { "id": "nhdpa-002", "text": "Obtain consent before processing sensitive personal data" },
+            { "id": "nhdpa-003", "text": "Provide a clear and accessible privacy notice meeting Secretary of State standards" },
+            { "id": "nhdpa-004", "text": "Support consumer rights: access, correction, deletion, portability" },
+            { "id": "nhdpa-005", "text": "Respond to consumer requests within 45 days" },
+            { "id": "nhdpa-006", "text": "Limit data collection to what is adequate, relevant, and reasonably necessary" },
+            { "id": "nhdpa-007", "text": "Implement reasonable administrative, technical, and physical data security practices" }
+          ]
+        },
+        {
+          "id": "njdpa",
+          "name": "NJDPA (New Jersey)",
+          "state": "NJ",
+          "type": "law",
+          "effective_date": "2025-01-15",
+          "items": [
+            { "id": "njdpa-001", "text": "Provide opt-out for targeted advertising, sale of data, and profiling" },
+            { "id": "njdpa-002", "text": "Honor universal opt-out preference signals" },
+            { "id": "njdpa-003", "text": "Obtain consent before processing sensitive personal data" },
+            { "id": "njdpa-004", "text": "Provide a clear and accessible privacy notice" },
+            { "id": "njdpa-005", "text": "Support consumer rights: access, correction, deletion, portability" },
+            { "id": "njdpa-006", "text": "Respond to consumer requests within 45 days" },
+            { "id": "njdpa-007", "text": "Conduct Data Protection Assessments for high-risk processing" }
+          ]
+        },
+        {
+          "id": "ndpa-nebraska",
+          "name": "NDPA (Nebraska)",
+          "state": "NE",
+          "type": "law",
+          "effective_date": "2025-01-01",
+          "items": [
+            { "id": "ndpane-001", "text": "Provide opt-out for targeted advertising, sale of data, and profiling" },
+            { "id": "ndpane-002", "text": "Honor universal opt-out preference signals" },
+            { "id": "ndpane-003", "text": "Obtain consent before processing sensitive personal data" },
+            { "id": "ndpane-004", "text": "Provide a clear and accessible privacy notice" },
+            { "id": "ndpane-005", "text": "Support consumer rights: access, correction, deletion, portability" },
+            { "id": "ndpane-006", "text": "Respond to consumer requests within 45 days" },
+            { "id": "ndpane-007", "text": "Note: applies to all businesses with no revenue or processing volume threshold" }
+          ]
+        },
+        {
+          "id": "tipa",
+          "name": "TIPA (Tennessee)",
+          "state": "TN",
+          "type": "law",
+          "effective_date": "2025-07-01",
+          "items": [
+            { "id": "tipa-001", "text": "Provide opt-out for targeted advertising, sale of data, and profiling" },
+            { "id": "tipa-002", "text": "Obtain consent before processing sensitive personal data" },
+            { "id": "tipa-003", "text": "Provide a clear and accessible privacy notice" },
+            { "id": "tipa-004", "text": "Support consumer rights: access, correction, deletion, portability" },
+            { "id": "tipa-005", "text": "Respond to consumer requests within 45 days" },
+            { "id": "tipa-006", "text": "Conduct Data Protection Assessments for high-risk processing" },
+            { "id": "tipa-007", "text": "Affirmative defense available for voluntary compliance with NIST privacy framework" }
+          ]
+        },
+        {
+          "id": "mncdpa",
+          "name": "MNCDPA (Minnesota)",
+          "state": "MN",
+          "type": "law",
+          "effective_date": "2025-07-31",
+          "items": [
+            { "id": "mncdpa-001", "text": "Provide opt-out for targeted advertising, sale of data, and profiling" },
+            { "id": "mncdpa-002", "text": "Honor universal opt-out preference signals" },
+            { "id": "mncdpa-003", "text": "Obtain consent before processing sensitive personal data" },
+            { "id": "mncdpa-004", "text": "Provide a clear and accessible privacy notice" },
+            { "id": "mncdpa-005", "text": "Support consumer rights: access, correction, deletion, portability" },
+            { "id": "mncdpa-006", "text": "Respond to consumer requests within 45 days" },
+            { "id": "mncdpa-007", "text": "Conduct Data Protection Assessments for high-risk processing" },
+            { "id": "mncdpa-008", "text": "Provide a right to question the results of profiling decisions" }
+          ]
+        },
+        {
+          "id": "modpa",
+          "name": "MODPA (Maryland)",
+          "state": "MD",
+          "type": "law",
+          "effective_date": "2025-10-01",
+          "items": [
+            { "id": "modpa-001", "text": "Provide opt-out for targeted advertising, sale of data, and profiling" },
+            { "id": "modpa-002", "text": "Honor universal opt-out mechanisms" },
+            { "id": "modpa-003", "text": "Minimize data collection — only collect what is reasonably necessary (stricter standard)" },
+            { "id": "modpa-004", "text": "Obtain consent before processing sensitive personal data" },
+            { "id": "modpa-005", "text": "Heightened protections for children's data" },
+            { "id": "modpa-006", "text": "Provide a clear and accessible privacy notice" },
+            { "id": "modpa-007", "text": "Support consumer rights: access, correction, deletion, portability" },
+            { "id": "modpa-008", "text": "Respond to consumer requests within 45 days" },
+            { "id": "modpa-009", "text": "Conduct Data Protection Assessments for high-risk processing" }
+          ]
+        },
+        {
+          "id": "incdpa",
+          "name": "INCDPA (Indiana)",
+          "state": "IN",
+          "type": "law",
+          "effective_date": "2026-01-01",
+          "items": [
+            { "id": "incdpa-001", "text": "Provide opt-out for targeted advertising, sale of data, and profiling" },
+            { "id": "incdpa-002", "text": "Obtain opt-in consent before processing sensitive personal data" },
+            { "id": "incdpa-003", "text": "Provide a clear and accessible privacy notice" },
+            { "id": "incdpa-004", "text": "Support consumer rights: access, correction, deletion, portability" },
+            { "id": "incdpa-005", "text": "Respond to consumer requests within 45 days" },
+            { "id": "incdpa-006", "text": "Conduct Data Protection Assessments for high-risk processing" }
+          ]
+        },
+        {
+          "id": "kcdpa",
+          "name": "KCDPA (Kentucky)",
+          "state": "KY",
+          "type": "law",
+          "effective_date": "2026-01-01",
+          "items": [
+            { "id": "kcdpa-001", "text": "Provide opt-out for targeted advertising, sale of data, and profiling" },
+            { "id": "kcdpa-002", "text": "Obtain consent before processing sensitive personal data" },
+            { "id": "kcdpa-003", "text": "Provide a clear and accessible privacy notice" },
+            { "id": "kcdpa-004", "text": "Support consumer rights: access, correction, deletion, portability" },
+            { "id": "kcdpa-005", "text": "Respond to consumer requests within 45 days" },
+            { "id": "kcdpa-006", "text": "Conduct Data Protection Assessments for high-risk processing" }
+          ]
+        },
+        {
+          "id": "ridtppa",
+          "name": "RIDTPPA (Rhode Island)",
+          "state": "RI",
+          "type": "law",
+          "effective_date": "2026-01-01",
+          "items": [
+            { "id": "ridtppa-001", "text": "Provide opt-out for targeted advertising, sale of data, and profiling" },
+            { "id": "ridtppa-002", "text": "Obtain opt-in consent before processing sensitive personal data" },
+            { "id": "ridtppa-003", "text": "Provide enhanced privacy notice meeting Rhode Island-specific disclosure requirements" },
+            { "id": "ridtppa-004", "text": "Support consumer rights: access, correction, deletion, portability" },
+            { "id": "ridtppa-005", "text": "Respond to consumer requests within 45 days" },
+            { "id": "ridtppa-006", "text": "Online service providers must publish additional data transparency disclosures" }
+          ]
+        }
+      ]
+    }
+  ]
+}

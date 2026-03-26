@@ -1,0 +1,263 @@
+{% extends 'layouts/base.html.twig' %}
+{% import 'components/macros.html.twig' as ui %}
+
+{% set active_page = 'cookies' %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div x-data="cookiesPage()">
+
+    <nav class="breadcrumb mb-3" aria-label="breadcrumbs">
+        <ul>
+            <li><a href="/">Dashboard</a></li>
+            <li class="is-active"><a href="#" aria-current="page">Cookies</a></li>
+        </ul>
+    </nav>
+
+    {# -- Header ------------------------------------------------- #}
+    <div class="level mb-4">
+        <div class="level-left">
+            <div class="level-item">
+                <h1 class="title is-4 mb-0">Cookies</h1>
+            </div>
+            <div class="level-item">
+                {{ ui.siteSelector(sites, siteId, '/cookies') }}
+            </div>
+            <div class="level-item">
+                <span class="tag is-info is-light is-medium">{{ totalCookies }} cookie{{ totalCookies != 1 ? 's' : '' }}</span>
+            </div>
+        </div>
+        <div class="level-right">
+            <div class="level-item">
+                <div class="field has-addons">
+                    <div class="control">
+                        <input class="input is-small" type="text" placeholder="Search cookies..."
+                               value="{{ currentSearch }}"
+                               @keyup.enter="searchCookies($event.target.value)">
+                    </div>
+                    <div class="control">
+                        <button class="button is-small" @click="searchCookies($event.target.closest('.field').querySelector('input').value)">
+                            <span class="icon"><i class="fas fa-search"></i></span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="level-item">
+                <button class="button is-outlined is-small is-warning"
+                        @click="resetObservations()"
+                        :class="{ 'is-loading': resetting }"
+                        title="Clear all beacon observation data and start fresh">
+                    <span class="icon"><i class="fas fa-eraser"></i></span>
+                    <span>Reset Observations</span>
+                </button>
+            </div>
+            <div class="level-item">
+                <a href="/scans?site_id={{ siteId }}" class="button is-outlined is-small">
+                    <span class="icon"><i class="fas fa-rotate"></i></span>
+                    <span>New Scan</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    {# -- Two-column layout: vertical category menu + cookie list -- #}
+    <div class="columns">
+        {# Left: vertical category list #}
+        <div class="column is-3">
+            <aside class="menu cookie-category-menu">
+                <p class="menu-label">Categories</p>
+                <ul class="menu-list">
+                    {% for cat in tabCategories %}
+                    <li>
+                        <a @click.prevent="activeTab = '{{ cat.slug }}'"
+                           :class="{ 'is-active': activeTab === '{{ cat.slug }}' }">
+                            <span class="is-flex is-align-items-center is-justify-content-space-between" style="width:100%">
+                                <span>
+                                    <span class="icon is-small mr-1">
+                                        {% if cat.slug == 'necessary' %}<i class="fas fa-shield-halved"></i>
+                                        {% elseif cat.slug == 'functional' %}<i class="fas fa-sliders"></i>
+                                        {% elseif cat.slug == 'analytics' %}<i class="fas fa-chart-line"></i>
+                                        {% elseif cat.slug == 'marketing' %}<i class="fas fa-bullhorn"></i>
+                                        {% elseif cat.slug == 'unclassified' %}<i class="fas fa-question-circle"></i>
+                                        {% else %}<i class="fas fa-cookie"></i>
+                                        {% endif %}
+                                    </span>
+                                    {{ cat.name }}
+                                </span>
+                                <span class="tag is-rounded is-small
+                                    {% if cat.slug == 'necessary' %}is-success is-light
+                                    {% elseif cat.slug == 'functional' %}is-info is-light
+                                    {% elseif cat.slug == 'analytics' %}is-warning is-light
+                                    {% elseif cat.slug == 'marketing' %}is-danger is-light
+                                    {% else %}is-light
+                                    {% endif %}">{{ cat.cookie_count }}</span>
+                            </span>
+                        </a>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </aside>
+        </div>
+
+        {# Right: cookie list for selected category #}
+        <div class="column is-9">
+            {% for cat in tabCategories %}
+            <div x-show="activeTab === '{{ cat.slug }}'" x-cloak>
+                <div class="is-flex is-align-items-center mb-3">
+                    <h2 class="title is-5 mb-0">{{ cat.name }}</h2>
+                    <span class="tag is-light ml-2">{{ cat.cookie_count }} cookie{{ cat.cookie_count != 1 ? 's' : '' }}</span>
+                </div>
+
+                {% set cookies = cookiesByCategory[cat.slug] ?? [] %}
+                {% if cookies|length > 0 %}
+                {% for cookie in cookies %}
+                <div class="box mb-3 p-3">
+                    <div class="columns is-mobile is-vcentered mb-0">
+                        <div class="column is-4">
+                            <p class="has-text-weight-semibold is-size-7 has-text-grey mb-1">Cookie Name</p>
+                            <code class="is-size-7">{{ cookie.cookie_name }}</code>
+                            {% if cookie.source is defined and cookie.source == 'client' %}
+                                <span class="tag is-small is-link is-light ml-1" title="Detected by visitor browsers via beacon">client</span>
+                            {% endif %}
+                        </div>
+                        <div class="column is-3">
+                            <p class="has-text-weight-semibold is-size-7 has-text-grey mb-1">Domain</p>
+                            <span class="is-size-7">{{ cookie.cookie_domain|default('--') }}</span>
+                        </div>
+                        <div class="column is-2">
+                            <p class="has-text-weight-semibold is-size-7 has-text-grey mb-1">Duration</p>
+                            <span class="is-size-7">{{ cookie.default_duration|default('--') }}</span>
+                        </div>
+                        <div class="column is-3">
+                            <p class="has-text-weight-semibold is-size-7 has-text-grey mb-1">Detection</p>
+                            {% if cookie.http_only %}
+                                <span class="tag is-small is-warning is-light" title="HttpOnly">HttpOnly</span>
+                            {% endif %}
+                            {% if cookie.secure %}
+                                <span class="tag is-small is-success is-light" title="Secure">Secure</span>
+                            {% endif %}
+                            {% if cookie.same_site %}
+                                <span class="tag is-small is-info is-light" title="SameSite">{{ cookie.same_site }}</span>
+                            {% endif %}
+                            {% if cookie.pre_consent_count is defined and cookie.pre_consent_count > 0 and cat.slug != 'necessary' %}
+                                {% if cookie.post_consent_count is defined and cookie.post_consent_count > cookie.pre_consent_count %}
+                                    <span class="tag is-small is-warning is-light" title="Mostly post-consent, but seen {{ cookie.pre_consent_count }}x before consent">
+                                        pre-consent ({{ cookie.pre_consent_count }}x)
+                                    </span>
+                                {% else %}
+                                    <span class="tag is-small is-danger is-light" title="Set {{ cookie.pre_consent_count }} time(s) before consent was given">
+                                        pre-consent
+                                    </span>
+                                {% endif %}
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% if cookie.observation_count is defined and cookie.observation_count > 0 %}
+                    <p class="is-size-7 has-text-grey mt-1">
+                        <span class="icon is-small"><i class="fas fa-eye"></i></span>
+                        Observed {{ cookie.observation_count }}x
+                        ({{ cookie.pre_consent_count|default(0) }} pre-consent, {{ cookie.post_consent_count|default(0) }} post-consent)
+                        {% if cookie.last_seen_at is defined and cookie.last_seen_at %}
+                            &mdash; last seen {{ cookie.last_seen_at }}
+                        {% endif %}
+                    </p>
+                    {% endif %}
+                    {% if cookie.global_description is defined and cookie.global_description %}
+                    <p class="is-size-7 has-text-grey mt-1">
+                        {{ cookie.global_description }}
+                    </p>
+                    {% endif %}
+                    {% if cookie.global_platform is defined and cookie.global_platform %}
+                    <p class="is-size-7 mt-1">
+                        <span class="tag is-light is-small">{{ cookie.global_platform }}</span>
+                    </p>
+                    {% endif %}
+                    {% if cookie.found_on_url %}
+                    <p class="is-size-7 has-text-grey mt-1">
+                        <span class="icon is-small"><i class="fas fa-link"></i></span>
+                        <span title="{{ cookie.found_on_url }}">{{ cookie.found_on_url|length > 80 ? cookie.found_on_url[:80] ~ '...' : cookie.found_on_url }}</span>
+                    </p>
+                    {% endif %}
+                </div>
+                {% endfor %}
+                {% else %}
+                <div class="has-text-centered py-6">
+                    <span class="icon has-text-grey-lighter"><i class="fas fa-cookie-bite fa-2x"></i></span>
+                    <p class="has-text-grey is-size-7 mt-2">No cookies detected in this category.</p>
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+      integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA=="
+      crossorigin="anonymous" referrerpolicy="no-referrer" />
+<style>
+    [x-cloak] { display: none !important; }
+    .cookie-category-menu {
+        position: sticky;
+        top: 1rem;
+    }
+    .cookie-category-menu .menu-list a {
+        border-radius: 4px;
+        padding: 0.5em 0.75em;
+    }
+    .cookie-category-menu .menu-list a.is-active {
+        background-color: var(--bulma-link);
+        color: #fff;
+    }
+    .cookie-category-menu .menu-list a.is-active .tag {
+        background-color: rgba(255,255,255,0.25);
+        color: #fff;
+    }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function cookiesPage() {
+    return {
+        siteId: {{ siteId }},
+        activeTab: '{{ tabCategories[0].slug ?? '' }}',
+        resetting: false,
+
+        searchCookies(query) {
+            const url = new URL(window.location);
+            if (query) {
+                url.searchParams.set('search', query);
+            } else {
+                url.searchParams.delete('search');
+            }
+            window.location.href = url.toString();
+        },
+
+        async resetObservations() {
+            if (!confirm('This will clear all beacon observation data for this site. Observations will rebuild as visitors browse. Continue?')) return;
+            this.resetting = true;
+            try {
+                const res = await fetch('/app/cookies/reset-observations?site_id=' + this.siteId, {
+                    method: 'POST',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                });
+                if (res.ok) {
+                    window.location.reload();
+                } else {
+                    alert('Failed to reset observations.');
+                }
+            } catch (e) {
+                alert('Error: ' + e.message);
+            } finally {
+                this.resetting = false;
+            }
+        },
+    };
+}
+</script>
+{% endblock %}
