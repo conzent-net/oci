@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<updates>
+  <update>
+    <name>Conzent CMP</name>
+    <description>GDPR, CCPA &amp; ePrivacy compliant cookie banner. IAB TCF v2.2 and Google CMP Certified.</description>
+    <element>plg_system_conzent</element>
+    <type>plugin</type>
+    <folder>system</folder>
+    <client>0</client>
+    <version>2.0.1</version>
+    <infourl title="Conzent CMP">https://getconzent.com</infourl>
+    <downloads>
+      <downloadurl type="full" format="zip">https://getconzent.com/downloads/joomla/plg_system_conzent_2.0.1.zip</downloadurl>
+    </downloads>
+    <tags>
+      <tag>stable</tag>
+    </tags>
+    <maintainer>Conzent ApS</maintainer>
+    <maintainerurl>https://getconzent.com</maintainerurl>
+    <targetplatform name="joomla" version="((4|5)\..*)" />
+    <php_minimum>8.1.0</php_minimum>
+  </update>
+</updates>
