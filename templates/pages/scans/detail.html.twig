@@ -1,0 +1,206 @@
+{% extends 'layouts/base.html.twig' %}
+
+{% set active_page = 'scans' %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div>
+    <nav class="breadcrumb mb-3" aria-label="breadcrumbs">
+        <ul>
+            <li><a href="/">Dashboard</a></li>
+            <li><a href="/scans?site_id={{ siteId }}">Cookie Scans</a></li>
+            <li class="is-active"><a href="#" aria-current="page">Scan #{{ scanId }}</a></li>
+        </ul>
+    </nav>
+
+    {# ── Header ────────────────────────────────────────── #}
+    <div class="level mb-4">
+        <div class="level-left">
+            <div class="level-item">
+                <h1 class="title is-4 mb-0">Scan #{{ scanId }}</h1>
+            </div>
+            <div class="level-item">
+                {% if scan.scan_status == 'completed' %}
+                    <span class="tag is-success is-light"><i class="fas fa-check mr-1"></i> Completed</span>
+                {% elseif scan.scan_status == 'in_progress' %}
+                    <span class="tag is-info is-light"><i class="fas fa-spinner fa-spin mr-1"></i> In Progress</span>
+                {% elseif scan.scan_status == 'failed' %}
+                    <span class="tag is-danger is-light"><i class="fas fa-times mr-1"></i> Failed</span>
+                {% else %}
+                    <span class="tag is-light">{{ scan.scan_status }}</span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="level-right">
+            <div class="level-item">
+                <a href="/scans?site_id={{ siteId }}" class="button is-light">
+                    <span class="icon"><i class="fas fa-arrow-left"></i></span>
+                    <span>Back to Scans</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    {# ── Summary Stats ─────────────────────────────────── #}
+    <div class="columns mb-5">
+        <div class="column">
+            <div class="box has-background-light p-4 has-text-centered">
+                <p class="heading">Cookies Found</p>
+                <p class="title is-3">{{ stats.total_cookies }}</p>
+            </div>
+        </div>
+        <div class="column">
+            <div class="box has-background-light p-4 has-text-centered">
+                <p class="heading">Beacons / Scripts</p>
+                <p class="title is-3">{{ stats.total_beacons }}</p>
+            </div>
+        </div>
+        <div class="column">
+            <div class="box has-background-light p-4 has-text-centered">
+                <p class="heading">Categories</p>
+                <p class="title is-3">{{ cookiesByCategory|length }}</p>
+            </div>
+        </div>
+    </div>
+
+    {# ── Scan Info ─────────────────────────────────────── #}
+    <div class="columns">
+        <div class="column is-6">
+            <div class="box">
+                <h3 class="title is-5 mb-3">Scan Details</h3>
+                <table class="table is-narrow is-fullwidth">
+                    <tr><th style="width:40%">Site</th><td>{{ site.domain }}</td></tr>
+                    <tr><th>Started</th><td>{{ scan.started_at ? scan.started_at|date('Y-m-d H:i:s') : '—' }}</td></tr>
+                    <tr><th>Completed</th><td>{{ scan.completed_at ? scan.completed_at|date('Y-m-d H:i:s') : '—' }}</td></tr>
+                    <tr><th>Attempts</th><td>{{ scan.scan_attempts }}</td></tr>
+                </table>
+            </div>
+        </div>
+
+        {# ── Cookies by Category ───────────────────────── #}
+        <div class="column is-6">
+            <div class="box">
+                <h3 class="title is-5 mb-3">By Category</h3>
+                {% if cookiesByCategory|length > 0 %}
+                    {% for category, catCookies in cookiesByCategory %}
+                    <div class="level mb-2">
+                        <div class="level-left">
+                            <span class="tag
+                                {% if category == 'necessary' %}is-success
+                                {% elseif category == 'functional' %}is-info
+                                {% elseif category == 'analytics' %}is-warning
+                                {% elseif category == 'marketing' %}is-danger
+                                {% else %}is-light
+                                {% endif %} is-light">
+                                {{ category|capitalize }}
+                            </span>
+                        </div>
+                        <div class="level-right">
+                            <strong>{{ catCookies|length }}</strong>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="has-text-grey">No cookies detected</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    {# ── Cookies Table ─────────────────────────────────── #}
+    {% if cookies|length > 0 %}
+    <div class="box">
+        <h3 class="title is-5 mb-3">Detected Cookies ({{ cookies|length }})</h3>
+        <div class="table-container">
+            <table class="table is-fullwidth is-hoverable is-striped is-narrow">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Domain</th>
+                        <th>Category</th>
+                        <th>Expiry</th>
+                        <th>HttpOnly</th>
+                        <th>Secure</th>
+                        <th>SameSite</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cookie in cookies %}
+                    <tr>
+                        <td><code class="is-size-7">{{ cookie.cookie_name }}</code></td>
+                        <td class="is-size-7">{{ cookie.cookie_domain|default('—') }}</td>
+                        <td>
+                            {% set cat = cookie.category_slug|default('unclassified') %}
+                            <span class="tag is-small
+                                {% if cat == 'necessary' %}is-success
+                                {% elseif cat == 'functional' %}is-info
+                                {% elseif cat == 'analytics' %}is-warning
+                                {% elseif cat == 'marketing' %}is-danger
+                                {% else %}is-light
+                                {% endif %} is-light">
+                                {{ cat|capitalize }}
+                            </span>
+                        </td>
+                        <td class="is-size-7">{{ cookie.expiry_duration|default('session') }}</td>
+                        <td>
+                            {% if cookie.http_only %}
+                                <span class="icon has-text-success is-small"><i class="fas fa-check"></i></span>
+                            {% else %}
+                                <span class="icon has-text-grey-lighter is-small"><i class="fas fa-minus"></i></span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if cookie.secure %}
+                                <span class="icon has-text-success is-small"><i class="fas fa-check"></i></span>
+                            {% else %}
+                                <span class="icon has-text-grey-lighter is-small"><i class="fas fa-minus"></i></span>
+                            {% endif %}
+                        </td>
+                        <td class="is-size-7">{{ cookie.same_site|default('—') }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    {# ── Beacons / Third-Party Scripts ─────────────────── #}
+    {% if beacons|length > 0 %}
+    <div class="box">
+        <h3 class="title is-5 mb-3">Third-Party Scripts & Beacons ({{ beacons|length }})</h3>
+        <div class="table-container">
+            <table class="table is-fullwidth is-hoverable is-striped is-narrow">
+                <thead>
+                    <tr>
+                        <th>URL / Domain</th>
+                        <th>Type</th>
+                        <th>First Seen</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for beacon in beacons %}
+                    <tr>
+                        <td class="is-size-7" style="word-break: break-all;">{{ beacon.beacon_url }}</td>
+                        <td>
+                            <span class="tag is-small is-light">{{ beacon.beacon_type|default('unclassified')|capitalize }}</span>
+                        </td>
+                        <td class="is-size-7">{{ beacon.found_at|date('M j H:i') }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+
+</div>
+{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+      integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA=="
+      crossorigin="anonymous" referrerpolicy="no-referrer" />
+{% endblock %}
