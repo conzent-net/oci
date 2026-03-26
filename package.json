@@ -1,0 +1,13 @@
+{
+  "name": "conzent-oci",
+  "private": true,
+  "scripts": {
+    "build": "esbuild public/assets/js/app.js --bundle --minify --outdir=public/assets/dist",
+    "watch": "esbuild public/assets/js/app.js --bundle --outdir=public/assets/dist --watch",
+    "build:css": "esbuild public/assets/css/app.css --bundle --minify --outdir=public/assets/dist"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0",
+    "@playwright/test": "^1.49.0"
+  }
+}
