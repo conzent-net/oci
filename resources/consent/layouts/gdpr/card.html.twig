@@ -1,0 +1,33 @@
+{#
+  Layout: Card
+  Centered card overlay with shadow — appears as a modal-like
+  popup in the center of the screen. Logo centered above title,
+  message centered, buttons in a row below. Premium feel.
+#}
+{% extends "gdpr/base.html.twig" %}
+
+{% block banner %}
+<div id="Conzent" tabindex="0" class="conzent-popup-center cnz-card">
+  <div class="conzent-inner-content-box" style="border:1px solid {{ colors.notice_border }};background-color:{{ colors.notice_bg }}">
+    <div class="conzent-notice">
+      <div class="logo-wrap">{{ logo_html|raw }}</div>
+      <p class="title-wrap" style="color:{{ colors.notice_title }}">[conzent_cookie_notice_banner_title]</p>
+
+      <div class="content-wrap">
+        <div class="msg-wrap" style="color:{{ colors.notice_description }}">
+          [conzent_cookie_notice_message]
+          {{ privacy_policy_link|raw }}
+        </div>
+        <div class="btn-wrap">
+          {{ buttons_html|raw }}
+        </div>
+      </div>
+
+      <div class="notice_button_wrap">{{ banner_cookie_list|raw }}{{ pref_buttons_html|raw }}</div>
+      <div class="conzent-branding">
+        {{ branding_html|raw }}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

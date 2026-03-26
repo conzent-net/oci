@@ -1,0 +1,36 @@
+{# Footer — 2-column grid matching navbar/sidebar alignment #}
+<footer class="oci-footer">
+    {# Col 1: empty sidebar-width column — seamless with sidebar #}
+    <div class="oci-footer-sidebar"></div>
+
+    {# Col 2: footer content #}
+    <div class="oci-footer-content">
+        <p class="is-size-7 has-text-grey has-text-centered">
+            <strong>Open Consent Infrastructure</strong>
+            {% if tcf_enabled %}
+                — IAB TCF v2.3 &amp; Google Certified CMP
+            {% else %}
+                — Community Edition
+            {% endif %}
+            <br>
+            &copy; {{ "now"|date("Y") }} Conzent.
+            {# CMP ID with server-validated badge #}
+            {% if cmp_id %}
+                {% if cmp_valid %}
+                    CMP ID {{ cmp_id }}
+                    <span style="color:#22b573" title="Verified IAB-registered CMP">
+                        <i class="fas fa-circle-check"></i>
+                    </span>
+                    {% if cmp_name %}
+                        <span class="has-text-grey-light">({{ cmp_name }})</span>
+                    {% endif %}
+                {% else %}
+                    CMP ID {{ cmp_id }}
+                    <span style="color:#ff4444" title="Not found in IAB CMP registry">
+                        <i class="fas fa-circle-xmark"></i> unverified
+                    </span>
+                {% endif %}
+            {% endif %}
+        </p>
+    </div>
+</footer>

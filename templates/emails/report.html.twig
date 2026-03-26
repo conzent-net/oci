@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>{{ title }}</title>
+    <!--[if mso]><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml><![endif]-->
+</head>
+<body style="margin:0;padding:0;background-color:#f4f5f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#374151;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f4f5f7;">
+        <tr>
+            <td align="center" style="padding:40px 20px;">
+                <table role="presentation" width="700" cellpadding="0" cellspacing="0" border="0" style="max-width:700px;width:100%;">
+
+                    {# ── Header ────────────────────────────────────────── #}
+                    <tr>
+                        <td style="background:#ffffff;border-radius:8px;padding:32px;margin-bottom:24px;">
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td align="center" style="padding-bottom:8px;">
+                                        <span style="font-size:24px;font-weight:700;color:#2e9e5e;">Conzent</span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td align="center" style="font-size:20px;color:#111827;font-weight:700;padding-bottom:4px;">
+                                        {{ title }}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td align="center" style="font-size:13px;color:#6b7280;padding-bottom:8px;">
+                                        {{ domain }} &middot; {{ period_start }} to {{ period_end }}
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    <tr><td style="height:24px;"></td></tr>
+
+                    {# ── Cookie Scan Compliance ──────────────────────── #}
+                    {% if scan is defined and scan is not null %}
+                    <tr>
+                        <td style="background:#ffffff;border-radius:8px;padding:32px;">
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td style="font-size:17px;color:#111827;font-weight:700;border-bottom:2px solid #e5e7eb;padding-bottom:8px;margin-bottom:16px;">
+                                        Cookie Scan Compliance
+                                    </td>
+                                </tr>
+                                <tr><td style="height:16px;"></td></tr>
+                                <tr>
+                                    <td>
+                                        {% if scan.violation_count > 0 %}
+                                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                            <tr>
+                                                <td style="background:#fef2f2;border-left:4px solid #ef4444;color:#991b1b;padding:12px 16px;border-radius:6px;font-size:14px;">
+                                                    <strong>{{ scan.violation_count }} cookie{{ scan.violation_count != 1 ? 's' : '' }}</strong> detected before user consent.
+                                                    These cookies may violate GDPR/ePrivacy requirements.
+                                                </td>
+                                            </tr>
+                                        </table>
+                                        {% else %}
+                                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                            <tr>
+                                                <td style="background:#f0fdf4;border-left:4px solid #22c55e;color:#166534;padding:12px 16px;border-radius:6px;font-size:14px;">
+                                                    <strong>No pre-consent violations detected.</strong>
+                                                    All observed cookies are set after consent is given.
+                                                </td>
+                                            </tr>
+                                        </table>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                <tr><td style="height:12px;"></td></tr>
+                                <tr>
+                                    <td style="font-size:14px;line-height:1.6;color:#4b5563;">
+                                        <strong>{{ scan.violation_count }}</strong> cookie{{ scan.violation_count != 1 ? 's' : '' }} set before consent &middot;
+                                        <strong>{{ scan.total_observed }}</strong> total cookie observations
+                                        {% if scan.last_scan %}
+                                            &middot; Last scan: {{ scan.last_scan.completed_at ?? scan.last_scan.created_at }}
+                                        {% endif %}
+                                    </td>
+                                </tr>
+
+                                {% if scan.grouped|length > 0 %}
+                                <tr><td style="height:16px;"></td></tr>
+                                <tr>
+                                    <td>
+                                        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;font-size:13px;">
+                                            <tr>
+                                                <th style="background:#f9fafb;color:#374151;font-weight:600;text-align:left;padding:8px 12px;border-bottom:2px solid #e5e7eb;">Cookie Name</th>
+                                                <th style="background:#f9fafb;color:#374151;font-weight:600;text-align:left;padding:8px 12px;border-bottom:2px solid #e5e7eb;">Domain</th>
+                                                <th style="background:#f9fafb;color:#374151;font-weight:600;text-align:left;padding:8px 12px;border-bottom:2px solid #e5e7eb;">Category</th>
+                                                <th style="background:#f9fafb;color:#374151;font-weight:600;text-align:right;padding:8px 12px;border-bottom:2px solid #e5e7eb;">Pre-consent</th>
+                                            </tr>
+                                            {% for group in scan.grouped %}
+                                            <tr>
+                                                <td colspan="3" style="background:#f9fafb;font-weight:600;padding:10px 12px;color:#374151;border-bottom:2px solid #e5e7eb;">{{ group.category|capitalize }}</td>
+                                                <td style="background:#f9fafb;font-weight:600;padding:10px 12px;color:#374151;border-bottom:2px solid #e5e7eb;text-align:right;">{{ group.subtotal }}</td>
+                                            </tr>
+                                            {% for cookie in group.cookies %}
+                                            <tr>
+                                                <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;color:#4b5563;">{{ cookie.cookie_name }}</td>
+                                                <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;color:#4b5563;">{{ cookie.cookie_domain ?? '-' }}</td>
+                                                <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;color:#4b5563;">
+                                                    <span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#fffbeb;color:#92400e;">{{ cookie.category_slug ?? 'uncategorized' }}</span>
+                                                </td>
+                                                <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;color:#4b5563;text-align:right;">{{ cookie.total_pre_consent }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                            {% endfor %}
+                                        </table>
+                                    </td>
+                                </tr>
+                                {% endif %}
+
+                                {% if scan.violation_count > 0 %}
+                                <tr><td style="height:16px;"></td></tr>
+                                <tr>
+                                    <td style="font-size:13px;line-height:1.6;color:#4b5563;">
+                                        <strong>Recommendation:</strong> Review cookies flagged above. Ensure they are blocked until the user provides consent,
+                                        or categorise them as strictly necessary if they are essential for the website to function.
+                                    </td>
+                                </tr>
+                                {% endif %}
+                            </table>
+                        </td>
+                    </tr>
+                    <tr><td style="height:24px;"></td></tr>
+                    {% endif %}
+
+                    {# ── Consent Overview ────────────────────────────── #}
+                    {% if consent is defined and consent is not null %}
+                    <tr>
+                        <td style="background:#ffffff;border-radius:8px;padding:32px;">
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td style="font-size:17px;color:#111827;font-weight:700;border-bottom:2px solid #e5e7eb;padding-bottom:8px;">
+                                        Consent Overview
+                                    </td>
+                                </tr>
+                                <tr><td style="height:16px;"></td></tr>
+
+                                {# Summary cards as table cells #}
+                                <tr>
+                                    <td>
+                                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                            <tr>
+                                                <td width="25%" align="center" style="padding:12px 8px;">
+                                                    <div style="font-size:28px;font-weight:700;color:#111827;">{{ consent.summary.total|number_format }}</div>
+                                                    <div style="font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;">Total Consents</div>
+                                                </td>
+                                                <td width="25%" align="center" style="padding:12px 8px;">
+                                                    <div style="font-size:28px;font-weight:700;color:#22c55e;">{{ consent.summary.acceptance_rate }}%</div>
+                                                    <div style="font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;">Acceptance Rate</div>
+                                                </td>
+                                                <td width="25%" align="center" style="padding:12px 8px;">
+                                                    <div style="font-size:28px;font-weight:700;color:#ef4444;">{{ consent.summary.rejection_rate }}%</div>
+                                                    <div style="font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;">Rejection Rate</div>
+                                                </td>
+                                                <td width="25%" align="center" style="padding:12px 8px;">
+                                                    <div style="font-size:28px;font-weight:700;color:#f59e0b;">{{ consent.summary.partial_rate }}%</div>
+                                                    <div style="font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;">Partial Rate</div>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                                <tr><td style="height:16px;"></td></tr>
+
+                                {# Bar chart #}
+                                {% set maxVal = max(consent.summary.accepted, consent.summary.rejected, consent.summary.partially_accepted) %}
+                                {% if maxVal > 0 %}
+                                <tr>
+                                    <td>
+                                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                            {% set barData = [
+                                                { label: 'Accepted', value: consent.summary.accepted, color: '#22c55e' },
+                                                { label: 'Rejected', value: consent.summary.rejected, color: '#ef4444' },
+                                                { label: 'Partial', value: consent.summary.partially_accepted, color: '#f59e0b' }
+                                            ] %}
+                                            {% for bar in barData %}
+                                            <tr>
+                                                <td width="100" style="font-size:12px;color:#6b7280;vertical-align:middle;padding:4px 0;">{{ bar.label }}</td>
+                                                <td style="vertical-align:middle;padding:4px 0;">
+                                                    <div style="background:#e5e7eb;border-radius:4px;height:20px;width:100%;">
+                                                        <div style="background:{{ bar.color }};border-radius:4px;height:20px;width:{{ (bar.value / maxVal * 100)|round }}%;min-width:2px;"></div>
+                                                    </div>
+                                                </td>
+                                                <td width="60" style="text-align:right;font-size:12px;color:#374151;font-weight:600;vertical-align:middle;padding:4px 0 4px 8px;">{{ bar.value|number_format }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                        </table>
+                                    </td>
+                                </tr>
+                                {% endif %}
+
+                                {# Period comparison #}
+                                {% if consent.comparison is defined %}
+                                <tr><td style="height:16px;"></td></tr>
+                                <tr>
+                                    <td style="font-size:14px;color:#374151;font-weight:700;padding-bottom:8px;">
+                                        Period Comparison (current vs previous)
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;font-size:13px;">
+                                            <tr>
+                                                <th style="background:#f9fafb;color:#374151;font-weight:600;text-align:left;padding:8px 12px;border-bottom:2px solid #e5e7eb;">Metric</th>
+                                                <th style="background:#f9fafb;color:#374151;font-weight:600;text-align:right;padding:8px 12px;border-bottom:2px solid #e5e7eb;">Current</th>
+                                                <th style="background:#f9fafb;color:#374151;font-weight:600;text-align:right;padding:8px 12px;border-bottom:2px solid #e5e7eb;">Previous</th>
+                                                <th style="background:#f9fafb;color:#374151;font-weight:600;text-align:right;padding:8px 12px;border-bottom:2px solid #e5e7eb;">Change</th>
+                                            </tr>
+                                            {% set metrics = {
+                                                'Total': ['total', consent.comparison.current.total, consent.comparison.previous.total],
+                                                'Accepted': ['accepted', consent.comparison.current.accepted, consent.comparison.previous.accepted],
+                                                'Rejected': ['rejected', consent.comparison.current.rejected, consent.comparison.previous.rejected],
+                                                'Partial': ['partially_accepted', consent.comparison.current.partially_accepted, consent.comparison.previous.partially_accepted]
+                                            } %}
+                                            {% for label, vals in metrics %}
+                                                {% set current = vals[1] %}
+                                                {% set previous = vals[2] %}
+                                                {% set delta = current - previous %}
+                                                {% set pct = previous > 0 ? ((delta / previous) * 100)|round(1) : 0 %}
+                                            <tr>
+                                                <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;color:#4b5563;">{{ label }}</td>
+                                                <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;color:#4b5563;text-align:right;">{{ current|number_format }}</td>
+                                                <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;color:#4b5563;text-align:right;">{{ previous|number_format }}</td>
+                                                <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;text-align:right;">
+                                                    {% if delta > 0 %}
+                                                        <span style="font-size:12px;font-weight:600;color:#22c55e;">+{{ pct }}%</span>
+                                                    {% elseif delta < 0 %}
+                                                        <span style="font-size:12px;font-weight:600;color:#ef4444;">{{ pct }}%</span>
+                                                    {% else %}
+                                                        <span style="font-size:12px;font-weight:600;color:#6b7280;">0%</span>
+                                                    {% endif %}
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </table>
+                                    </td>
+                                </tr>
+                                {% endif %}
+                            </table>
+                        </td>
+                    </tr>
+                    <tr><td style="height:24px;"></td></tr>
+                    {% endif %}
+
+                    {# ── A/B Test Results ────────────────────────────── #}
+                    {% if ab_test is defined and ab_test is not null %}
+                    <tr>
+                        <td style="background:#ffffff;border-radius:8px;padding:32px;">
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td style="font-size:17px;color:#111827;font-weight:700;border-bottom:2px solid #e5e7eb;padding-bottom:8px;">
+                                        A/B Test Results
+                                    </td>
+                                </tr>
+                                <tr><td style="height:16px;"></td></tr>
+                                {% for result in ab_test.experiments %}
+                                <tr>
+                                    <td style="font-size:14px;color:#374151;font-weight:700;padding:16px 0 8px;">
+                                        {{ result.experiment.name ?? 'Experiment' }}
+                                        <span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#f3f4f6;color:#374151;">{{ result.experiment.status ?? 'unknown' }}</span>
+                                    </td>
+                                </tr>
+
+                                {% if result.variants|length > 0 %}
+                                <tr>
+                                    <td>
+                                        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;font-size:13px;">
+                                            <tr>
+                                                <th style="background:#f9fafb;color:#374151;font-weight:600;text-align:left;padding:8px 12px;border-bottom:2px solid #e5e7eb;">Variant</th>
+                                                <th style="background:#f9fafb;color:#374151;font-weight:600;text-align:right;padding:8px 12px;border-bottom:2px solid #e5e7eb;">Total</th>
+                                                <th style="background:#f9fafb;color:#374151;font-weight:600;text-align:right;padding:8px 12px;border-bottom:2px solid #e5e7eb;">Accepted</th>
+                                                <th style="background:#f9fafb;color:#374151;font-weight:600;text-align:right;padding:8px 12px;border-bottom:2px solid #e5e7eb;">Consent Rate</th>
+                                                <th style="background:#f9fafb;color:#374151;font-weight:600;text-align:right;padding:8px 12px;border-bottom:2px solid #e5e7eb;">Traffic %</th>
+                                            </tr>
+                                            {% set totalAll = 0 %}
+                                            {% for v in result.variants %}
+                                                {% set totalAll = totalAll + v.total %}
+                                            {% endfor %}
+                                            {% for v in result.variants %}
+                                                {% set rate = v.total > 0 ? ((v.accepted / v.total) * 100)|round(1) : 0 %}
+                                                {% set traffic = totalAll > 0 ? ((v.total / totalAll) * 100)|round(1) : 0 %}
+                                                {% if rate >= 70 %}
+                                                    {% set tagBg = '#f0fdf4' %}
+                                                    {% set tagColor = '#166534' %}
+                                                {% elseif rate >= 40 %}
+                                                    {% set tagBg = '#fffbeb' %}
+                                                    {% set tagColor = '#92400e' %}
+                                                {% else %}
+                                                    {% set tagBg = '#fef2f2' %}
+                                                    {% set tagColor = '#991b1b' %}
+                                                {% endif %}
+                                            <tr>
+                                                <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;color:#4b5563;">{{ v.variant_name ?? 'Variant ' ~ loop.index }}</td>
+                                                <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;color:#4b5563;text-align:right;">{{ v.total|number_format }}</td>
+                                                <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;color:#4b5563;text-align:right;">{{ v.accepted|number_format }}</td>
+                                                <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;text-align:right;">
+                                                    <span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:{{ tagBg }};color:{{ tagColor }};">{{ rate }}%</span>
+                                                </td>
+                                                <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;color:#4b5563;text-align:right;">{{ traffic }}%</td>
+                                            </tr>
+                                            {% endfor %}
+                                        </table>
+                                    </td>
+                                </tr>
+                                {% endif %}
+
+                                {# Marketing consent by variant #}
+                                {% if result.marketing|length > 0 %}
+                                <tr>
+                                    <td style="font-size:14px;color:#374151;font-weight:700;padding:16px 0 8px;">
+                                        Marketing Consent by Variant
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;font-size:13px;">
+                                            <tr>
+                                                <th style="background:#f9fafb;color:#374151;font-weight:600;text-align:left;padding:8px 12px;border-bottom:2px solid #e5e7eb;">Variant</th>
+                                                <th style="background:#f9fafb;color:#374151;font-weight:600;text-align:right;padding:8px 12px;border-bottom:2px solid #e5e7eb;">Consented Marketing</th>
+                                                <th style="background:#f9fafb;color:#374151;font-weight:600;text-align:right;padding:8px 12px;border-bottom:2px solid #e5e7eb;">Denied Marketing</th>
+                                                <th style="background:#f9fafb;color:#374151;font-weight:600;text-align:right;padding:8px 12px;border-bottom:2px solid #e5e7eb;">Marketing Rate</th>
+                                            </tr>
+                                            {% for m in result.marketing %}
+                                                {% set mRate = m.total > 0 ? ((m.consented_marketing / m.total) * 100)|round(1) : 0 %}
+                                            <tr>
+                                                <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;color:#4b5563;">Variant {{ m.variant_id }}</td>
+                                                <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;color:#4b5563;text-align:right;">{{ m.consented_marketing|number_format }}</td>
+                                                <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;color:#4b5563;text-align:right;">{{ m.denied_marketing|number_format }}</td>
+                                                <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;color:#4b5563;text-align:right;">{{ mRate }}%</td>
+                                            </tr>
+                                            {% endfor %}
+                                        </table>
+                                    </td>
+                                </tr>
+                                {% endif %}
+
+                                {# Revenue impact snapshots #}
+                                {% if result.impact|length > 0 %}
+                                <tr>
+                                    <td style="font-size:14px;color:#374151;font-weight:700;padding:16px 0 8px;">
+                                        Revenue Impact
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;font-size:13px;">
+                                            <tr>
+                                                <th style="background:#f9fafb;color:#374151;font-weight:600;text-align:left;padding:8px 12px;border-bottom:2px solid #e5e7eb;">Variant</th>
+                                                <th style="background:#f9fafb;color:#374151;font-weight:600;text-align:left;padding:8px 12px;border-bottom:2px solid #e5e7eb;">Tier</th>
+                                                <th style="background:#f9fafb;color:#374151;font-weight:600;text-align:right;padding:8px 12px;border-bottom:2px solid #e5e7eb;">Estimated Impact</th>
+                                                <th style="background:#f9fafb;color:#374151;font-weight:600;text-align:right;padding:8px 12px;border-bottom:2px solid #e5e7eb;">Calculated At</th>
+                                            </tr>
+                                            {% for snap in result.impact %}
+                                            <tr>
+                                                <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;color:#4b5563;">Variant {{ snap.variant_id ?? '-' }}</td>
+                                                <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;color:#4b5563;">
+                                                    <span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#f3f4f6;color:#374151;">{{ snap.tier ?? '-' }}</span>
+                                                </td>
+                                                <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;color:#4b5563;text-align:right;">{{ snap.metrics is defined ? snap.metrics : '-' }}</td>
+                                                <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;color:#4b5563;text-align:right;">{{ snap.calculated_at ?? '-' }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                        </table>
+                                    </td>
+                                </tr>
+                                {% endif %}
+                                {% endfor %}
+                            </table>
+                        </td>
+                    </tr>
+                    <tr><td style="height:24px;"></td></tr>
+                    {% endif %}
+
+                    {# ── Footer ──────────────────────────────────────── #}
+                    <tr>
+                        <td align="center" style="padding:16px 0;font-size:12px;color:#9ca3af;">
+                            <p style="margin:0 0 4px;font-size:12px;color:#9ca3af;">Generated by Conzent on {{ generated_at }}</p>
+                            <p style="margin:0 0 4px;font-size:12px;"><a href="{{ base_url }}/reports" style="color:#2e9e5e;text-decoration:none;">Manage reports</a></p>
+                            <p style="margin:0;font-size:12px;color:#9ca3af;">&copy; {{ "now"|date("Y") }} Conzent. Open Consent Infrastructure{% if tcf_enabled is defined and tcf_enabled %} — IAB TCF v2.3{% endif %}</p>
+                        </td>
+                    </tr>
+
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

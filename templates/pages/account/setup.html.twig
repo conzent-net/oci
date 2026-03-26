@@ -1,0 +1,271 @@
+{% extends 'layouts/auth.html.twig' %}
+
+{% block title %}Complete Your Account{% endblock %}
+
+{% block content %}
+<div class="auth-card">
+    <h2 class="title is-4 has-text-centered mb-2">Complete your account</h2>
+    <p style="color:#64748b;font-size:0.9rem;text-align:center" class="mb-5">
+        Tell us a bit about yourself and your company to get started.
+    </p>
+
+    {% if legacy_preview is not null %}
+    <div x-data="legacyMigration()" class="mb-5" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:1.25rem">
+        <p class="has-text-weight-semibold mb-2" style="font-size:0.9rem;color:#166534">
+            <i class="fas fa-arrow-right-arrow-left" style="margin-right:0.35rem"></i> Existing Conzent account found
+        </p>
+        <p style="font-size:0.85rem;color:#15803d" class="mb-3">
+            We found an account matching <strong>{{ user.email }}</strong> with
+            <strong>{{ legacy_preview.total_sites }}</strong> site(s).
+            Import your websites and company info to get started quickly.
+        </p>
+        <p style="font-size:0.8rem;color:#166534" class="mb-3">
+            <i class="fas fa-info-circle" style="margin-right:0.25rem"></i>
+            Only your website domains and company details are imported.
+            Banner design, colors, and other customisations will need to be set up fresh.
+            A subscription is required before your sites can go live.
+        </p>
+
+        <button class="button is-success" type="button"
+                @click="showConfirm = true"
+                :disabled="migrating"
+                :class="migrating && 'is-loading'">
+            <span class="icon"><i class="fas fa-download"></i></span>
+            <span>Import from existing account</span>
+        </button>
+
+        <template x-if="result">
+            <div class="notification mt-4" style="border-radius:10px"
+                 :class="result.migrated_sites > 0 ? 'is-success is-light' : 'is-warning is-light'">
+                <p><strong x-text="result.migrated_sites"></strong> site(s) imported.
+                   <template x-if="result.skipped_sites > 0">
+                       <span> <strong x-text="result.skipped_sites"></strong> skipped (domain already exists).</span>
+                   </template>
+                </p>
+                <template x-if="result.errors && result.errors.length > 0">
+                    <ul class="mt-2" style="font-size:0.85rem">
+                        <template x-for="err in result.errors"><li x-text="err"></li></template>
+                    </ul>
+                </template>
+            </div>
+        </template>
+
+        <template x-if="errorMsg">
+            <div class="notification is-danger is-light mt-4" style="border-radius:10px">
+                <button class="delete" @click="errorMsg = null"></button>
+                <span x-text="errorMsg"></span>
+            </div>
+        </template>
+
+        {# Confirmation modal #}
+        <div class="modal" :class="showConfirm && 'is-active'">
+            <div class="modal-background" @click="showConfirm = false"></div>
+            <div class="modal-card" style="max-width:520px">
+                <header class="modal-card-head">
+                    <p class="modal-card-title">Import from existing account</p>
+                    <button class="delete" aria-label="close" @click="showConfirm = false"></button>
+                </header>
+                <section class="modal-card-body">
+                    <p class="mb-3">This will import the following from your previous Conzent account:</p>
+                    <ul class="ml-4 mb-3" style="list-style:disc;font-size:0.9rem">
+                        <li>Company information (name, address, VAT)</li>
+                        <li><strong>{{ legacy_preview.migratable_sites }}</strong> website domain(s)</li>
+                    </ul>
+                    <p class="mb-3" style="font-size:0.85rem;color:#64748b">
+                        Site-specific settings (banner design, colors, content) are not migrated and will use defaults.
+                        Your sites will be suspended until you subscribe to a plan.
+                    </p>
+
+                    {% if legacy_preview.sites|length > 0 %}
+                    <div class="table-container">
+                        <table class="table is-fullwidth is-hoverable" style="font-size:0.85rem">
+                            <thead><tr><th>Domain</th><th>Status</th></tr></thead>
+                            <tbody>
+                            {% for site in legacy_preview.sites %}
+                            <tr>
+                                <td>{{ site.domain }}</td>
+                                <td>
+                                    {% if site.status == 'will_migrate' %}
+                                        <span class="tag is-success is-light">Ready</span>
+                                    {% else %}
+                                        <span class="tag is-warning is-light">Skip (exists)</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% endif %}
+                </section>
+                <footer class="modal-card-foot" style="justify-content:flex-end">
+                    <button class="button" @click="showConfirm = false">Cancel</button>
+                    <button class="button is-success" @click="migrate()" :class="migrating && 'is-loading'" :disabled="migrating">
+                        <span class="icon"><i class="fas fa-download"></i></span>
+                        <span>Import Now</span>
+                    </button>
+                </footer>
+            </div>
+        </div>
+    </div>
+
+    <div class="has-text-centered mb-4" style="position:relative">
+        <hr style="border:0;border-top:1px solid #e2e8f0;margin:0">
+        <span style="background:#fff;padding:0 0.75rem;position:relative;top:-0.7rem;font-size:0.8rem;color:#94a3b8">or fill in manually</span>
+    </div>
+    {% endif %}
+
+    {% if error %}
+        <div class="notification is-danger is-light" style="border-radius:10px">
+            <button class="delete" onclick="this.parentElement.remove()"></button>
+            {{ error }}
+        </div>
+    {% endif %}
+
+    <form method="post" action="/account/setup">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+
+        {# ── Personal Info ── #}
+        <p class="has-text-weight-semibold mb-3" style="font-size:0.85rem;color:#334155">
+            <i class="fas fa-user" style="margin-right:0.35rem;color:#2e9e5e"></i> Personal
+        </p>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem" class="mb-4">
+            <div class="field mb-0">
+                <label class="label" for="first_name">First Name <span class="has-text-danger">*</span></label>
+                <div class="control">
+                    <input class="input" type="text" id="first_name" name="first_name"
+                           value="{{ old.first_name ?? user.first_name }}" placeholder="John" required>
+                </div>
+            </div>
+            <div class="field mb-0">
+                <label class="label" for="last_name">Last Name <span class="has-text-danger">*</span></label>
+                <div class="control">
+                    <input class="input" type="text" id="last_name" name="last_name"
+                           value="{{ old.last_name ?? user.last_name }}" placeholder="Doe" required>
+                </div>
+            </div>
+        </div>
+
+        <hr style="border:0;border-top:1px solid #e2e8f0;margin:1.25rem 0">
+
+        {# ── Company Info ── #}
+        <p class="has-text-weight-semibold mb-3" style="font-size:0.85rem;color:#334155">
+            <i class="fas fa-building" style="margin-right:0.35rem;color:#2e9e5e"></i> Company
+        </p>
+
+        <div class="field">
+            <label class="label" for="company_name">Company Name <span class="has-text-danger">*</span></label>
+            <div class="control">
+                <input class="input" type="text" id="company_name" name="company_name"
+                       value="{{ old.company_name ?? '' }}" placeholder="Acme Inc." required>
+            </div>
+        </div>
+
+        <div class="field">
+            <label class="label" for="address">Address</label>
+            <div class="control">
+                <input class="input" type="text" id="address" name="address"
+                       value="{{ old.address ?? '' }}" placeholder="123 Main Street">
+            </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem" class="mb-3">
+            <div class="field mb-0">
+                <label class="label" for="city">City</label>
+                <div class="control">
+                    <input class="input" type="text" id="city" name="city"
+                           value="{{ old.city ?? '' }}" placeholder="Copenhagen">
+                </div>
+            </div>
+            <div class="field mb-0">
+                <label class="label" for="zip">ZIP / Postal Code</label>
+                <div class="control">
+                    <input class="input" type="text" id="zip" name="zip"
+                           value="{{ old.zip ?? '' }}" placeholder="2100">
+                </div>
+            </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem" class="mb-3">
+            <div class="field mb-0">
+                <label class="label" for="state">State / Region</label>
+                <div class="control">
+                    <input class="input" type="text" id="state" name="state"
+                           value="{{ old.state ?? '' }}" placeholder="Capital Region">
+                </div>
+            </div>
+            <div class="field mb-0">
+                <label class="label" for="country_code">Country Code</label>
+                <div class="control">
+                    <input class="input" type="text" id="country_code" name="country_code"
+                           value="{{ old.country_code ?? '' }}" placeholder="DK" maxlength="10">
+                </div>
+            </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem" class="mb-3">
+            <div class="field mb-0">
+                <label class="label" for="phone">Phone</label>
+                <div class="control">
+                    <input class="input" type="tel" id="phone" name="phone"
+                           value="{{ old.phone ?? '' }}" placeholder="+45 12345678">
+                </div>
+            </div>
+            <div class="field mb-0">
+                <label class="label" for="vat_number">VAT Number</label>
+                <div class="control">
+                    <input class="input" type="text" id="vat_number" name="vat_number"
+                           value="{{ old.vat_number ?? '' }}" placeholder="DK12345678">
+                </div>
+            </div>
+        </div>
+
+        <div class="field mt-5">
+            <button class="button is-primary is-fullwidth" type="submit">
+                Continue
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function legacyMigration() {
+    return {
+        showConfirm: false,
+        migrating: false,
+        result: null,
+        errorMsg: null,
+        async migrate() {
+            this.migrating = true;
+            this.errorMsg = null;
+            try {
+                const resp = await fetch('/app/account/legacy-migrate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    body: JSON.stringify({_csrf_token: '{{ csrf_token_migrate }}'})
+                });
+                const data = await resp.json();
+                this.showConfirm = false;
+                if (data.success) {
+                    this.result = data.data;
+                    setTimeout(() => window.location.href = '/', 1500);
+                } else {
+                    this.errorMsg = data.error || 'Import failed. Please try again.';
+                }
+            } catch (e) {
+                this.showConfirm = false;
+                this.errorMsg = 'An unexpected error occurred. Please try again.';
+            } finally {
+                this.migrating = false;
+            }
+        }
+    };
+}
+</script>
+{% endblock %}
