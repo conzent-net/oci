@@ -1,0 +1,170 @@
+{# ── Top Navigation Bar (3-column grid) ─────────────────── #}
+{# Col 1: brand (sidebar-width) | Col 2: content | Col 3: user/theme #}
+<header class="oci-navbar" role="banner">
+
+    {# ── Col 1: Brand / Logo ── #}
+    <div class="oci-navbar-brand">
+        <a href="/" style="display:flex;align-items:center;gap:0.375rem;text-decoration:none">
+            <img :src="theme === 'dark' ? '/media/primary-dark.png' : '/media/primary-light.png'" alt="Conzent" class="brand-logo-full" style="height:22px;display:block">
+        </a>
+    </div>
+
+    {# ── Col 2: Centre content ── #}
+    <div class="oci-navbar-content">
+        <button class="oci-navbar-burger" @click="sidebarOpen = !sidebarOpen"
+                aria-label="Toggle sidebar">
+            <i class="fas fa-bars"></i>
+        </button>
+        {# Slot for page-level content (search, site switcher, etc.) #}
+        {% block navbar_content %}{% endblock %}
+    </div>
+
+    {# ── Col 3: Theme toggle + user dropdown ── #}
+    <div class="oci-navbar-end">
+        {# Guided tour trigger #}
+        {% if current_user is defined and current_user %}
+        <button class="theme-toggle" id="oci-tour-trigger"
+                @click="
+                    if (window.__ociTourReady) {
+                        window.dispatchEvent(new CustomEvent('oci:start-tour'));
+                    } else {
+                        window.location.href = '/?tour=1';
+                    }
+                "
+                title="Guided tour">
+            <i class="fas fa-route"></i>
+        </button>
+        {% endif %}
+
+        {# Dark / light toggle #}
+        <button class="theme-toggle" @click="
+            theme = theme === 'light' ? 'dark' : 'light';
+            localStorage.setItem('oci-theme', theme);
+            document.documentElement.setAttribute('data-theme', theme);
+        " :title="theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'">
+            <i class="fas" :class="theme === 'light' ? 'fa-moon' : 'fa-sun'"></i>
+        </button>
+
+        {% if current_user is defined and current_user %}
+            {# Notification bell #}
+            <div class="oci-notif-bell" x-data="notificationBell()" x-init="load()" @click.outside="open = false">
+                <button class="oci-notif-trigger" :class="{ 'has-unread': unreadCount > 0 }" @click="toggle()">
+                    <i class="fas fa-bell"></i>
+                    <span class="oci-notif-badge" x-show="unreadCount > 0" x-text="unreadCount" x-cloak></span>
+                </button>
+
+                <div class="oci-notif-panel" x-show="open" x-transition.opacity x-cloak>
+                    <div class="oci-notif-panel-head">
+                        <span>Notifications</span>
+                        <button class="oci-notif-mark-all" x-show="unreadCount > 0" @click.stop="markAllRead()" x-cloak>
+                            Mark all read
+                        </button>
+                    </div>
+
+                    <div>
+                        <template x-if="notifications.length === 0">
+                            <div class="oci-notif-empty">
+                                <i class="fas fa-bell-slash"></i>
+                                <p>No notifications</p>
+                            </div>
+                        </template>
+                        <template x-for="n in notifications" :key="n.slug">
+                            <div class="oci-notif-row" :class="{ 'is-unread': !n.is_read }"
+                                 @click="openNotification(n)">
+                                <div class="oci-notif-row-title" x-text="n.title"></div>
+                                <div class="oci-notif-row-date" x-text="n.date"></div>
+                                <div class="oci-notif-row-excerpt" x-text="n.excerpt"></div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                {# Modal teleported to body so it escapes navbar stacking context #}
+                <template x-teleport="body">
+                    <div class="modal" :class="{ 'is-active': modalOpen }" x-show="modalOpen" x-cloak>
+                        <div class="modal-background" @click="modalOpen = false"></div>
+                        <div class="modal-card" style="max-width:600px">
+                            <header class="modal-card-head">
+                                <p class="modal-card-title" x-text="modalTitle" style="font-size:0.9375rem"></p>
+                                <button class="delete" @click="modalOpen = false"></button>
+                            </header>
+                            <section class="modal-card-body">
+                                <div class="content oci-notif-modal-body" x-html="modalBody"></div>
+                            </section>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
+            {# User dropdown #}
+            <div class="oci-user-dropdown" x-data="{ open: false }" @click.outside="open = false">
+                <button class="oci-user-trigger" @click="open = !open">
+                    <span class="user-avatar">
+                        {{ current_user.first_name[:1]|upper }}{{ current_user.last_name[:1]|upper }}
+                    </span>
+                    <span class="is-hidden-mobile">{{ current_user.first_name ?: current_user.username }}</span>
+                    <i class="fas fa-chevron-down" style="font-size:0.625rem;color:var(--oci-text-light)"></i>
+                </button>
+
+                <div class="oci-user-menu" x-show="open" x-transition.opacity x-cloak>
+                    <a href="/account">
+                        <span class="icon is-small"><i class="fas fa-gear"></i></span>
+                        Account Settings
+                    </a>
+                    {% if monetization_model != 'oci' %}
+                        <a href="/billing">
+                            <span class="icon is-small"><i class="fas fa-credit-card"></i></span>
+                            Billing
+                        </a>
+                    {% endif %}
+                    {% if current_user.role == 'admin' %}
+                        <div class="menu-divider"></div>
+                        <a href="/admin">
+                            <span class="icon is-small"><i class="fas fa-screwdriver-wrench"></i></span>
+                            Admin Panel
+                        </a>
+                    {% endif %}
+                    <div class="menu-divider"></div>
+                    <a href="/logout">
+                        <span class="icon is-small"><i class="fas fa-right-from-bracket"></i></span>
+                        Log Out
+                    </a>
+                </div>
+            </div>
+        {% else %}
+            <a class="button is-primary is-small" href="/login">
+                <span class="icon is-small"><i class="fas fa-right-to-bracket"></i></span>
+                <span>Log in</span>
+            </a>
+        {% endif %}
+    </div>
+</header>
+
+{% if is_impersonating is defined and is_impersonating %}
+<div class="oci-impersonation-bar" style="
+    position:fixed;top:var(--oci-navbar-h);left:0;right:0;z-index:39;
+    display:flex;align-items:center;justify-content:center;gap:0.75rem;
+    padding:0.375rem 1rem;
+    background:#f59e0b;color:#1a1a1a;
+    font-size:0.8125rem;font-weight:500;
+    box-shadow:0 1px 3px rgba(0,0,0,0.1);
+">
+    <i class="fas fa-user-secret"></i>
+    Viewing as <strong>{{ current_user.email }}</strong>
+    <button class="button is-small is-dark" onclick="
+        fetch('/app/stop-impersonation', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        }).then(function(r) { return r.json(); }).then(function(d) {
+            window.location.href = d.data && d.data.redirect ? d.data.redirect : '/admin/users';
+        });
+    ">
+        <span class="icon is-small"><i class="fas fa-arrow-left"></i></span>
+        <span>Return to {{ impersonator_role is defined and impersonator_role == 'agency' ? 'Agency' : 'Admin' }}</span>
+    </button>
+</div>
+<style>
+    .oci-impersonation-bar ~ .oci-layout { margin-top: calc(var(--oci-navbar-h) + 36px); }
+    .oci-impersonation-bar ~ .oci-layout .oci-sidebar { top: calc(var(--oci-navbar-h) + 36px); height: calc(100vh - var(--oci-navbar-h) - 36px); }
+</style>
+{% endif %}

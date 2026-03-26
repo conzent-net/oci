@@ -1,0 +1,9 @@
+/vendor/
+.env
+.env.local
+.env.*.local
+/var/
+node_modules/
+.phpunit.cache/
+public/sites_data/
+/backups/

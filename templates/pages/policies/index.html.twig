@@ -1,0 +1,443 @@
+{% extends 'layouts/base.html.twig' %}
+
+{% set active_page = 'policies' %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+      integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA=="
+      crossorigin="anonymous" referrerpolicy="no-referrer" />
+{% endblock %}
+
+{% block content %}
+<div x-data="policiesPage()">
+
+    <nav class="breadcrumb mb-3" aria-label="breadcrumbs">
+        <ul>
+            <li><a href="/">Dashboard</a></li>
+            <li class="is-active"><a href="#" aria-current="page">Policies</a></li>
+        </ul>
+    </nav>
+
+    {% from 'components/macros.html.twig' import siteSelector %}
+    <div class="level mb-4">
+        <div class="level-left">
+            <div class="level-item">
+                <h1 class="title is-4 mb-0">Policies</h1>
+            </div>
+            <div class="level-item">
+                {{ siteSelector(sites, siteId, '/policies') }}
+            </div>
+        </div>
+    </div>
+
+    {# ── Policy Status Cards ──────────────────────────── #}
+    <div class="columns mb-5">
+        <div class="column is-6">
+            <div class="box">
+                <div class="level mb-3">
+                    <div class="level-left">
+                        <div class="level-item">
+                            <span class="icon is-medium has-text-info"><i class="fas fa-cookie-bite fa-lg"></i></span>
+                        </div>
+                        <div class="level-item">
+                            <h2 class="subtitle is-5 mb-0">Cookie Policy</h2>
+                        </div>
+                    </div>
+                    <div class="level-right">
+                        {% if cookiePolicy.policy_content %}
+                            <span class="tag is-success is-light">Configured</span>
+                        {% else %}
+                            <span class="tag is-warning is-light">Not generated</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                {% if cookiePolicy.effective_date %}
+                <p class="is-size-7 has-text-grey mb-3">
+                    Effective: {{ cookiePolicy.effective_date|date('d M Y') }}
+                </p>
+                {% endif %}
+
+                <div class="buttons">
+                    <a href="/policies/cookie" class="button is-primary is-small">
+                        <span class="icon"><i class="fas fa-pen"></i></span>
+                        <span>{{ cookiePolicy.policy_content ? 'Edit' : 'Create' }} Cookie Policy</span>
+                    </a>
+                    {% if cookiePolicy.policy_content %}
+                    <button class="button is-info is-small is-outlined" @click="openPromote('cookie')" :class="{ 'is-loading': promoting }">
+                        <span class="icon"><i class="fas fa-arrow-up-from-bracket"></i></span>
+                        <span>Promote to Template</span>
+                    </button>
+                    <button class="button is-danger is-small is-outlined" @click="clearPolicy('cookie')">
+                        <span class="icon"><i class="fas fa-eraser"></i></span>
+                        <span>Clear</span>
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="column is-6">
+            <div class="box">
+                <div class="level mb-3">
+                    <div class="level-left">
+                        <div class="level-item">
+                            <span class="icon is-medium has-text-primary"><i class="fas fa-shield-halved fa-lg"></i></span>
+                        </div>
+                        <div class="level-item">
+                            <h2 class="subtitle is-5 mb-0">Privacy Policy</h2>
+                        </div>
+                    </div>
+                    <div class="level-right">
+                        {% if privacyPolicy.policy_content %}
+                            <span class="tag is-success is-light">Configured</span>
+                        {% else %}
+                            <span class="tag is-warning is-light">Not generated</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                {% if privacyPolicy.effective_date %}
+                <p class="is-size-7 has-text-grey mb-3">
+                    Effective: {{ privacyPolicy.effective_date|date('d M Y') }}
+                </p>
+                {% endif %}
+
+                <div class="buttons">
+                    <a href="/policies/privacy" class="button is-primary is-small">
+                        <span class="icon"><i class="fas fa-pen"></i></span>
+                        <span>{{ privacyPolicy.policy_content ? 'Edit' : 'Create' }} Privacy Policy</span>
+                    </a>
+                    {% if privacyPolicy.policy_content %}
+                    <button class="button is-info is-small is-outlined" @click="openPromote('privacy')" :class="{ 'is-loading': promoting }">
+                        <span class="icon"><i class="fas fa-arrow-up-from-bracket"></i></span>
+                        <span>Promote to Template</span>
+                    </button>
+                    <button class="button is-danger is-small is-outlined" @click="clearPolicy('privacy')">
+                        <span class="icon"><i class="fas fa-eraser"></i></span>
+                        <span>Clear</span>
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ── Embed Codes ──────────────────────────────────── #}
+    <div class="box mb-5">
+        <h2 class="subtitle is-6 mb-3">Embed Codes</h2>
+        <p class="is-size-7 has-text-grey mb-3">Place these divs on your website where you want the policy content to appear. The Conzent script will automatically populate them.</p>
+
+        <div class="columns">
+            <div class="column is-6">
+                <div class="field">
+                    <label class="label is-small">Cookie Policy</label>
+                    <div class="control">
+                        <input class="input is-small is-family-monospace" type="text" readonly
+                               value='&lt;div class="cnz-cookie-policy"&gt;&lt;/div&gt;'
+                               onclick="this.select(); document.execCommand('copy');">
+                    </div>
+                </div>
+            </div>
+            <div class="column is-6">
+                <div class="field">
+                    <label class="label is-small">Privacy Policy</label>
+                    <div class="control">
+                        <input class="input is-small is-family-monospace" type="text" readonly
+                               value='&lt;div class="cnz-audit-privacy-policy"&gt;&lt;/div&gt;'
+                               onclick="this.select(); document.execCommand('copy');">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ── Templates ────────────────────────────────────── #}
+    <div class="box">
+        <div class="level mb-3">
+            <div class="level-left">
+                <div class="level-item">
+                    <h2 class="subtitle is-6 mb-0">Policy Templates</h2>
+                </div>
+            </div>
+        </div>
+
+        {% include 'pages/policies/_templates_table.html.twig' %}
+    </div>
+
+    {# ── Promote to Template Modal ─────────────────────── #}
+    <div class="modal" :class="{ 'is-active': promoteModal }">
+        <div class="modal-background" @click="promoteModal = false"></div>
+        <div class="modal-card" style="max-width:480px">
+            <header class="modal-card-head">
+                <p class="modal-card-title is-size-6">Promote to Template</p>
+                <button class="delete" @click="promoteModal = false"></button>
+            </header>
+            <section class="modal-card-body">
+                <p class="is-size-7 has-text-grey mb-3">Save the current policy as a reusable template that can be applied to other sites.</p>
+                <div class="field">
+                    <label class="label is-small">Template Name</label>
+                    <div class="control">
+                        <input class="input is-small" type="text" x-model="promoteName" placeholder="Enter a name for this template" @keydown.enter="promoteToTemplate()">
+                    </div>
+                </div>
+            </section>
+            <footer class="modal-card-foot">
+                <button class="button is-primary is-small" @click="promoteToTemplate()" :class="{ 'is-loading': promoting }" :disabled="promoteName.trim() === ''">Save as Template</button>
+                <button class="button is-small" @click="promoteModal = false">Cancel</button>
+            </footer>
+        </div>
+    </div>
+
+    {# ── Rename Template Modal ─────────────────────────── #}
+    <div class="modal" :class="{ 'is-active': renameModal }">
+        <div class="modal-background" @click="renameModal = false"></div>
+        <div class="modal-card" style="max-width:480px">
+            <header class="modal-card-head">
+                <p class="modal-card-title is-size-6">Rename Template</p>
+                <button class="delete" @click="renameModal = false"></button>
+            </header>
+            <section class="modal-card-body">
+                <div class="field">
+                    <label class="label is-small">Template Name</label>
+                    <div class="control">
+                        <input class="input is-small" type="text" x-model="renameName" placeholder="Enter new name" @keydown.enter="renameTemplate()">
+                    </div>
+                </div>
+            </section>
+            <footer class="modal-card-foot">
+                <button class="button is-primary is-small" @click="renameTemplate()" :class="{ 'is-loading': renaming }" :disabled="renameName.trim() === ''">Rename</button>
+                <button class="button is-small" @click="renameModal = false">Cancel</button>
+            </footer>
+        </div>
+    </div>
+
+    {# ── Apply Template Modal ────────────────────────── #}
+    <div class="modal" :class="{ 'is-active': applyModal }">
+        <div class="modal-background" @click="applyModal = false"></div>
+        <div class="modal-card" style="max-width:480px">
+            <header class="modal-card-head">
+                <p class="modal-card-title is-size-6">Apply Template to Sites</p>
+                <button class="delete" @click="applyModal = false"></button>
+            </header>
+            <section class="modal-card-body">
+                <p class="is-size-7 has-text-grey mb-3">Select the sites to apply this template to. Applying will overwrite the existing policy for that site.</p>
+                {% for site in sites %}
+                <label class="checkbox is-block mb-2">
+                    <input type="checkbox" :value="{{ site.id }}" x-model="applySiteIds">
+                    {{ site.domain }}
+                    <template x-if="applyType === 'cookie'">
+                        <span>
+                            {% set tplKey = 'cookie:' ~ (sitePolicyStatus[site.id].cookie_template_id ?? 0) %}
+                            {% if (sitePolicyStatus[site.id].cookie_template_id ?? 0) > 0 and templateNames[tplKey] is defined %}
+                                <span class="tag is-info is-light is-small ml-2" title="Using template: {{ templateNames[tplKey] }}">
+                                    <span class="icon is-small"><i class="fas fa-file-lines"></i></span>
+                                    &nbsp;{{ templateNames[tplKey] }}
+                                </span>
+                            {% elseif sitePolicyStatus[site.id].cookie is defined and sitePolicyStatus[site.id].cookie %}
+                                <span class="tag is-success is-light is-small ml-2">Has cookie policy</span>
+                            {% else %}
+                                <span class="tag is-light is-small ml-2">No cookie policy</span>
+                            {% endif %}
+                        </span>
+                    </template>
+                    <template x-if="applyType === 'privacy'">
+                        <span>
+                            {% set tplKey = 'privacy:' ~ (sitePolicyStatus[site.id].privacy_template_id ?? 0) %}
+                            {% if (sitePolicyStatus[site.id].privacy_template_id ?? 0) > 0 and templateNames[tplKey] is defined %}
+                                <span class="tag is-info is-light is-small ml-2" title="Using template: {{ templateNames[tplKey] }}">
+                                    <span class="icon is-small"><i class="fas fa-file-lines"></i></span>
+                                    &nbsp;{{ templateNames[tplKey] }}
+                                </span>
+                            {% elseif sitePolicyStatus[site.id].privacy is defined and sitePolicyStatus[site.id].privacy %}
+                                <span class="tag is-success is-light is-small ml-2">Has privacy policy</span>
+                            {% else %}
+                                <span class="tag is-light is-small ml-2">No privacy policy</span>
+                            {% endif %}
+                        </span>
+                    </template>
+                </label>
+                {% endfor %}
+            </section>
+            <footer class="modal-card-foot">
+                <button class="button is-primary is-small" @click="applyToSites()" :class="{ 'is-loading': applying }">Apply</button>
+                <button class="button is-small" @click="applyModal = false">Cancel</button>
+            </footer>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function policiesPage() {
+    // Build site→template mapping for pre-selection
+    var sitePolicyStatus = {{ sitePolicyStatus|json_encode|raw }};
+
+    return {
+        siteId: {{ siteId }},
+        languageId: {{ languageId }},
+        currentDomain: '{{ currentDomain|e('js') }}',
+
+        // Apply modal
+        applyModal: false,
+        applyTemplateId: 0,
+        applyType: '',
+        applySiteIds: [],
+        applying: false,
+
+        // Promote modal
+        promoteModal: false,
+        promoteType: '',
+        promoteName: '',
+        promoting: false,
+
+        // Rename modal
+        renameModal: false,
+        renameTemplateId: 0,
+        renameType: '',
+        renameName: '',
+        renaming: false,
+
+        openApply(templateId, type) {
+            this.applyTemplateId = templateId;
+            this.applyType = type;
+
+            // Pre-select sites already using this template
+            var preSelected = [];
+            var templateKey = type === 'cookie' ? 'cookie_template_id' : 'privacy_template_id';
+            for (var siteId in sitePolicyStatus) {
+                if (sitePolicyStatus[siteId][templateKey] === templateId) {
+                    preSelected.push(parseInt(siteId));
+                }
+            }
+            this.applySiteIds = preSelected;
+            this.applyModal = true;
+        },
+
+        applyToSites() {
+            if (this.applySiteIds.length === 0) return;
+            this.applying = true;
+            fetch('/app/policies/templates/apply', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                body: JSON.stringify({
+                    template_id: this.applyTemplateId,
+                    type: this.applyType,
+                    site_ids: this.applySiteIds,
+                    language_id: this.languageId
+                })
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    window.location.reload();
+                }
+            })
+            .finally(function() { this.applying = false; }.bind(this));
+        },
+
+        openPromote(type) {
+            var label = type === 'cookie' ? 'Cookie' : 'Privacy';
+            this.promoteType = type;
+            this.promoteName = this.currentDomain + ' - ' + label + ' Policy';
+            this.promoteModal = true;
+        },
+
+        promoteToTemplate() {
+            if (this.promoteName.trim() === '') return;
+            this.promoting = true;
+            var self = this;
+            fetch('/app/policies/templates', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                body: JSON.stringify({
+                    type: self.promoteType,
+                    template_name: self.promoteName.trim(),
+                    site_id: self.siteId,
+                    language_id: self.languageId
+                })
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    window.location.reload();
+                } else {
+                    alert(data.error || 'Failed to promote to template. Make sure the policy has been generated first.');
+                }
+            })
+            .finally(function() { self.promoting = false; });
+        },
+
+        openRename(templateId, type, currentName) {
+            this.renameTemplateId = templateId;
+            this.renameType = type;
+            this.renameName = currentName;
+            this.renameModal = true;
+        },
+
+        renameTemplate() {
+            if (this.renameName.trim() === '') return;
+            this.renaming = true;
+            var self = this;
+            fetch('/app/policies/templates/rename', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                body: JSON.stringify({
+                    template_id: self.renameTemplateId,
+                    type: self.renameType,
+                    template_name: self.renameName.trim()
+                })
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    window.location.reload();
+                } else {
+                    alert(data.error || 'Failed to rename template.');
+                }
+            })
+            .finally(function() { self.renaming = false; });
+        },
+
+        deleteTemplate(templateId, type) {
+            if (!confirm('Delete this template?')) return;
+            fetch('/app/policies/templates/delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                body: JSON.stringify({ template_id: templateId, type: type })
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    window.location.reload();
+                }
+            });
+        },
+
+        clearPolicy(type) {
+            var label = type === 'cookie' ? 'cookie' : 'privacy';
+            if (!confirm('Clear the ' + label + ' policy for this site? You can then apply a template or create a new one from scratch.')) return;
+            fetch('/app/policies/clear', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                body: JSON.stringify({
+                    type: type,
+                    site_id: this.siteId,
+                    language_id: this.languageId
+                })
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    window.location.reload();
+                }
+            });
+        }
+    };
+}
+</script>
+{% endblock %}
