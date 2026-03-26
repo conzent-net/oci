@@ -1,0 +1,381 @@
+{% extends 'layouts/base.html.twig' %}
+
+{% set active_page = 'categories' %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div x-data="categoriesPage()">
+
+    <nav class="breadcrumb mb-3" aria-label="breadcrumbs">
+        <ul>
+            <li><a href="/">Dashboard</a></li>
+            <li class="is-active"><a href="#" aria-current="page">Cookie Categories</a></li>
+        </ul>
+    </nav>
+
+    {# ── Header ────────────────────────────────────────── #}
+    <div class="level mb-4">
+        <div class="level-left">
+            <div class="level-item">
+                <h1 class="title is-4 mb-0">Cookie Categories</h1>
+            </div>
+            {% if sites|length > 1 %}
+            <div class="level-item">
+                <div class="select is-small">
+                    <select onchange="window.location.href='/categories?site_id=' + this.value">
+                        {% for site in sites %}
+                        <option value="{{ site.id }}" {{ site.id == siteId ? 'selected' : '' }}>
+                            {{ site.domain }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        <div class="level-right">
+            <div class="level-item">
+                <button class="button is-primary" @click="addModal = true">
+                    <span class="icon"><i class="fas fa-plus"></i></span>
+                    <span>Add Category</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <p class="subtitle is-6 has-text-grey mb-5">
+        Categories group cookies by purpose. Visitors choose which categories to accept in the consent banner.
+    </p>
+
+    {# ── Category Cards ───────────────────────────────── #}
+    {% if categories|length > 0 %}
+    <div class="columns is-multiline">
+        {% for cat in categories %}
+        <div class="column is-6">
+            <div class="box">
+                <div class="level mb-3">
+                    <div class="level-left">
+                        <div class="level-item">
+                            <span class="tag is-medium
+                                {% if cat.slug == 'necessary' %}is-success is-light
+                                {% elseif cat.slug == 'functional' %}is-info is-light
+                                {% elseif cat.slug == 'analytics' %}is-warning is-light
+                                {% elseif cat.slug == 'marketing' %}is-danger is-light
+                                {% else %}is-light
+                                {% endif %}">
+                                {% if cat.slug == 'necessary' %}
+                                    <i class="fas fa-shield-halved mr-2"></i>
+                                {% elseif cat.slug == 'functional' %}
+                                    <i class="fas fa-cog mr-2"></i>
+                                {% elseif cat.slug == 'analytics' %}
+                                    <i class="fas fa-chart-line mr-2"></i>
+                                {% elseif cat.slug == 'marketing' %}
+                                    <i class="fas fa-bullhorn mr-2"></i>
+                                {% else %}
+                                    <i class="fas fa-tag mr-2"></i>
+                                {% endif %}
+                                {{ cat.name|default(cat.slug|capitalize) }}
+                            </span>
+                        </div>
+                        <div class="level-item">
+                            <span class="tag is-light is-small">{{ cat.cookie_count }} cookie{{ cat.cookie_count != 1 ? 's' : '' }}</span>
+                        </div>
+                    </div>
+                    <div class="level-right">
+                        <div class="level-item">
+                            <div class="buttons are-small">
+                                <button class="button is-small is-info is-light"
+                                        @click='openEdit({{ cat|json_encode }})'>
+                                    <span class="icon is-small"><i class="fas fa-edit"></i></span>
+                                </button>
+                                {% if cat.slug != 'necessary' %}
+                                <button class="button is-small is-danger is-light"
+                                        @click="deleteCategory({{ cat.id }}, '{{ cat.name|default(cat.slug)|e('js') }}')">
+                                    <span class="icon is-small"><i class="fas fa-trash"></i></span>
+                                </button>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <p class="is-size-7 has-text-grey mb-2">{% set desc = cat.description|default('No description') %}{{ desc|length > 150 ? desc|slice(0, 150) ~ '...' : desc }}</p>
+                <div class="level is-mobile">
+                    <div class="level-left">
+                        <span class="is-size-7 has-text-grey">
+                            Sort: {{ cat.sort_order }}
+                        </span>
+                    </div>
+                    <div class="level-right">
+                        {% if cat.default_consent %}
+                            <span class="tag is-small {{ cat.default_consent == 'accepted' ? 'is-success is-light' : 'is-danger is-light' }}">
+                                Default: {{ cat.default_consent|capitalize }}
+                            </span>
+                        {% else %}
+                            <span class="tag is-small is-light">Default: Ask user</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="has-text-centered py-6">
+        <span class="icon is-large has-text-grey-lighter mb-3">
+            <i class="fas fa-layer-group fa-3x"></i>
+        </span>
+        <h3 class="title is-5 has-text-grey">No categories configured</h3>
+        <p class="subtitle is-6 has-text-grey-light mb-4">
+            Add cookie categories to organize cookies by purpose.
+        </p>
+        <button class="button is-primary" @click="addModal = true">
+            <span class="icon"><i class="fas fa-plus"></i></span>
+            <span>Add Category</span>
+        </button>
+    </div>
+    {% endif %}
+
+    {# ── Add Category Modal ───────────────────────────── #}
+    <div class="modal" :class="{ 'is-active': addModal }">
+        <div class="modal-background" @click="addModal = false"></div>
+        <div class="modal-card">
+            <header class="modal-card-head">
+                <p class="modal-card-title">Add Category</p>
+                <button class="delete" @click="addModal = false"></button>
+            </header>
+            <section class="modal-card-body">
+                <div class="field">
+                    <label class="label">Global Category</label>
+                    <div class="control">
+                        <div class="select is-fullwidth">
+                            <select x-model="addForm.category_id" @change="prefillFromGlobal($event.target.value)">
+                                <option value="">Select a category...</option>
+                                {% for gc in globalCategories %}
+                                <option value="{{ gc.id }}" data-name="{{ gc.name|e('html_attr') }}" data-desc="{{ gc.description|default('')|e('html_attr') }}">
+                                    {{ gc.name|default(gc.slug|capitalize) }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <p class="help">Select from the global category list</p>
+                </div>
+                <div class="field">
+                    <label class="label">Display Name <span class="has-text-danger">*</span></label>
+                    <div class="control">
+                        <input class="input" type="text" x-model="addForm.name" placeholder="Category name">
+                    </div>
+                </div>
+                <div class="field">
+                    <label class="label">Description</label>
+                    <div class="control">
+                        <textarea class="textarea" x-model="addForm.description" rows="3"
+                                  placeholder="Describe what this category is used for..."></textarea>
+                    </div>
+                </div>
+                <div class="notification is-warning is-light" x-show="addError" x-text="addError"></div>
+            </section>
+            <footer class="modal-card-foot">
+                <button class="button is-primary" @click="saveCategory()"
+                        :class="{ 'is-loading': addSubmitting }">
+                    <span class="icon"><i class="fas fa-save"></i></span>
+                    <span>Add</span>
+                </button>
+                <button class="button" @click="addModal = false">Cancel</button>
+            </footer>
+        </div>
+    </div>
+
+    {# ── Edit Category Modal ──────────────────────────── #}
+    <div class="modal" :class="{ 'is-active': editModal }">
+        <div class="modal-background" @click="editModal = false"></div>
+        <div class="modal-card">
+            <header class="modal-card-head">
+                <p class="modal-card-title">Edit Category</p>
+                <button class="delete" @click="editModal = false"></button>
+            </header>
+            <section class="modal-card-body">
+                <div class="field">
+                    <label class="label">Display Name <span class="has-text-danger">*</span></label>
+                    <div class="control">
+                        <input class="input" type="text" x-model="editForm.name">
+                    </div>
+                </div>
+                <div class="field">
+                    <label class="label">Description</label>
+                    <div class="control">
+                        <textarea class="textarea" x-model="editForm.description" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="field">
+                    <label class="label">Sort Order</label>
+                    <div class="control">
+                        <input class="input" type="number" x-model.number="editForm.sort_order" min="0">
+                    </div>
+                </div>
+                <div class="field">
+                    <label class="label">Default Consent</label>
+                    <div class="control">
+                        <div class="select is-fullwidth">
+                            <select x-model="editForm.default_consent">
+                                <option value="">Ask user</option>
+                                <option value="accepted">Accepted (pre-checked)</option>
+                                <option value="rejected">Rejected</option>
+                            </select>
+                        </div>
+                    </div>
+                    <p class="help">Whether this category should be pre-checked in the consent banner</p>
+                </div>
+                <div class="notification is-warning is-light" x-show="editError" x-text="editError"></div>
+            </section>
+            <footer class="modal-card-foot">
+                <button class="button is-primary" @click="updateCategory()"
+                        :class="{ 'is-loading': editSubmitting }">
+                    <span class="icon"><i class="fas fa-save"></i></span>
+                    <span>Update</span>
+                </button>
+                <button class="button" @click="editModal = false">Cancel</button>
+            </footer>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+      integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA=="
+      crossorigin="anonymous" referrerpolicy="no-referrer" />
+{% endblock %}
+
+{% block scripts %}
+<script>
+function categoriesPage() {
+    const globalCats = {{ globalCategories|json_encode|raw }};
+
+    return {
+        siteId: {{ siteId }},
+
+        // Add modal
+        addModal: false,
+        addSubmitting: false,
+        addError: '',
+        addForm: {
+            category_id: '',
+            name: '',
+            description: '',
+        },
+
+        // Edit modal
+        editModal: false,
+        editSubmitting: false,
+        editError: '',
+        editId: 0,
+        editForm: {
+            name: '',
+            description: '',
+            sort_order: 0,
+            default_consent: '',
+        },
+
+        prefillFromGlobal(catId) {
+            const gc = globalCats.find(c => String(c.id) === String(catId));
+            if (gc) {
+                this.addForm.name = gc.name || '';
+                this.addForm.description = gc.description || '';
+            }
+        },
+
+        openEdit(cat) {
+            this.editId = cat.id;
+            this.editForm = {
+                name: cat.name || '',
+                description: cat.description || '',
+                sort_order: cat.sort_order || 0,
+                default_consent: cat.default_consent || '',
+            };
+            this.editError = '';
+            this.editModal = true;
+        },
+
+        async saveCategory() {
+            this.addError = '';
+            if (!this.addForm.category_id) {
+                this.addError = 'Please select a category';
+                return;
+            }
+            if (!this.addForm.name.trim()) {
+                this.addError = 'Category name is required';
+                return;
+            }
+
+            this.addSubmitting = true;
+            try {
+                const res = await fetch('/app/categories', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        site_id: this.siteId,
+                        category_id: parseInt(this.addForm.category_id),
+                        name: this.addForm.name,
+                        description: this.addForm.description,
+                    }),
+                });
+                const data = await res.json();
+                if (data.success) {
+                    this.addModal = false;
+                    window.location.reload();
+                } else {
+                    this.addError = data.error?.message || 'Failed to add category';
+                }
+            } catch {
+                this.addError = 'Network error';
+            }
+            this.addSubmitting = false;
+        },
+
+        async updateCategory() {
+            this.editError = '';
+            if (!this.editForm.name.trim()) {
+                this.editError = 'Category name is required';
+                return;
+            }
+
+            this.editSubmitting = true;
+            try {
+                const res = await fetch(`/app/categories/${this.editId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(this.editForm),
+                });
+                const data = await res.json();
+                if (data.success) {
+                    this.editModal = false;
+                    window.location.reload();
+                } else {
+                    this.editError = data.error?.message || 'Failed to update category';
+                }
+            } catch {
+                this.editError = 'Network error';
+            }
+            this.editSubmitting = false;
+        },
+
+        async deleteCategory(id, name) {
+            if (!confirm(`Remove category "${name}" from this site?\n\nCookies in this category will become unclassified.`)) return;
+            try {
+                const res = await fetch(`/app/categories/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                });
+                const data = await res.json();
+                if (data.success) {
+                    window.location.reload();
+                }
+            } catch { /* ignore */ }
+        },
+    };
+}
+</script>
+{% endblock %}
