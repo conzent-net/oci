@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 160" fill="none">
+  <!-- Page background with overlay -->
+  <rect width="280" height="160" rx="4" fill="#f0f0f0"/>
+  <rect width="280" height="160" rx="4" fill="#000" opacity="0.08"/>
+  <!-- Hero card -->
+  <rect x="50" y="8" width="180" height="144" rx="10" fill="#fff"/>
+  <!-- Gradient hero header -->
+  <defs>
+    <linearGradient id="heroGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#e0e0e0"/>
+      <stop offset="100%" stop-color="#f8f8f8"/>
+    </linearGradient>
+    <clipPath id="heroClip">
+      <rect x="50" y="8" width="180" height="52" rx="10"/>
+    </clipPath>
+  </defs>
+  <rect x="50" y="8" width="180" height="52" fill="url(#heroGrad)" clip-path="url(#heroClip)"/>
+  <!-- Logo in header -->
+  <circle cx="140" cy="26" r="8" fill="#fff" opacity="0.7"/>
+  <!-- Title in header -->
+  <rect x="105" y="40" width="70" height="5" rx="2.5" fill="#555"/>
+  <!-- Body content -->
+  <rect x="68" y="70" width="144" height="3" rx="1.5" fill="#999"/>
+  <rect x="78" y="77" width="124" height="3" rx="1.5" fill="#999"/>
+  <!-- Buttons -->
+  <rect x="72" y="92" width="64" height="14" rx="3" fill="#2563eb"/>
+  <rect x="142" y="92" width="64" height="14" rx="3" fill="none" stroke="#ccc" stroke-width="1"/>
+  <!-- Cookie list link -->
+  <rect x="108" y="116" width="64" height="3" rx="1.5" fill="#bbb"/>
+  <!-- Branding -->
+  <rect x="100" y="136" width="80" height="3" rx="1.5" fill="#ddd"/>
+</svg>

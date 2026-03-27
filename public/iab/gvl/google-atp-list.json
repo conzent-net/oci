@@ -1,0 +1,2992 @@
+{
+    "43": {
+        "id": 43,
+        "name": "AdPredictive",
+        "privacy": "https://adpredictive.com/privacy"
+    },
+    "46": {
+        "id": 46,
+        "name": "Adriver",
+        "privacy": "https://www.adriver.ru/about/privacy-en/"
+    },
+    "55": {
+        "id": 55,
+        "name": "Adtelligence",
+        "privacy": "https://adtelligence.com/en/data-privacy/"
+    },
+    "61": {
+        "id": 61,
+        "name": "Artsai",
+        "privacy": "https://artsai.com/privacy/"
+    },
+    "70": {
+        "id": 70,
+        "name": "Akamai",
+        "privacy": "http://www.akamai.com/compliance/privacy"
+    },
+    "83": {
+        "id": 83,
+        "name": "Arbigo Inc.",
+        "privacy": "http://www.arbigo.com/terms--policy.html"
+    },
+    "89": {
+        "id": 89,
+        "name": "Meta",
+        "privacy": "https://www.facebook.com/about/privacy/update"
+    },
+    "93": {
+        "id": 93,
+        "name": "Aunica",
+        "privacy": "https://aunica.com/privacy-policy/"
+    },
+    "108": {
+        "id": 108,
+        "name": "Booking.com",
+        "privacy": "https://www.booking.com/content/privacy.en-gb.html"
+    },
+    "117": {
+        "id": 117,
+        "name": "direct interactive",
+        "privacy": "https://www.apartena.net/datenschutzerklaerung.html"
+    },
+    "122": {
+        "id": 122,
+        "name": "C3 Metrics",
+        "privacy": "https://www.c3metrics.com/privacy-policy"
+    },
+    "124": {
+        "id": 124,
+        "name": "CapitalData",
+        "privacy": "https://www.capitaldata.fr/politique-de-confidentialite/"
+    },
+    "135": {
+        "id": 135,
+        "name": "ClickForce",
+        "privacy": "https://www.clickforce.com.tw/edcontent.php?lang=tw&tb=15"
+    },
+    "136": {
+        "id": 136,
+        "name": "Clickpoint",
+        "privacy": "https://www.clickpoint.com/privacy/"
+    },
+    "143": {
+        "id": 143,
+        "name": "Connexity",
+        "privacy": "http://connexity.com/gb/privacy-policy/"
+    },
+    "144": {
+        "id": 144,
+        "name": "Constant Contact",
+        "privacy": "https://www.constantcontact.com/legal/privacy-statement"
+    },
+    "147": {
+        "id": 147,
+        "name": "Conversive",
+        "privacy": "https://conversive.nl/privacy/"
+    },
+    "149": {
+        "id": 149,
+        "name": "IBM",
+        "privacy": "https://www.ibm.com/customer-engagement/digital-marketing/gdpr"
+    },
+    "159": {
+        "id": 159,
+        "name": "DAC",
+        "privacy": "http://www.dac.co.jp/english/utility/rule"
+    },
+    "192": {
+        "id": 192,
+        "name": "engageBDR",
+        "privacy": "http://engagebdr.com/terms/EngageBDR_Buyer_Addendum_December_2015.pdf"
+    },
+    "196": {
+        "id": 196,
+        "name": "Evidon",
+        "privacy": "https://www.crownpeak.com/privacy"
+    },
+    "202": {
+        "id": 202,
+        "name": "Eyereturn Marketing",
+        "privacy": "https://eyereturnmarketing.com/privacy/"
+    },
+    "211": {
+        "id": 211,
+        "name": "Forbes",
+        "privacy": "https://www.forbes.com/privacy/english/"
+    },
+    "228": {
+        "id": 228,
+        "name": "Goodway Group",
+        "privacy": "https://goodwaygroup.com/privacy-policy/"
+    },
+    "230": {
+        "id": 230,
+        "name": "GroovinAds",
+        "privacy": "http://www.groovinads.com/en#privacy_modal"
+    },
+    "239": {
+        "id": 239,
+        "name": "HQ GmbH",
+        "privacy": "https://www.hqgmbh.eu/datenschutz.html"
+    },
+    "259": {
+        "id": 259,
+        "name": "intelliAd",
+        "privacy": "https://www.intelliad.de/datenschutz"
+    },
+    "266": {
+        "id": 266,
+        "name": "Interpolls",
+        "privacy": "https://www.interpolls.com/privacy"
+    },
+    "286": {
+        "id": 286,
+        "name": "Kwanzoo",
+        "privacy": "https://www.kwanzoo.com/gdpr"
+    },
+    "291": {
+        "id": 291,
+        "name": "Linkstorm",
+        "privacy": "https://www.linkstorm.net/privacy/"
+    },
+    "311": {
+        "id": 311,
+        "name": "Dstillery",
+        "privacy": "https://dstillery.com/privacy-policy/"
+    },
+    "320": {
+        "id": 320,
+        "name": "Merkury",
+        "privacy": "https://www.merkle.com/getting-know-your-privacy-rights/privacy-notice"
+    },
+    "322": {
+        "id": 322,
+        "name": "Metalyzer",
+        "privacy": "https://metapeople.com/datenschutz/"
+    },
+    "323": {
+        "id": 323,
+        "name": "ZMS",
+        "privacy": "https://zms.zalando.com/#"
+    },
+    "327": {
+        "id": 327,
+        "name": "Mixpo",
+        "privacy": "http://www.netsertive.com/privacy-policy/"
+    },
+    "367": {
+        "id": 367,
+        "name": "OpenSlate",
+        "privacy": "https://www.openslate.com/general-data-protection-regulation-gdpr-compliance-statement/"
+    },
+    "371": {
+        "id": 371,
+        "name": "Parship",
+        "privacy": "https://www.parship.de/privacypolicy/"
+    },
+    "385": {
+        "id": 385,
+        "name": "PlatformOne",
+        "privacy": "https://www.platform-one.co.jp/data/"
+    },
+    "394": {
+        "id": 394,
+        "name": "Pulpo (An Entravision Company)",
+        "privacy": "https://www.pulpo.com/privacy-policy/"
+    },
+    "397": {
+        "id": 397,
+        "name": "Viewbix",
+        "privacy": "http://corp.viewbix.com/cookie-policy/"
+    },
+    "407": {
+        "id": 407,
+        "name": "Recruit JP",
+        "privacy": "https://www.r-ad.ne.jp/optout/"
+    },
+    "413": {
+        "id": 413,
+        "name": "Phoenix Marketing International",
+        "privacy": "https://www.phoenixmi.com/privacy-policy/"
+    },
+    "415": {
+        "id": 415,
+        "name": "Resonate",
+        "privacy": "https://www.resonate.com/privacy-policy/"
+    },
+    "424": {
+        "id": 424,
+        "name": "SUITE 66",
+        "privacy": "http://www.suite66.com/privacy-policy/"
+    },
+    "430": {
+        "id": 430,
+        "name": "Scigineer",
+        "privacy": "https://www.scigineer.co.jp/privacy/"
+    },
+    "436": {
+        "id": 436,
+        "name": "Mediahead",
+        "privacy": "https://www.mediahead.com/privacy-policy"
+    },
+    "445": {
+        "id": 445,
+        "name": "SMN Corporation",
+        "privacy": "http://www.so-netmedia.jp/cookie/index.html"
+    },
+    "453": {
+        "id": 453,
+        "name": "Spartoo",
+        "privacy": "https://www.spartoo.co.uk/data_protection.php"
+    },
+    "486": {
+        "id": 486,
+        "name": "Tradedoubler AB",
+        "privacy": "http://www.tradedoubler.com/en/privacy-policy/"
+    },
+    "491": {
+        "id": 491,
+        "name": "TravelClick",
+        "privacy": "https://www.travelclick.com/privacy-policy.html"
+    },
+    "494": {
+        "id": 494,
+        "name": "TrustArc",
+        "privacy": "https://www.trustarc.com/privacy-policy/"
+    },
+    "495": {
+        "id": 495,
+        "name": "TruEffect",
+        "privacy": "https://trueffect.com/privacy-policy/"
+    },
+    "522": {
+        "id": 522,
+        "name": "Vizury",
+        "privacy": "https://vizury.com/privacy-policy"
+    },
+    "523": {
+        "id": 523,
+        "name": "Markit",
+        "privacy": "https://www.markitdigital.com/products/ads/privacy-policy/"
+    },
+    "540": {
+        "id": 540,
+        "name": "Travel Data Collective",
+        "privacy": "https://www.yieldr.com/privacy/"
+    },
+    "550": {
+        "id": 550,
+        "name": "CyberAgent",
+        "privacy": "https://privacy-policy.cyberagent.ai/index-en.html"
+    },
+    "559": {
+        "id": 559,
+        "name": "DaVinci11",
+        "privacy": "http://www.adsfactor.com/gdpr.html"
+    },
+    "560": {
+        "id": 560,
+        "name": "顶新",
+        "privacy": "http://www.360.cn/privacy/v3/bpsxy.html"
+    },
+    "568": {
+        "id": 568,
+        "name": "Mashero",
+        "privacy": "http://www.mashero.com/en/privacy-protection"
+    },
+    "574": {
+        "id": 574,
+        "name": "advolution.control",
+        "privacy": "http://advolution.de/privacy.php"
+    },
+    "576": {
+        "id": 576,
+        "name": "MicroAd",
+        "privacy": "https://www.microad.co.jp/privacy/"
+    },
+    "584": {
+        "id": 584,
+        "name": "Webgains",
+        "privacy": "https://www.webgains.com/public/en/privacy-2/"
+    },
+    "587": {
+        "id": 587,
+        "name": "AT Internet",
+        "privacy": "https://www.atinternet.com/en/company/data-protection/"
+    },
+    "591": {
+        "id": 591,
+        "name": "Miaozhen Systems",
+        "privacy": "http://www.miaozhen.com/index.php/EN/Index/articontent/articleid/202.html"
+    },
+    "737": {
+        "id": 737,
+        "name": "RevenueMantra",
+        "privacy": "http://www.revenuemantra.com/privacy.html"
+    },
+    "802": {
+        "id": 802,
+        "name": "LnData",
+        "privacy": "https://www.admaster.com.cn/en/about_us/privacy"
+    },
+    "803": {
+        "id": 803,
+        "name": "Trend Research",
+        "privacy": "https://trendfrage.de/?ID=135"
+    },
+    "820": {
+        "id": 820,
+        "name": "econda GmbH",
+        "privacy": "https://www.econda.de/service/datenschutz/"
+    },
+    "821": {
+        "id": 821,
+        "name": "Yusp",
+        "privacy": "http://www.yusp.com/yusp-privacy-policy/"
+    },
+    "839": {
+        "id": 839,
+        "name": "LivelyImpact",
+        "privacy": "http://www.livelyimpact.com/privacy-policy.html"
+    },
+    "864": {
+        "id": 864,
+        "name": "Batch Media",
+        "privacy": "https://theadex.com/privacy-opt-out/"
+    },
+    "899": {
+        "id": 899,
+        "name": "QuarticON",
+        "privacy": "https://quarticon.com/en/privacy-policy/"
+    },
+    "904": {
+        "id": 904,
+        "name": "TraceAd",
+        "privacy": "http://influenceaudience.com/about/gdpr-privacy-policy-business-partners.html"
+    },
+    "922": {
+        "id": 922,
+        "name": "Novem",
+        "privacy": "http://www.novem.pl/doc/Novem_polityka_prywatnosci.pdf"
+    },
+    "931": {
+        "id": 931,
+        "name": "adTarget.me",
+        "privacy": "https://adtarget.me/privacy.html"
+    },
+    "938": {
+        "id": 938,
+        "name": "Adzerk",
+        "privacy": "https://dev.adzerk.com/docs/privacy-policy-customers"
+    },
+    "979": {
+        "id": 979,
+        "name": "Silver Egg Technology",
+        "privacy": "https://www.silveregg.co.jp/hotview-gdpr"
+    },
+    "981": {
+        "id": 981,
+        "name": "Vodafone GmbH",
+        "privacy": "https://www.vodafone.de/unternehmen/datenschutz-privatsphaere.html"
+    },
+    "985": {
+        "id": 985,
+        "name": "Tinkoff.ru",
+        "privacy": "https://static.tinkoff.ru/documents/docs/processing-personal-data.pdf"
+    },
+    "1003": {
+        "id": 1003,
+        "name": "KPI Solutions",
+        "privacy": "https://www.adv.admeme.net/en/privacy/optout.html"
+    },
+    "1027": {
+        "id": 1027,
+        "name": "MaxCDN",
+        "privacy": "https://www.stackpath.com/legal/privacy-statement/"
+    },
+    "1031": {
+        "id": 1031,
+        "name": "MoPub (a division of Twitter, Inc.)",
+        "privacy": "https://www.mopub.com/en/gdpr"
+    },
+    "1040": {
+        "id": 1040,
+        "name": "Adblade",
+        "privacy": "https://www.adblade.com/doc/privacy"
+    },
+    "1046": {
+        "id": 1046,
+        "name": "Singular Labs Inc.",
+        "privacy": "https://www.singular.net/privacy-policy/"
+    },
+    "1051": {
+        "id": 1051,
+        "name": "Netquest",
+        "privacy": "https://www.nicequest.com/us/privacy"
+    },
+    "1053": {
+        "id": 1053,
+        "name": "Mixmarket Affiliate Network",
+        "privacy": "http://mixmarket.biz/confidential/"
+    },
+    "1067": {
+        "id": 1067,
+        "name": "Mail.ru",
+        "privacy": "https://help.mail.ru/mail-help/UA"
+    },
+    "1085": {
+        "id": 1085,
+        "name": "activecore",
+        "privacy": "https://www.activecore.jp/privacy-policy/"
+    },
+    "1092": {
+        "id": 1092,
+        "name": "Walmart",
+        "privacy": "https://corporate.walmart.com/privacy-security/walmart-privacy-policy"
+    },
+    "1095": {
+        "id": 1095,
+        "name": "Manage.com",
+        "privacy": "https://www.manage.com/privacy-policy/"
+    },
+    "1097": {
+        "id": 1097,
+        "name": "Cloudflare",
+        "privacy": "https://www.cloudflare.com/security-policy/"
+    },
+    "1099": {
+        "id": 1099,
+        "name": "Brainworkz",
+        "privacy": "https://brainworks.pl/index.php?option=com_content&view=article&id=83"
+    },
+    "1107": {
+        "id": 1107,
+        "name": "TROVIT",
+        "privacy": "https://corporate.trovit.com/politica-de-privacidad"
+    },
+    "1135": {
+        "id": 1135,
+        "name": "LendGo & Innovative Metrics",
+        "privacy": "https://ads.innovativeadserver.com/gdrp"
+    },
+    "1143": {
+        "id": 1143,
+        "name": "Audience2Media",
+        "privacy": "https://www.audience2media.com/privacy"
+    },
+    "1149": {
+        "id": 1149,
+        "name": "Tagtoo",
+        "privacy": "https://www.tagtoo.com.tw/privacy_en.html"
+    },
+    "1152": {
+        "id": 1152,
+        "name": "Addroid",
+        "privacy": "https://addroid.com/privacy.html"
+    },
+    "1162": {
+        "id": 1162,
+        "name": "Inmind",
+        "privacy": "https://opinion.com.ua/Default.aspx?p=confidential&l=1"
+    },
+    "1166": {
+        "id": 1166,
+        "name": "Bridgewell",
+        "privacy": "https://www.bridgewell.com/privacy/"
+    },
+    "1186": {
+        "id": 1186,
+        "name": "Orange Advertising",
+        "privacy": "https://www.orangeadvertising.fr/confidentialite-et-cookies/"
+    },
+    "1188": {
+        "id": 1188,
+        "name": "Advanse",
+        "privacy": "https://advanse.io/advanse-privacy-policy/"
+    },
+    "1205": {
+        "id": 1205,
+        "name": "Netflix",
+        "privacy": "http://www.netflix.com/google-3PAS-info"
+    },
+    "1215": {
+        "id": 1215,
+        "name": "GetIntent",
+        "privacy": "https://getintent.com/privacy/"
+    },
+    "1226": {
+        "id": 1226,
+        "name": "YRGLM Inc.",
+        "privacy": "https://www.ebis.ne.jp/gdpr_e/"
+    },
+    "1227": {
+        "id": 1227,
+        "name": "Trafmag",
+        "privacy": "http://trafmag.com/policy#gdpr"
+    },
+    "1230": {
+        "id": 1230,
+        "name": "Ligatus",
+        "privacy": "https://www.ligatus.com/en/privacy-policy"
+    },
+    "1252": {
+        "id": 1252,
+        "name": "CoAdvertise",
+        "privacy": "http://www.coadvertise.com/en/gdpr/"
+    },
+    "1268": {
+        "id": 1268,
+        "name": "Adcash",
+        "privacy": "https://adcash.com/legal/"
+    },
+    "1270": {
+        "id": 1270,
+        "name": "Stailamedia",
+        "privacy": "https://www.stailamedia.com/datenschutz"
+    },
+    "1276": {
+        "id": 1276,
+        "name": "ebuilders",
+        "privacy": "https://www.mediamonks.com/privacy-notice"
+    },
+    "1284": {
+        "id": 1284,
+        "name": "AdGibbon BV",
+        "privacy": "https://www.agcs.works/privacy-policy/"
+    },
+    "1290": {
+        "id": 1290,
+        "name": "Adtoox",
+        "privacy": "https://www.adtoox.com/en/privacy-policy"
+    },
+    "1301": {
+        "id": 1301,
+        "name": "AppLovin Corp.",
+        "privacy": "https://www.applovin.com/privacy"
+    },
+    "1307": {
+        "id": 1307,
+        "name": "SourceKnowledge",
+        "privacy": "http://www.sourceknowledge.com/privacy"
+    },
+    "1312": {
+        "id": 1312,
+        "name": "M,P,NEWMEDIA,",
+        "privacy": "https://www.mp-newmedia.com/datenschutz"
+    },
+    "1345": {
+        "id": 1345,
+        "name": "CrossInstall, Inc",
+        "privacy": "https://www.crossinstall.com/data"
+    },
+    "1356": {
+        "id": 1356,
+        "name": "OVC GmbH",
+        "privacy": "https://www.kissnofrog.com/legal/privacy"
+    },
+    "1364": {
+        "id": 1364,
+        "name": "CTP TECH, LLC",
+        "privacy": "https://www.creatopy.com/legal-information/privacy-policy/"
+    },
+    "1375": {
+        "id": 1375,
+        "name": "Adsniper",
+        "privacy": "http://ad-sniper.com/docs/privacy-en.pdf"
+    },
+    "1403": {
+        "id": 1403,
+        "name": "LINK Institut",
+        "privacy": "http://www.link.ch/privacy"
+    },
+    "1415": {
+        "id": 1415,
+        "name": "Rackspace",
+        "privacy": "http://www.rackspace.com/gdpr"
+    },
+    "1416": {
+        "id": 1416,
+        "name": "MediaWallah",
+        "privacy": "http://mediawallah.com/privacy-policy/"
+    },
+    "1421": {
+        "id": 1421,
+        "name": "Alkami Technology, Inc.",
+        "privacy": "https://www.alkami.com/privacy-policy/"
+    },
+    "1423": {
+        "id": 1423,
+        "name": "Liftoff",
+        "privacy": "https://liftoff.io/privacy-policy/"
+    },
+    "1440": {
+        "id": 1440,
+        "name": "YDigital Media",
+        "privacy": "http://ydigitalmedia.com/pt/privacy-policy"
+    },
+    "1449": {
+        "id": 1449,
+        "name": "MSI-ACI",
+        "privacy": "https://site.msi-aci.com/Home/Privacy"
+    },
+    "1455": {
+        "id": 1455,
+        "name": "Kimia Group",
+        "privacy": "https://kimiagroup.com/en/privacy-policy.html"
+    },
+    "1495": {
+        "id": 1495,
+        "name": "firststars",
+        "privacy": "https://firststars.de/datenschutzeinstellungen"
+    },
+    "1512": {
+        "id": 1512,
+        "name": "Vserv",
+        "privacy": "https://www.vserv.com/privacy-policy/"
+    },
+    "1516": {
+        "id": 1516,
+        "name": "Chocolate Platform",
+        "privacy": "https://chocolateplatform.com/privacy-policy/"
+    },
+    "1525": {
+        "id": 1525,
+        "name": "Datalicious",
+        "privacy": "https://www.datalicious.com/privacy/"
+    },
+    "1540": {
+        "id": 1540,
+        "name": "hbfsTech",
+        "privacy": "http://www.hbfstech.com/fr/privacy.html"
+    },
+    "1548": {
+        "id": 1548,
+        "name": "Exposebox",
+        "privacy": "https://exposebox.com/privacy-policy/"
+    },
+    "1555": {
+        "id": 1555,
+        "name": "YOOSE",
+        "privacy": "https://www.yoose.com/privacy-policy"
+    },
+    "1558": {
+        "id": 1558,
+        "name": "TripAdvisor",
+        "privacy": "https://tripadvisor.mediaroom.com/us-privacy-policy"
+    },
+    "1570": {
+        "id": 1570,
+        "name": "Navegg",
+        "privacy": "https://www.navegg.com/en/privacy-policy/"
+    },
+    "1577": {
+        "id": 1577,
+        "name": "Admedo",
+        "privacy": "https://www.admedo.com/privacy-policy"
+    },
+    "1579": {
+        "id": 1579,
+        "name": "Taptica",
+        "privacy": "https://www.taptica.com/privacy/"
+    },
+    "1583": {
+        "id": 1583,
+        "name": "Joystick Interactive",
+        "privacy": "http://joystickinteractive.com/privacy.html"
+    },
+    "1584": {
+        "id": 1584,
+        "name": "[24]7.ai (successor to EngageClick)",
+        "privacy": "https://www.247.ai/privacy-policy#gdpr_compliance"
+    },
+    "1591": {
+        "id": 1591,
+        "name": "Simplaex GmBH",
+        "privacy": "https://simplaex.com/advertising-privacy-policy/"
+    },
+    "1603": {
+        "id": 1603,
+        "name": "Maverick",
+        "privacy": "https://www.mvrck.co.jp/privacy/about-targeting-ad/"
+    },
+    "1616": {
+        "id": 1616,
+        "name": "LeadBolt",
+        "privacy": "https://www.leadbolt.com/privacy"
+    },
+    "1638": {
+        "id": 1638,
+        "name": "Wish",
+        "privacy": "https://www.wish.com/en-privacy-policy"
+    },
+    "1651": {
+        "id": 1651,
+        "name": "Mobitrans",
+        "privacy": "http://www.mobitrans.net/privacy-policy/"
+    },
+    "1653": {
+        "id": 1653,
+        "name": "Mobusi",
+        "privacy": "https://www.mobusi.com/privacy.en.html"
+    },
+    "1659": {
+        "id": 1659,
+        "name": "Domob",
+        "privacy": "https://www.domob.cn/article?id=advertiserPlatformPrivacyPolicy"
+    },
+    "1667": {
+        "id": 1667,
+        "name": "LOKA Research",
+        "privacy": "https://lokaplatform.com/privacy/"
+    },
+    "1677": {
+        "id": 1677,
+        "name": "IGAWorks",
+        "privacy": "http://www.igaworks.com/en/rule_user.html"
+    },
+    "1678": {
+        "id": 1678,
+        "name": "Aidata",
+        "privacy": "https://my.aidata.me/data/uploads/aidata.me-privacy-policy.pdf"
+    },
+    "1682": {
+        "id": 1682,
+        "name": "OneDigitalAd Technologies",
+        "privacy": "https://www.onedigitalad.com/privacy/privacyPolicy.html"
+    },
+    "1697": {
+        "id": 1697,
+        "name": "Unitymedia",
+        "privacy": "https://www.unitymedia.de/privatkunden/datenschutz/"
+    },
+    "1699": {
+        "id": 1699,
+        "name": "Perfect Audience",
+        "privacy": "https://www.perfectaudience.com/privacy/"
+    },
+    "1703": {
+        "id": 1703,
+        "name": "Clickagy",
+        "privacy": "https://www.clickagy.com/privacy/"
+    },
+    "1712": {
+        "id": 1712,
+        "name": "Dynamic Yield",
+        "privacy": "https://www.dynamicyield.com/gdpr/"
+    },
+    "1716": {
+        "id": 1716,
+        "name": "ADEX",
+        "privacy": "http://theadex.com"
+    },
+    "1721": {
+        "id": 1721,
+        "name": "Rontar",
+        "privacy": "https://www.rontar.com/privacy"
+    },
+    "1725": {
+        "id": 1725,
+        "name": "Placed",
+        "privacy": "https://foursquare.com/legal/privacy"
+    },
+    "1732": {
+        "id": 1732,
+        "name": "Answer Media",
+        "privacy": "http://www.answermedia.com/privacy"
+    },
+    "1745": {
+        "id": 1745,
+        "name": "Gruvi",
+        "privacy": "http://www.gruvi.tv/gdpr"
+    },
+    "1750": {
+        "id": 1750,
+        "name": "APNIC",
+        "privacy": "https://labs.apnic.net/privacy.shtml"
+    },
+    "1765": {
+        "id": 1765,
+        "name": "Aarki",
+        "privacy": "http://corp.aarki.com/privacy"
+    },
+    "1782": {
+        "id": 1782,
+        "name": "F@N communications",
+        "privacy": "https://www.fancs.com/privacypolicy"
+    },
+    "1786": {
+        "id": 1786,
+        "name": "DynAd",
+        "privacy": "https://www.dynad.net/en/privacy-and-terms.html"
+    },
+    "1800": {
+        "id": 1800,
+        "name": "VIVALU",
+        "privacy": "http://www.vivalu.com/downloads/de_DE/VIVALU_Datenschutz_2018.pdf"
+    },
+    "1810": {
+        "id": 1810,
+        "name": "Foursquare",
+        "privacy": "https://foursquare.com/legal/privacy"
+    },
+    "1825": {
+        "id": 1825,
+        "name": "Mozoo",
+        "privacy": "https://www.mozoo.com/privacy-policy"
+    },
+    "1827": {
+        "id": 1827,
+        "name": "Momentum",
+        "privacy": "https://www.m0mentum.co.jp/ja/privacy-policy.html"
+    },
+    "1832": {
+        "id": 1832,
+        "name": "Housing.com",
+        "privacy": "https://housing.com/terms.html"
+    },
+    "1838": {
+        "id": 1838,
+        "name": "ChannelAdvisor",
+        "privacy": "https://www.channeladvisor.com/privacy-policy/"
+    },
+    "1840": {
+        "id": 1840,
+        "name": "GoBID",
+        "privacy": "https://gobid.auction/privacy-policy/"
+    },
+    "1842": {
+        "id": 1842,
+        "name": "TF1 - FR",
+        "privacy": "https://www.tf1.fr/politique-de-confidentialite/"
+    },
+    "1843": {
+        "id": 1843,
+        "name": "Bonzai",
+        "privacy": "https://www.bonzai.co/privacy-policy/"
+    },
+    "1845": {
+        "id": 1845,
+        "name": "Adventive",
+        "privacy": "https://www.adventive.com/legal/privacy-policy"
+    },
+    "1859": {
+        "id": 1859,
+        "name": "Optimise",
+        "privacy": "https://www.optimisemedia.com/privacy-policy"
+    },
+    "1866": {
+        "id": 1866,
+        "name": "Demand Side Science, Inc.",
+        "privacy": "http://demand-side-science.jp/privacy"
+    },
+    "1870": {
+        "id": 1870,
+        "name": "SFR",
+        "privacy": "http://www.sfr.fr/securite-confidentialite.html"
+    },
+    "1878": {
+        "id": 1878,
+        "name": "Cablato",
+        "privacy": "https://cablato.com/privacy-policy/"
+    },
+    "1880": {
+        "id": 1880,
+        "name": "Erate",
+        "privacy": "http://www.eratead.com/privacy_policy.pdf"
+    },
+    "1889": {
+        "id": 1889,
+        "name": "Waystack",
+        "privacy": "https://www.wayfair.com/customerservice/general_info.php#privacy"
+    },
+    "1899": {
+        "id": 1899,
+        "name": "Epic Combo",
+        "privacy": "http://adagnit.io/privacy-policy/"
+    },
+    "1917": {
+        "id": 1917,
+        "name": "Vpon",
+        "privacy": "https://www.vpon.com/en/privacy"
+    },
+    "1929": {
+        "id": 1929,
+        "name": "Alkemics",
+        "privacy": "https://www.alkemics.com/privacy/"
+    },
+    "1942": {
+        "id": 1942,
+        "name": "NinthDecimal",
+        "privacy": "https://www.ninthdecimal.com/privacy/"
+    },
+    "1944": {
+        "id": 1944,
+        "name": "TenMax",
+        "privacy": "https://www.tenmax.io/gdpr-privacy-policy"
+    },
+    "1962": {
+        "id": 1962,
+        "name": "LotLinx®",
+        "privacy": "https://lotlinx.com/wp-content/uploads/LotLinx-Privacy-Statement.pdf"
+    },
+    "1963": {
+        "id": 1963,
+        "name": "F Sharp",
+        "privacy": "https://fsharp.co/privacy-policy"
+    },
+    "1964": {
+        "id": 1964,
+        "name": "A1 PerformanceFactory",
+        "privacy": "https://www.perfact.co.kr/privacy"
+    },
+    "1967": {
+        "id": 1967,
+        "name": "Qantas",
+        "privacy": "http://www.qantas.com/au/en/support/privacy-and-security.html#our-contact-details"
+    },
+    "1968": {
+        "id": 1968,
+        "name": "KEEN",
+        "privacy": "https://www.ingenio.com/privacypolicy"
+    },
+    "1969": {
+        "id": 1969,
+        "name": "JamLoop",
+        "privacy": "https://jamloop.com/opt-out/"
+    },
+    "1978": {
+        "id": 1978,
+        "name": "Gridsum",
+        "privacy": "https://ad2.gridsumdissector.com/about-googleadwords-privacy?lang=en"
+    },
+    "1985": {
+        "id": 1985,
+        "name": "Tapjoy",
+        "privacy": "https://www.tapjoy.com/legal/#privacy-policy"
+    },
+    "1987": {
+        "id": 1987,
+        "name": "Bigabid",
+        "privacy": "https://www.bigabid.com/Legal/"
+    },
+    "2003": {
+        "id": 2003,
+        "name": "Azameo",
+        "privacy": "http://www.azameo.fr/en/privacy-policy-notice/"
+    },
+    "2008": {
+        "id": 2008,
+        "name": "Ad2iction",
+        "privacy": "https://www.ad2iction.com/privacy/"
+    },
+    "2027": {
+        "id": 2027,
+        "name": "Localstars",
+        "privacy": "https://www.localstars.com/localstars-privacy-policy"
+    },
+    "2035": {
+        "id": 2035,
+        "name": "Roy Morgan Research",
+        "privacy": "http://www.roymorgan.com/digital-privacy"
+    },
+    "2039": {
+        "id": 2039,
+        "name": "Kadam",
+        "privacy": "https://www.kadam.net/ru/privacy-policy"
+    },
+    "2047": {
+        "id": 2047,
+        "name": "Enbritely",
+        "privacy": "https://enbrite.ly/privacy"
+    },
+    "2052": {
+        "id": 2052,
+        "name": "StreamRail",
+        "privacy": "https://www.ironsrc.com/wp-content/uploads/2016/11/ironSourceDisplayPrivacyPolicy.pdf"
+    },
+    "2056": {
+        "id": 2056,
+        "name": "Treepodia",
+        "privacy": "https://www.treepodia.com/En/docroot/Documents/Treepodia_Website_and_Platform_Privacy_Policy.pdf"
+    },
+    "2064": {
+        "id": 2064,
+        "name": "Bluecore, Inc.",
+        "privacy": "https://www.bluecore.com/privacy/"
+    },
+    "2068": {
+        "id": 2068,
+        "name": "Optimize LCC D.B.A Genius Monkey",
+        "privacy": "https://www.geniusmonkey.com/gdpr.php"
+    },
+    "2072": {
+        "id": 2072,
+        "name": "gskinner",
+        "privacy": "https://createjs.com/legal/privacy.html"
+    },
+    "2074": {
+        "id": 2074,
+        "name": "Yahoo! Japan",
+        "privacy": "http://docs.yahoo.co.jp/docs/info/terms/chapter1.html"
+    },
+    "2088": {
+        "id": 2088,
+        "name": "tapCLIQ",
+        "privacy": "https://www.tapcliq.com/privacy"
+    },
+    "2090": {
+        "id": 2090,
+        "name": "ADBOX",
+        "privacy": "http://www.adboxdigital.uk/privacy"
+    },
+    "2103": {
+        "id": 2103,
+        "name": "Crutchfield",
+        "privacy": "https://www.crutchfield.com/support/privacy.aspx"
+    },
+    "2107": {
+        "id": 2107,
+        "name": "Chalk Digital",
+        "privacy": "https://www.chalkdigital.com/index.php/privacy-policy-2/"
+    },
+    "2109": {
+        "id": 2109,
+        "name": "Bizible",
+        "privacy": "https://www.bizible.com/gdpr"
+    },
+    "2115": {
+        "id": 2115,
+        "name": "Oxford BioChronometrics",
+        "privacy": "https://oxford-biochron.com/privacy-policy/"
+    },
+    "2124": {
+        "id": 2124,
+        "name": "AdTile",
+        "privacy": "https://www.adtile.me/privacy-policy/"
+    },
+    "2130": {
+        "id": 2130,
+        "name": "Crucial Interactive Inc.",
+        "privacy": "https://www.advertisers.contobox.com/privacy-policy"
+    },
+    "2133": {
+        "id": 2133,
+        "name": "DeltaX",
+        "privacy": "http://www.deltax.com/gdpr.html"
+    },
+    "2135": {
+        "id": 2135,
+        "name": "OpenJS Foundation",
+        "privacy": "https://openjsf.org/wp-content/uploads/sites/84/2021/04/OpenJS-Foundation-Privacy-Policy-2019-11-15.pdf"
+    },
+    "2137": {
+        "id": 2137,
+        "name": "Somo Audience",
+        "privacy": "https://somoaudience.com/legal/"
+    },
+    "2140": {
+        "id": 2140,
+        "name": "Art of Click",
+        "privacy": "http://www.artofclick.com/privacy-policy/"
+    },
+    "2147": {
+        "id": 2147,
+        "name": "ENVISIONX LTD",
+        "privacy": "http://envisionx.co/privacy"
+    },
+    "2150": {
+        "id": 2150,
+        "name": "Wavenet",
+        "privacy": "https://www.wavenet.com.tw/privacy/"
+    },
+    "2156": {
+        "id": 2156,
+        "name": "twyn",
+        "privacy": "http://www.twyn.com/datenschutz.html"
+    },
+    "2166": {
+        "id": 2166,
+        "name": "Happyfication inc",
+        "privacy": "https://happyfication.com/privacy-policy/"
+    },
+    "2177": {
+        "id": 2177,
+        "name": "Adello",
+        "privacy": "http://www.adello.com/privacy-policy"
+    },
+    "2183": {
+        "id": 2183,
+        "name": "Tribes Research",
+        "privacy": "https://www.tribesresearch.co.uk/terms-conditions-cookie-and-privacy-policy/"
+    },
+    "2186": {
+        "id": 2186,
+        "name": "KeyCDN",
+        "privacy": "https://www.keycdn.com/gdpr"
+    },
+    "2205": {
+        "id": 2205,
+        "name": "MEDIAN",
+        "privacy": "https://www.median.eu/en/?page_id=257/"
+    },
+    "2213": {
+        "id": 2213,
+        "name": "jsdelivr",
+        "privacy": "https://www.jsdelivr.com/terms/privacy-policy-jsdelivr-net"
+    },
+    "2216": {
+        "id": 2216,
+        "name": "Sellpoints",
+        "privacy": "https://retargeter.com/legal-privacy/"
+    },
+    "2219": {
+        "id": 2219,
+        "name": "HockeyCurve",
+        "privacy": "https://hockeycurve.com/optout.html"
+    },
+    "2220": {
+        "id": 2220,
+        "name": "Umeng Plus Beijing Technology Limited Company",
+        "privacy": "https://dip.umeng.com/opt_out.html?spm=a211g2.181323.0.0.5c633604LjuRQc"
+    },
+    "2222": {
+        "id": 2222,
+        "name": "AdTrader",
+        "privacy": "https://adtrader.com/privacy.html"
+    },
+    "2225": {
+        "id": 2225,
+        "name": "JustWatch",
+        "privacy": "https://www.justwatch.com/uk/imprint"
+    },
+    "2234": {
+        "id": 2234,
+        "name": "Softcube",
+        "privacy": "http://softcube.com/privacy-policy"
+    },
+    "2253": {
+        "id": 2253,
+        "name": "CUBED",
+        "privacy": "http://cubed.ai/privacy-policy/gdpr/"
+    },
+    "2279": {
+        "id": 2279,
+        "name": "Intimate Merger",
+        "privacy": "https://corp.intimatemerger.com/privacypolicy-en/"
+    },
+    "2282": {
+        "id": 2282,
+        "name": "INCUBIQ",
+        "privacy": "https://incubiq.com/privacy"
+    },
+    "2292": {
+        "id": 2292,
+        "name": "1trn",
+        "privacy": "https://1trn.com/privacy.php"
+    },
+    "2305": {
+        "id": 2305,
+        "name": "E-Contenta",
+        "privacy": "https://e-contenta.com/en/privacy/"
+    },
+    "2309": {
+        "id": 2309,
+        "name": "WooTag",
+        "privacy": "https://www.wootag.com/privacy-policy/"
+    },
+    "2312": {
+        "id": 2312,
+        "name": "StartApp",
+        "privacy": "https://www.startapp.com/policy/privacy-policy/"
+    },
+    "2316": {
+        "id": 2316,
+        "name": "Expedia, Inc.",
+        "privacy": "https://www.expedia.co.uk/p/support/privacy"
+    },
+    "2322": {
+        "id": 2322,
+        "name": "PadSquad",
+        "privacy": "https://padsquad.com/privacy-policy"
+    },
+    "2325": {
+        "id": 2325,
+        "name": "OmniVirt",
+        "privacy": "https://www.omnivirt.com/tos/privacy/"
+    },
+    "2328": {
+        "id": 2328,
+        "name": "fluct",
+        "privacy": "https://corp.fluct.jp/privacy/"
+    },
+    "2331": {
+        "id": 2331,
+        "name": "Zucks",
+        "privacy": "http://zucks.co.jp/en/privacy/"
+    },
+    "2334": {
+        "id": 2334,
+        "name": "Conversion Logic",
+        "privacy": "http://www.conversionlogic.com/privacy-policy-overview/"
+    },
+    "2335": {
+        "id": 2335,
+        "name": "CollegeHumor",
+        "privacy": "https://www.dropout.tv/privacy"
+    },
+    "2336": {
+        "id": 2336,
+        "name": "Louder",
+        "privacy": "http://louder.com.au/privacy/"
+    },
+    "2337": {
+        "id": 2337,
+        "name": "Zuuvi",
+        "privacy": "https://zuuvi.com/privatlivspolitik/"
+    },
+    "2343": {
+        "id": 2343,
+        "name": "Viant",
+        "privacy": "https://viantinc.com/privacy-policy/"
+    },
+    "2354": {
+        "id": 2354,
+        "name": "Snitcher.com",
+        "privacy": "http://help.snitcher.com/general-information/does-snitcher-conform-to-the-gdpr"
+    },
+    "2357": {
+        "id": 2357,
+        "name": "Analights",
+        "privacy": "https://analights.com/docs/analights-consent-to-the-processing-of-personal-data-en.pdf"
+    },
+    "2358": {
+        "id": 2358,
+        "name": "ROMIR",
+        "privacy": "http://ssp.rmh.ru/files/privacy_policy_eng.pdf"
+    },
+    "2359": {
+        "id": 2359,
+        "name": "Pi-rate / pubintl",
+        "privacy": "https://pi-rate.com.au/privacy.html"
+    },
+    "2370": {
+        "id": 2370,
+        "name": "Cauly",
+        "privacy": "https://www.cauly.net/index.html#/home/privacy4"
+    },
+    "2376": {
+        "id": 2376,
+        "name": "Millemedia",
+        "privacy": "https://www.millemedia.de/datenschutz/"
+    },
+    "2377": {
+        "id": 2377,
+        "name": "ProData Media",
+        "privacy": "https://www.prodatamg.com/privacy-policy/"
+    },
+    "2387": {
+        "id": 2387,
+        "name": "Bidease",
+        "privacy": "https://bidease.com/terms-of-use"
+    },
+    "2400": {
+        "id": 2400,
+        "name": "Stratio Big Data",
+        "privacy": "https://www.mutua.es/politica-cookies/"
+    },
+    "2403": {
+        "id": 2403,
+        "name": "SCIBIDS TECHNOLOGY",
+        "privacy": "https://scibids.com/privacy-policy"
+    },
+    "2405": {
+        "id": 2405,
+        "name": "Cortex",
+        "privacy": "http://www.heraldweekly.com/privacy-policy/"
+    },
+    "2407": {
+        "id": 2407,
+        "name": "ProgSol.cz",
+        "privacy": "http://www.impressionmedia.cz/files/Zasady-ochrany-a-zpracovani-osobnich-udaju-IM.pdf"
+    },
+    "2411": {
+        "id": 2411,
+        "name": "LKQD",
+        "privacy": "https://www.nexstardigital.com/privacy/"
+    },
+    "2414": {
+        "id": 2414,
+        "name": "MADGIC",
+        "privacy": "https://www.madgic.com/privacy-and-protection-policy/"
+    },
+    "2416": {
+        "id": 2416,
+        "name": "UNICORN",
+        "privacy": "https://uncn.jp/cup?lan=en"
+    },
+    "2418": {
+        "id": 2418,
+        "name": "Wonderbly",
+        "privacy": "https://wonderbly.com/pages/privacy-policy"
+    },
+    "2425": {
+        "id": 2425,
+        "name": "Double Check",
+        "privacy": "https://adchex.com/privacy-policy/"
+    },
+    "2440": {
+        "id": 2440,
+        "name": "Fiverr",
+        "privacy": "https://www.fiverr.com/privacy-policy"
+    },
+    "2447": {
+        "id": 2447,
+        "name": "Pure Cobalt",
+        "privacy": "https://www.purecobalt.com/policy/"
+    },
+    "2461": {
+        "id": 2461,
+        "name": "Twinpine",
+        "privacy": "http://twinpinenetwork.com/privacy-policy/"
+    },
+    "2462": {
+        "id": 2462,
+        "name": "Mopedo",
+        "privacy": "http://mopedo.com/privacy-terms/"
+    },
+    "2465": {
+        "id": 2465,
+        "name": "ViewersLogic LTD",
+        "privacy": "https://www.viewerslogic.com/docs/Privacy-latest.html"
+    },
+    "2468": {
+        "id": 2468,
+        "name": "Maelico LTD",
+        "privacy": "https://hyperaudience.com/privacy_policy"
+    },
+    "2472": {
+        "id": 2472,
+        "name": "GroundhogTech",
+        "privacy": "https://www.ghtinc.com/privacy-policy/"
+    },
+    "2477": {
+        "id": 2477,
+        "name": "Netscore",
+        "privacy": "http://netscore.pl/polityka-prywatnosci/"
+    },
+    "2481": {
+        "id": 2481,
+        "name": "Ve Interactive",
+        "privacy": "https://www.ve.com/privacy-policy"
+    },
+    "2484": {
+        "id": 2484,
+        "name": "OpenLedger ApS",
+        "privacy": "https://hubdsp.com/assets_new/files/privacy_policy.pdf"
+    },
+    "2486": {
+        "id": 2486,
+        "name": "Whichit UK Ltd",
+        "privacy": "https://www.getwhichit.com/dataprotection"
+    },
+    "2488": {
+        "id": 2488,
+        "name": "Atedra",
+        "privacy": "https://www.atedra.com/privacy-policy/"
+    },
+    "2493": {
+        "id": 2493,
+        "name": "adlocal.net",
+        "privacy": "http://adlocal.net/privacy.php"
+    },
+    "2498": {
+        "id": 2498,
+        "name": "REES46",
+        "privacy": "https://docs.rees46.com/display/en/Legal"
+    },
+    "2501": {
+        "id": 2501,
+        "name": "AdFalcon",
+        "privacy": "http://www.adfalcon.com/en/tech-policy.html"
+    },
+    "2510": {
+        "id": 2510,
+        "name": "KAYAK",
+        "privacy": "https://www.kayak.com/privacy"
+    },
+    "2517": {
+        "id": 2517,
+        "name": "NativeAds.com",
+        "privacy": "https://nativeads.com/privacy-policy.php"
+    },
+    "2526": {
+        "id": 2526,
+        "name": "BDSK Handels GmbH & Co. KG",
+        "privacy": "https://www.xxxlutz.de/c/privacy"
+    },
+    "2527": {
+        "id": 2527,
+        "name": "RIESENIA.com",
+        "privacy": "https://www.adboost.sk/gdpr.html"
+    },
+    "2532": {
+        "id": 2532,
+        "name": "Airtory",
+        "privacy": "https://www.airtory.com/privacy-policy"
+    },
+    "2535": {
+        "id": 2535,
+        "name": "Cheetah Mobile",
+        "privacy": "https://www.cmcm.com/en/policies/privacy-policy"
+    },
+    "2542": {
+        "id": 2542,
+        "name": "Spring Venture Group",
+        "privacy": "http://www.springventuregroup.com/privacy-policy/"
+    },
+    "2552": {
+        "id": 2552,
+        "name": "Onseo",
+        "privacy": "http://onseo.biz/index.php/privacy-policy/"
+    },
+    "2563": {
+        "id": 2563,
+        "name": "Credebat",
+        "privacy": "https://www.credebat.com/privacy-policy"
+    },
+    "2564": {
+        "id": 2564,
+        "name": "Gruuv Interactive",
+        "privacy": "https://www.gruuvinteractive.com/privacy-policy/"
+    },
+    "2567": {
+        "id": 2567,
+        "name": "Supership",
+        "privacy": "https://supership.jp/optout/"
+    },
+    "2568": {
+        "id": 2568,
+        "name": "Marketing Science Consulting Group, Inc.",
+        "privacy": "http://mktsci.com/privacy_policy.htm"
+    },
+    "2569": {
+        "id": 2569,
+        "name": "Reactive",
+        "privacy": "http://reactive-agency.ru/privacy.html"
+    },
+    "2571": {
+        "id": 2571,
+        "name": "DENTSU",
+        "privacy": "http://www.dentsu.co.jp/terms/data_policy.html"
+    },
+    "2572": {
+        "id": 2572,
+        "name": "Snap Inc.",
+        "privacy": "https://www.snap.com/en-US/privacy/privacy-policy/"
+    },
+    "2575": {
+        "id": 2575,
+        "name": "Kobler",
+        "privacy": "https://kobler.no/privacy-policy"
+    },
+    "2577": {
+        "id": 2577,
+        "name": "AppsFlyer",
+        "privacy": "https://www.appsflyer.com/privacy-policy/"
+    },
+    "2583": {
+        "id": 2583,
+        "name": "Nexus Soft",
+        "privacy": "https://www.nexus-soft.org/index/privacy"
+    },
+    "2584": {
+        "id": 2584,
+        "name": "Giantmedia",
+        "privacy": "http://giantmedia.com/about-giant/privacy-policy/"
+    },
+    "2596": {
+        "id": 2596,
+        "name": "D4",
+        "privacy": "https://www.dentsu.com/nz/en/policies/privacy-notices"
+    },
+    "2604": {
+        "id": 2604,
+        "name": "Native Touch",
+        "privacy": "https://nativetouch.com/privacy-policy/"
+    },
+    "2605": {
+        "id": 2605,
+        "name": "Branch",
+        "privacy": "https://branch.io/policies/"
+    },
+    "2608": {
+        "id": 2608,
+        "name": "Bannerwise",
+        "privacy": "https://www.bannerwise.io/privacy-policy"
+    },
+    "2609": {
+        "id": 2609,
+        "name": "Pathmatics",
+        "privacy": "https://www.pathmatics.com/privacy#advertising"
+    },
+    "2610": {
+        "id": 2610,
+        "name": "N2",
+        "privacy": "https://n2.fi/privacy-policy/"
+    },
+    "2612": {
+        "id": 2612,
+        "name": "Net Info",
+        "privacy": "https://www.netinfocompany.bg/privacy.php"
+    },
+    "2614": {
+        "id": 2614,
+        "name": "Adnetic",
+        "privacy": "https://adnetic.ru/policies/privacy"
+    },
+    "2621": {
+        "id": 2621,
+        "name": "OpinionAds",
+        "privacy": "https://opinionads.com/privacy"
+    },
+    "2628": {
+        "id": 2628,
+        "name": "Qualtrics",
+        "privacy": "https://www.qualtrics.com/uk/platform/gdpr/"
+    },
+    "2629": {
+        "id": 2629,
+        "name": "Advertserve",
+        "privacy": "https://privacy.advertserve.com/"
+    },
+    "2633": {
+        "id": 2633,
+        "name": "Kaufda",
+        "privacy": "https://www.kaufda.de/Datenschutz"
+    },
+    "2636": {
+        "id": 2636,
+        "name": "Softcrylic",
+        "privacy": "https://softcrylic.com/privacy-policy/"
+    },
+    "2642": {
+        "id": 2642,
+        "name": "Delta Air Lines",
+        "privacy": "https://www.delta.com/us/en/legal/privacy-and-security"
+    },
+    "2643": {
+        "id": 2643,
+        "name": "Sape",
+        "privacy": "https://traffic.sape.ru/policy.html"
+    },
+    "2645": {
+        "id": 2645,
+        "name": "AdPlay",
+        "privacy": "https://rtb.adplay-mobile.com/privacy-policy"
+    },
+    "2646": {
+        "id": 2646,
+        "name": "AppGrowth Inc.",
+        "privacy": "https://s3.amazonaws.com/appgrowth-cloud/legal/Privacy-Policy-Appgrowth.pdf"
+    },
+    "2650": {
+        "id": 2650,
+        "name": "Tapklik",
+        "privacy": "https://www.tapklik.com/gdpr"
+    },
+    "2651": {
+        "id": 2651,
+        "name": "Vertoz",
+        "privacy": "https://www.vertoz.com/privacy-policy/"
+    },
+    "2652": {
+        "id": 2652,
+        "name": "Sketchfab, Inc.",
+        "privacy": "https://sketchfab.com/privacy"
+    },
+    "2656": {
+        "id": 2656,
+        "name": "Taiwan Mobile Co Ltd",
+        "privacy": "https://www.ghtinc.com/privacy-policy/"
+    },
+    "2657": {
+        "id": 2657,
+        "name": "Adstra",
+        "privacy": "https://www.alc.com/privacy-policy/"
+    },
+    "2658": {
+        "id": 2658,
+        "name": "Alooma",
+        "privacy": "http://alooma.tv/privacypolicy.htm"
+    },
+    "2660": {
+        "id": 2660,
+        "name": "北京泛为信息科技有限公司",
+        "privacy": "http://www.fancydigital.com.cn/html/privacy_GDRP.html"
+    },
+    "2661": {
+        "id": 2661,
+        "name": "ListenLoop",
+        "privacy": "https://listenloop.com/user-consent-policy"
+    },
+    "2669": {
+        "id": 2669,
+        "name": "Display.direct",
+        "privacy": "https://display.direct/wp-content/uploads/2018/04/Privacy-Policy.pdf"
+    },
+    "2670": {
+        "id": 2670,
+        "name": "Amino Payments, Inc.",
+        "privacy": "https://integralads.com/ias-privacy-data-management/"
+    },
+    "2677": {
+        "id": 2677,
+        "name": "Vimeo",
+        "privacy": "https://vimeo.com/cookie_policy"
+    },
+    "2681": {
+        "id": 2681,
+        "name": "AdRetarget",
+        "privacy": "https://adretarget.me/privacy-policy"
+    },
+    "2684": {
+        "id": 2684,
+        "name": "LANDS' END",
+        "privacy": "https://www.landsend.com/customerservice/legal_policies/privacy/"
+    },
+    "2687": {
+        "id": 2687,
+        "name": "DPG Media BV",
+        "privacy": "https://www.persgroep.nl/privacy"
+    },
+    "2690": {
+        "id": 2690,
+        "name": "Vertriebswerk",
+        "privacy": "https://eazy.de/agb"
+    },
+    "2695": {
+        "id": 2695,
+        "name": "TVadSync",
+        "privacy": "https://www.tvadsync.com/privacy-policy/"
+    },
+    "2698": {
+        "id": 2698,
+        "name": "X-Social",
+        "privacy": "http://www.xsocialgroup.com/PrivacyPolicy.html"
+    },
+    "2713": {
+        "id": 2713,
+        "name": "Fresh8 Gaming",
+        "privacy": "https://www.fresh8gaming.com/privacy"
+    },
+    "2714": {
+        "id": 2714,
+        "name": "Tail",
+        "privacy": "https://www.tail.digital/#privacy"
+    },
+    "2729": {
+        "id": 2729,
+        "name": "TotalJobs Group Ltd",
+        "privacy": "https://www.totaljobs.com/privacy-policy"
+    },
+    "2739": {
+        "id": 2739,
+        "name": "IOTEC",
+        "privacy": "https://www.iotecglobal.com/privacy-policy/"
+    },
+    "2767": {
+        "id": 2767,
+        "name": "Hotels.com L. P.",
+        "privacy": "https://uk.hotels.com/customer_care/privacy.html"
+    },
+    "2768": {
+        "id": 2768,
+        "name": "Overstock",
+        "privacy": "https://help.overstock.com/help/s/article/PRIVACY-AND-SECURITY-POLICY"
+    },
+    "2770": {
+        "id": 2770,
+        "name": "Thomann GmbH",
+        "privacy": "https://www.thomann.de/de/compinfo_privacy.html"
+    },
+    "2772": {
+        "id": 2772,
+        "name": "Combell",
+        "privacy": "https://www.combell.com/nl/over-combell/privacy-policy"
+    },
+    "2784": {
+        "id": 2784,
+        "name": "Yabbi",
+        "privacy": "http://dsp.yabbi.me/#popup-privacy"
+    },
+    "2787": {
+        "id": 2787,
+        "name": "Datafy",
+        "privacy": "http://www.datafy-software.com/cookie-policy/"
+    },
+    "2791": {
+        "id": 2791,
+        "name": "Swaven",
+        "privacy": "http://www.swaven.com/cookie-policy/"
+    },
+    "2792": {
+        "id": 2792,
+        "name": "Hashtag'd",
+        "privacy": "https://hashtagd.net/about/privacy"
+    },
+    "2798": {
+        "id": 2798,
+        "name": "True Wave Technologies Limited",
+        "privacy": "http://truewave.io/gdpr.html"
+    },
+    "2801": {
+        "id": 2801,
+        "name": "Alion",
+        "privacy": "https://www.alion.nl/privacy/"
+    },
+    "2805": {
+        "id": 2805,
+        "name": "Dumarca Gaming Ltd",
+        "privacy": "https://www.verajohn.com/about/privacy-policy"
+    },
+    "2812": {
+        "id": 2812,
+        "name": "EFICIENS",
+        "privacy": "https://www.eficiens.com/privacy/"
+    },
+    "2813": {
+        "id": 2813,
+        "name": "Barometric",
+        "privacy": "https://barometric.com/privacy"
+    },
+    "2816": {
+        "id": 2816,
+        "name": "Digitalsunray",
+        "privacy": "https://www.digitalsunray.com/de/datenschutz"
+    },
+    "2817": {
+        "id": 2817,
+        "name": "Affiliate Future",
+        "privacy": "http://affiliatefuture.co.uk/Legal/privacy"
+    },
+    "2821": {
+        "id": 2821,
+        "name": "HasOffer - Tune, Inc",
+        "privacy": "https://www.hasoffers.com/privacy-policy/"
+    },
+    "2822": {
+        "id": 2822,
+        "name": "Adjust GmbH",
+        "privacy": "https://www.adjust.com/terms/gdpr/"
+    },
+    "2827": {
+        "id": 2827,
+        "name": "Journey by CAKE",
+        "privacy": "http://getcake.com/privacy-policy/#rights"
+    },
+    "2830": {
+        "id": 2830,
+        "name": "LivePartners",
+        "privacy": "https://www.livepartners.com/confidentiality.html"
+    },
+    "2831": {
+        "id": 2831,
+        "name": "APEX Mobile Media",
+        "privacy": "https://www.apexmobilemedia.com/privacy-policy"
+    },
+    "2834": {
+        "id": 2834,
+        "name": "FXCM.com",
+        "privacy": "https://www.fxcm.com/uk/legal/data-protection-rights/"
+    },
+    "2838": {
+        "id": 2838,
+        "name": "Rambla",
+        "privacy": "https://www.rambla.be/privacy-policy/"
+    },
+    "2839": {
+        "id": 2839,
+        "name": "Digital Ad Systems, Corp.",
+        "privacy": "https://eu.dashboard.digitaladsystems.com/privacy.html"
+    },
+    "2844": {
+        "id": 2844,
+        "name": "R.O.EYE Limited",
+        "privacy": "https://www.roeye.com/privacy"
+    },
+    "2846": {
+        "id": 2846,
+        "name": "Milanoo",
+        "privacy": "https://www.milanoo.com/help/index-id-1459-childcat-2043.html"
+    },
+    "2849": {
+        "id": 2849,
+        "name": "DAPP GLOBAL LIMITED",
+        "privacy": "http://ad.duapps.com/gdpr/"
+    },
+    "2850": {
+        "id": 2850,
+        "name": "Hargreaves Lansdown",
+        "privacy": "https://www.hl.co.uk/privacy-policy"
+    },
+    "2852": {
+        "id": 2852,
+        "name": "Bauhof Group AS",
+        "privacy": "https://www.bauhof.ee/kliendiandmete-kasutamise-pohimotted"
+    },
+    "2854": {
+        "id": 2854,
+        "name": "Retail Rocket LLC",
+        "privacy": "https://my.retailrocket.ru/dsp/privacy"
+    },
+    "2860": {
+        "id": 2860,
+        "name": "JYSK LINNEN'N FURNITURE OÜ",
+        "privacy": "https://www.jysk.ee/cookies"
+    },
+    "2862": {
+        "id": 2862,
+        "name": "Bluesummit",
+        "privacy": "https://www.bluesummit.de/datenschutz/"
+    },
+    "2863": {
+        "id": 2863,
+        "name": "xCheck",
+        "privacy": "http://www.xcheck.co/privacy"
+    },
+    "2865": {
+        "id": 2865,
+        "name": "Butlers GmbH & Co. KG",
+        "privacy": "https://www.butlers.com/COMPANY_PRIVACY.html"
+    },
+    "2867": {
+        "id": 2867,
+        "name": "Bose",
+        "privacy": "https://www.bose.co.uk/en_gb/legal/cookie_policy.html"
+    },
+    "2869": {
+        "id": 2869,
+        "name": "Throtle",
+        "privacy": "https://throtle.io/privacy/"
+    },
+    "2873": {
+        "id": 2873,
+        "name": "Red Cubes Ltd",
+        "privacy": "https://www.redcubes.biz/privacy-policy"
+    },
+    "2874": {
+        "id": 2874,
+        "name": "Tchibo GmbH",
+        "privacy": "https://www.tchibo.de/cookies-tracking-re-targeting-s400092901.html"
+    },
+    "2875": {
+        "id": 2875,
+        "name": "Astromotion",
+        "privacy": "http://astromotiongames.com/gdpr"
+    },
+    "2876": {
+        "id": 2876,
+        "name": "HOPLA Ads",
+        "privacy": "https://hopla.online/privacy-policy/"
+    },
+    "2878": {
+        "id": 2878,
+        "name": "ironSource Mobile",
+        "privacy": "https://developers.ironsrc.com/ironsource-mobile/air/ironsource-mobile-privacy-policy"
+    },
+    "2880": {
+        "id": 2880,
+        "name": "NETBET",
+        "privacy": "https://affiliates.netbet.gr/en/terms-conditions.html"
+    },
+    "2881": {
+        "id": 2881,
+        "name": "ETERNA",
+        "privacy": "https://www.eterna.de/datenschutz"
+    },
+    "2882": {
+        "id": 2882,
+        "name": "Loopa",
+        "privacy": "http://www.signifimedia.com.au/home/privacy"
+    },
+    "2883": {
+        "id": 2883,
+        "name": "世纪富轩科技发展（北京）有限公司",
+        "privacy": "http://help.dhgate.com/help/buyer_about_usen.php?catpid=g9"
+    },
+    "2884": {
+        "id": 2884,
+        "name": "Amp.ai by Scaled Inference",
+        "privacy": "https://scaledinference.com/privacy-policy"
+    },
+    "2886": {
+        "id": 2886,
+        "name": "Calzedonia",
+        "privacy": "https://world.calzedonia.com/custserv/custserv.jsp?pageName=faq-legal-information#tab1"
+    },
+    "2887": {
+        "id": 2887,
+        "name": "Uber Technologies Inc.",
+        "privacy": "https://privacy.uber.com/policy"
+    },
+    "2888": {
+        "id": 2888,
+        "name": "modellbau universe GbR",
+        "privacy": "https://www.modellbau-universe.de/datenschutz.htm"
+    },
+    "2889": {
+        "id": 2889,
+        "name": "Medialabs",
+        "privacy": "https://medialabs.es/privacy-policy"
+    },
+    "2891": {
+        "id": 2891,
+        "name": "Nordisk Film A/S",
+        "privacy": "http://adnordic.eu/privacypolicy.html"
+    },
+    "2893": {
+        "id": 2893,
+        "name": "Advrtas",
+        "privacy": "https://advrtas.com/privacy-policy/"
+    },
+    "2894": {
+        "id": 2894,
+        "name": "Viewst",
+        "privacy": "https://old.viewst.com/privacy_policy"
+    },
+    "2895": {
+        "id": 2895,
+        "name": "Clickwise",
+        "privacy": "https://clickwise.net/section/terms"
+    },
+    "2897": {
+        "id": 2897,
+        "name": "coupling media",
+        "privacy": "https://www.coupling-media.de/datenschutz.html"
+    },
+    "2898": {
+        "id": 2898,
+        "name": "Chartboost",
+        "privacy": "https://answers.chartboost.com/en-us/articles/200780269"
+    },
+    "2900": {
+        "id": 2900,
+        "name": "Admost",
+        "privacy": "http://adserver.admost.com/privacypolicy.html"
+    },
+    "2901": {
+        "id": 2901,
+        "name": "Squeezely",
+        "privacy": "https://squeezely.tech/privacy"
+    },
+    "2908": {
+        "id": 2908,
+        "name": "MediaPal",
+        "privacy": "http://mediapal.net/gdpr-compliance"
+    },
+    "2909": {
+        "id": 2909,
+        "name": "Marketing Town",
+        "privacy": "https://m-t.io/privacy"
+    },
+    "2916": {
+        "id": 2916,
+        "name": "Next Level – Affiliate Marketing",
+        "privacy": "https://nextlevel.sl/datenschutz/"
+    },
+    "2917": {
+        "id": 2917,
+        "name": "Movable Ink",
+        "privacy": "https://movableink.com/legal/privacy"
+    },
+    "2918": {
+        "id": 2918,
+        "name": "Flexitive",
+        "privacy": "https://app.flexitive.com/signup/privacy"
+    },
+    "2919": {
+        "id": 2919,
+        "name": "Divvit AB",
+        "privacy": "https://www.divvit.com/privacy"
+    },
+    "2920": {
+        "id": 2920,
+        "name": "Tuky Data",
+        "privacy": "https://tuky.net/privacy.html"
+    },
+    "2922": {
+        "id": 2922,
+        "name": "Glassdoor, Inc.",
+        "privacy": "https://www.glassdoor.com/gdpr/index.htm"
+    },
+    "2923": {
+        "id": 2923,
+        "name": "AdUnity LTD",
+        "privacy": "https://www.adunity.com/privacy-policy.html"
+    },
+    "2927": {
+        "id": 2927,
+        "name": "OSCARO COM",
+        "privacy": "https://www.oscaro.com/fr/info/securite-confidentialite"
+    },
+    "2929": {
+        "id": 2929,
+        "name": "AdLib Digital Limited",
+        "privacy": "https://www.ad-lib.io/privacy-policy"
+    },
+    "2930": {
+        "id": 2930,
+        "name": "Systemina",
+        "privacy": "https://www.systemina.dk/persondatapolitik"
+    },
+    "2931": {
+        "id": 2931,
+        "name": "BanterX Inc",
+        "privacy": "https://www.banterx.com/privacy-policy.html"
+    },
+    "2940": {
+        "id": 2940,
+        "name": "Reas Travel Group",
+        "privacy": "https://www.tjingo.nl/privacy-beleid"
+    },
+    "2941": {
+        "id": 2941,
+        "name": "Conrad",
+        "privacy": "https://www.conrad.de/de/ueber-conrad/rechtliches/datenschutz"
+    },
+    "2947": {
+        "id": 2947,
+        "name": "geolad GmbH",
+        "privacy": "https://geolad.com/privacy/"
+    },
+    "2949": {
+        "id": 2949,
+        "name": "Shutterstock, Inc.",
+        "privacy": "https://www.shutterstock.com/privacy"
+    },
+    "2950": {
+        "id": 2950,
+        "name": "TheINDUSTRY AG",
+        "privacy": "https://www.adspot.ch/j/cookies/policy"
+    },
+    "2956": {
+        "id": 2956,
+        "name": "Maytrics",
+        "privacy": "https://www.maytrics.com/privacy.php"
+    },
+    "2958": {
+        "id": 2958,
+        "name": "QWARRY",
+        "privacy": "https://qwarry.com/privacy-policy/"
+    },
+    "2961": {
+        "id": 2961,
+        "name": "Plan.Net Performance",
+        "privacy": "https://www.plan-net.com/en/privacy-policy.html"
+    },
+    "2963": {
+        "id": 2963,
+        "name": "CONTXTFUL",
+        "privacy": "https://www.contxtful.com/Privacy/"
+    },
+    "2964": {
+        "id": 2964,
+        "name": "Digital Hub Hannover GmbH",
+        "privacy": "https://www.digitalhub-h.de/datenschutz/"
+    },
+    "2965": {
+        "id": 2965,
+        "name": "Human Made Machine Limited",
+        "privacy": "https://surveymachine.io/#privacy"
+    },
+    "2966": {
+        "id": 2966,
+        "name": "RETENCY",
+        "privacy": "http://www.retency.com/stats/fr/"
+    },
+    "2968": {
+        "id": 2968,
+        "name": "MHU",
+        "privacy": "http://adprov.io/privacy-policy/"
+    },
+    "2973": {
+        "id": 2973,
+        "name": "Carrefour",
+        "privacy": "https://www.carrefour.es/politica-de-privacidad/mas-info/"
+    },
+    "2975": {
+        "id": 2975,
+        "name": "mobilcom-debitel",
+        "privacy": "https://www.mobilcom-debitel.de/legal/datenschutz/"
+    },
+    "2979": {
+        "id": 2979,
+        "name": "Logiq Digital Marketing",
+        "privacy": "https://rebelai.com/gdpr"
+    },
+    "2980": {
+        "id": 2980,
+        "name": "NUROFY AS",
+        "privacy": "https://www.nurofy.no/privacy-policy/"
+    },
+    "2981": {
+        "id": 2981,
+        "name": "FLYWHEEL",
+        "privacy": "https://www.flywheel.jp/privacy-policy/"
+    },
+    "2983": {
+        "id": 2983,
+        "name": "Data2Decisions",
+        "privacy": "http://data2decisions.com/privacy-and-cookie-policy/"
+    },
+    "2985": {
+        "id": 2985,
+        "name": "FranceTV Publicité",
+        "privacy": "https://www.francetelevisions.fr/groupe/confidentialite/politique-de-confidentialite/quels-sont-mes-droits-et-comment-les-exercer-35"
+    },
+    "2986": {
+        "id": 2986,
+        "name": "Kelkoo",
+        "privacy": "https://www.kelkoo.fr/info-societe/politique-confidentialite"
+    },
+    "2987": {
+        "id": 2987,
+        "name": "Prodege, LLC.",
+        "privacy": "https://www.prodege.com/privacy-policy-intl/"
+    },
+    "2994": {
+        "id": 2994,
+        "name": "Isobar Czech Republic",
+        "privacy": "https://www.isobar.com/cz/en/privacy/"
+    },
+    "2995": {
+        "id": 2995,
+        "name": "SpiderAF",
+        "privacy": "https://spideraf.com/privacy"
+    },
+    "2997": {
+        "id": 2997,
+        "name": "ADLOOP",
+        "privacy": "https://adloop.co/en/privacy-policy/"
+    },
+    "2999": {
+        "id": 2999,
+        "name": "Woobi",
+        "privacy": "https://woobi.com/privacy/"
+    },
+    "3000": {
+        "id": 3000,
+        "name": "We Adapt",
+        "privacy": "https://weadapt.digital/privacy-policy/"
+    },
+    "3002": {
+        "id": 3002,
+        "name": "TrafficGuard",
+        "privacy": "https://www.trafficguard.ai/gdpr/"
+    },
+    "3003": {
+        "id": 3003,
+        "name": "Sixide",
+        "privacy": "https://sixide.com/sites/default/files/doc/SIXIDE-PP.pdf"
+    },
+    "3005": {
+        "id": 3005,
+        "name": "Dativa",
+        "privacy": "https://www.dativa.com/privacy/"
+    },
+    "3008": {
+        "id": 3008,
+        "name": "Partnerize",
+        "privacy": "https://partnerize.com/en/privacy-policy"
+    },
+    "3009": {
+        "id": 3009,
+        "name": "Click2Buy",
+        "privacy": "https://www.click2buy.com/privacy-policy/"
+    },
+    "3010": {
+        "id": 3010,
+        "name": "VF Visual Fantastix Tanner",
+        "privacy": "https://sitebarad.com/de/datenschutz.html"
+    },
+    "3012": {
+        "id": 3012,
+        "name": "Stream",
+        "privacy": "https://stream.ru/private"
+    },
+    "3016": {
+        "id": 3016,
+        "name": "Channel Four Television Corporation",
+        "privacy": "https://www.channel4.com/4viewers/policies-overview"
+    },
+    "3017": {
+        "id": 3017,
+        "name": "Boston Consulting Group",
+        "privacy": "https://www.bcg.com/en-us/about/privacy-policy.aspx"
+    },
+    "3018": {
+        "id": 3018,
+        "name": "Go Mobile",
+        "privacy": "https://gotechnology.io/privace-policy-adx.html"
+    },
+    "3019": {
+        "id": 3019,
+        "name": "Next",
+        "privacy": "https://www.next.co.uk/privacy"
+    },
+    "3024": {
+        "id": 3024,
+        "name": "Method Media Intelligence",
+        "privacy": "https://www.methodmi.com/privacy-policy"
+    },
+    "3025": {
+        "id": 3025,
+        "name": "Ubex DSP",
+        "privacy": "https://static.ubex.io/legal/policy.pdf"
+    },
+    "3028": {
+        "id": 3028,
+        "name": "iAGE Engineering",
+        "privacy": "http://iageengineering.net/policy"
+    },
+    "3034": {
+        "id": 3034,
+        "name": "Clario",
+        "privacy": "https://www.clar.io/privacy"
+    },
+    "3038": {
+        "id": 3038,
+        "name": "POWSTER",
+        "privacy": "https://nearestshowtimes.s-prod.pow.io/privacy"
+    },
+    "3043": {
+        "id": 3043,
+        "name": "Adcombi",
+        "privacy": "https://www.adcombi.com/privacy/"
+    },
+    "3048": {
+        "id": 3048,
+        "name": "YouAppi",
+        "privacy": "http://youappi.com/privacy-policy"
+    },
+    "3052": {
+        "id": 3052,
+        "name": "Koninklijke Philips N.V.",
+        "privacy": "https://www.philips.com/a-w/privacy-notice.html#triggername=info_how_we_protect_data"
+    },
+    "3053": {
+        "id": 3053,
+        "name": "AdPlayer.Pro",
+        "privacy": "https://adplayer.pro/privacy"
+    },
+    "3055": {
+        "id": 3055,
+        "name": "Quiet Media",
+        "privacy": "http://qt.media/opt-out"
+    },
+    "3058": {
+        "id": 3058,
+        "name": "The Very Group",
+        "privacy": "https://www.very.co.uk/privacy-terms.page"
+    },
+    "3059": {
+        "id": 3059,
+        "name": "Factual Inc.",
+        "privacy": "https://www.factual.com/privacy"
+    },
+    "3063": {
+        "id": 3063,
+        "name": "Oktawave",
+        "privacy": "https://www.oktawave.com/pl/firma/informacje-prawne/polityka-prywatnosci"
+    },
+    "3066": {
+        "id": 3066,
+        "name": "Coinzilla",
+        "privacy": "https://coinzilla.com/privacy-policy/"
+    },
+    "3068": {
+        "id": 3068,
+        "name": "Vital Media",
+        "privacy": "https://zefirgood1.ru/opt-out"
+    },
+    "3070": {
+        "id": 3070,
+        "name": "STEP A/S",
+        "privacy": "https://www.step.dk/cookie-privatlivspolitik"
+    },
+    "3073": {
+        "id": 3073,
+        "name": "E.ON Energie Deutschland GmbH",
+        "privacy": "https://www.eon.de/de/pk/datenschutz.html"
+    },
+    "3074": {
+        "id": 3074,
+        "name": "Getquanty",
+        "privacy": "http://www.getquanty.com/mentions-legales/"
+    },
+    "3075": {
+        "id": 3075,
+        "name": "MT-TECHNOLOGIES LLC",
+        "privacy": "https://static.wi-fi.ru/docs/offers/offer_portal.pdf"
+    },
+    "3076": {
+        "id": 3076,
+        "name": "EasyPlatform",
+        "privacy": "https://easyplatform.com/policy.php"
+    },
+    "3077": {
+        "id": 3077,
+        "name": "Retargetly",
+        "privacy": "https://retargetly.com/privacy-policy/"
+    },
+    "3089": {
+        "id": 3089,
+        "name": "Transmit.Live",
+        "privacy": "https://transmit.live/privacy-policy/"
+    },
+    "3090": {
+        "id": 3090,
+        "name": "Goodeed",
+        "privacy": "https://goodeed.com/knowmore/privacypolicy"
+    },
+    "3093": {
+        "id": 3093,
+        "name": "MMG",
+        "privacy": "https://themoneydaily.com/privacy-policy/"
+    },
+    "3094": {
+        "id": 3094,
+        "name": "Spirable",
+        "privacy": "https://www.spirable.com/privacy-policy"
+    },
+    "3095": {
+        "id": 3095,
+        "name": "Kwanza DSP",
+        "privacy": "https://kwanza.co.tz/gdpr-compliance"
+    },
+    "3097": {
+        "id": 3097,
+        "name": "Flarie",
+        "privacy": "https://flarie.com/privacy"
+    },
+    "3099": {
+        "id": 3099,
+        "name": "OTM Worldwide LLC",
+        "privacy": "http://otm-r.com/privacy_policy/"
+    },
+    "3100": {
+        "id": 3100,
+        "name": "Pangle DSP",
+        "privacy": "https://partner.oceanengine.com/privacy"
+    },
+    "3106": {
+        "id": 3106,
+        "name": "FORTVISION",
+        "privacy": "https://www.fortvision.com/privacy-policy/index.html"
+    },
+    "3109": {
+        "id": 3109,
+        "name": "Dynamo.video",
+        "privacy": "https://dynamo.video/en/privacy-policy/"
+    },
+    "3112": {
+        "id": 3112,
+        "name": "Buzzoola",
+        "privacy": "https://buzzoola.com/en/privacy"
+    },
+    "3117": {
+        "id": 3117,
+        "name": "Blue Face co.,Ltd",
+        "privacy": "https://www.clickmon.co.kr/home_new/rt_info.php"
+    },
+    "3119": {
+        "id": 3119,
+        "name": "Cloudinary, Inc.",
+        "privacy": "https://cloudinary.com/privacy"
+    },
+    "3126": {
+        "id": 3126,
+        "name": "clean.io",
+        "privacy": "https://clean.io/privacy-policy/"
+    },
+    "3127": {
+        "id": 3127,
+        "name": "Nomura",
+        "privacy": "https://www.nomuraholdings.com/policy/privacy.html"
+    },
+    "3128": {
+        "id": 3128,
+        "name": "Pandora",
+        "privacy": "https://it.pandora.net/it/politica-sui-cookie/cookie-policy.html"
+    },
+    "3130": {
+        "id": 3130,
+        "name": "Target RTB",
+        "privacy": "http://new-programmatic.com/privacy.htm"
+    },
+    "3135": {
+        "id": 3135,
+        "name": "MI DSP",
+        "privacy": "http://whiteboxdigital.ru/policy.pdf"
+    },
+    "3136": {
+        "id": 3136,
+        "name": "Programmatic Ecosystem LLC",
+        "privacy": "http://mediasniper.ru/confidency.php"
+    },
+    "3145": {
+        "id": 3145,
+        "name": "bly",
+        "privacy": "https://www.bly.ch/datenschutz/"
+    },
+    "3150": {
+        "id": 3150,
+        "name": "Adwatch",
+        "privacy": "http://theadwatch.com/politica-privacidad/"
+    },
+    "3151": {
+        "id": 3151,
+        "name": "t2ó",
+        "privacy": "https://www.t2omedia.com/en/privacy-policy/"
+    },
+    "3154": {
+        "id": 3154,
+        "name": "GROUPE M6",
+        "privacy": "https://www.6play.fr/politique-de-confidentialite"
+    },
+    "3155": {
+        "id": 3155,
+        "name": "Zynga",
+        "privacy": "https://www.zynga.com/privacy/policy"
+    },
+    "3163": {
+        "id": 3163,
+        "name": "Reset Digital Europe Ltd",
+        "privacy": "http://www.resetdigital.co/privacy-policy/"
+    },
+    "3167": {
+        "id": 3167,
+        "name": "Bytelogics",
+        "privacy": "https://beta.facewallet.io/privacy-policy/"
+    },
+    "3172": {
+        "id": 3172,
+        "name": "Datablocks, Inc",
+        "privacy": "https://datablocks.net/privacy.html"
+    },
+    "3173": {
+        "id": 3173,
+        "name": "Kaden",
+        "privacy": "https://kaden.ai/privacy-policy/"
+    },
+    "3182": {
+        "id": 3182,
+        "name": "LIDL SUPERMERCADOS, S.A.U.",
+        "privacy": "https://www.lidl.es/es/politica-de-privacidad/s797"
+    },
+    "3183": {
+        "id": 3183,
+        "name": "Kidoz",
+        "privacy": "https://kidoz.net/gdpr/"
+    },
+    "3184": {
+        "id": 3184,
+        "name": "nativeMsg",
+        "privacy": "https://nativemsg.com/platform-privacy-policy/"
+    },
+    "3185": {
+        "id": 3185,
+        "name": "Adflare",
+        "privacy": "https://www.adflare.com/privacy-policy/?utm_source=&utm_medium=&utm_campaign=&utm_term=&utm_content="
+    },
+    "3187": {
+        "id": 3187,
+        "name": "MG-Comm",
+        "privacy": "https://www.mg-comm.com/privacy-policy/"
+    },
+    "3188": {
+        "id": 3188,
+        "name": "90Degree",
+        "privacy": "https://90degr.ee/privacy/"
+    },
+    "3189": {
+        "id": 3189,
+        "name": "tD-GDN",
+        "privacy": "https://www.touridat.com/datenschutz"
+    },
+    "3190": {
+        "id": 3190,
+        "name": "bet365",
+        "privacy": "https://help.bet365.com/en/privacy-policy"
+    },
+    "3194": {
+        "id": 3194,
+        "name": "Ad Optima Digital",
+        "privacy": "http://adoptimadigital.com/privacy-policy.html"
+    },
+    "3196": {
+        "id": 3196,
+        "name": "MoMAGIC",
+        "privacy": "https://www.momagic.com/privacy-policy/"
+    },
+    "3209": {
+        "id": 3209,
+        "name": "Lentainform",
+        "privacy": "https://partner.lentainform.com/privacy-policy/"
+    },
+    "3210": {
+        "id": 3210,
+        "name": "Ansira Partners",
+        "privacy": "https://www.ansira.com/PrivacyPolicy"
+    },
+    "3211": {
+        "id": 3211,
+        "name": "AlikeAudience",
+        "privacy": "https://alikeaudience.com/privacy-policy/"
+    },
+    "3214": {
+        "id": 3214,
+        "name": "LINE",
+        "privacy": "https://terms.line.me/line_rules"
+    },
+    "3215": {
+        "id": 3215,
+        "name": "ClickOcean",
+        "privacy": "https://novilimited.com/clickoceanprivacypolicy"
+    },
+    "3217": {
+        "id": 3217,
+        "name": "AdPlugg",
+        "privacy": "https://www.adplugg.com/legal/privacy"
+    },
+    "3219": {
+        "id": 3219,
+        "name": "Intango Ltd.",
+        "privacy": "https://8proof.com/privacy.html"
+    },
+    "3222": {
+        "id": 3222,
+        "name": "Vinstant",
+        "privacy": "https://vinstant.pro/privacy"
+    },
+    "3223": {
+        "id": 3223,
+        "name": "Melvad",
+        "privacy": "https://melvad.com/policy"
+    },
+    "3225": {
+        "id": 3225,
+        "name": "Purple Patch",
+        "privacy": "https://purplepatch.online/privacy-policy"
+    },
+    "3226": {
+        "id": 3226,
+        "name": "Biddeo Ad Server",
+        "privacy": "https://biddeo.me/en/gdpr-basic-information.html"
+    },
+    "3227": {
+        "id": 3227,
+        "name": "HueAds",
+        "privacy": "https://www.hueads.com/privacypolicy.html"
+    },
+    "3228": {
+        "id": 3228,
+        "name": "internetstores GmbH",
+        "privacy": "https://www.internetstores.com/en/legal/privacy-policy/"
+    },
+    "3230": {
+        "id": 3230,
+        "name": "Digitalist Group",
+        "privacy": "https://digitalist.global/privacy-policy/"
+    },
+    "3231": {
+        "id": 3231,
+        "name": "Aller Media AS",
+        "privacy": "https://personvern.aller.no/"
+    },
+    "3234": {
+        "id": 3234,
+        "name": "Unity Ads",
+        "privacy": "https://unity.com/legal/privacy-policy"
+    },
+    "3235": {
+        "id": 3235,
+        "name": "Loblaw Media",
+        "privacy": "https://www.loblaw.ca/en/privacy-policy/"
+    },
+    "3236": {
+        "id": 3236,
+        "name": "OXY AGENCY",
+        "privacy": "https://si.salesengineonline.com/privacy"
+    },
+    "3237": {
+        "id": 3237,
+        "name": "PebblePost",
+        "privacy": "https://www.pebblepost.com/privacy-policy"
+    },
+    "3238": {
+        "id": 3238,
+        "name": "Graphyte",
+        "privacy": "https://graphyte.ai/privacy-policy/"
+    },
+    "3240": {
+        "id": 3240,
+        "name": "unerry Inc",
+        "privacy": "https://www.unerry.co.jp/privacy-en/"
+    },
+    "3244": {
+        "id": 3244,
+        "name": "Smartly.io Solutions Oy",
+        "privacy": "https://smartly.io/privacypolicy"
+    },
+    "3245": {
+        "id": 3245,
+        "name": "hyScore.io GmbH",
+        "privacy": "https://hyscore.io/data-privacy/"
+    },
+    "3250": {
+        "id": 3250,
+        "name": "Big Happy",
+        "privacy": "https://bighappy.co/privacy-policy/"
+    },
+    "3251": {
+        "id": 3251,
+        "name": "Userneeds",
+        "privacy": "https://userneeds.com/pages/privacy-policy-english/"
+    },
+    "3253": {
+        "id": 3253,
+        "name": "Ad Lightning",
+        "privacy": "https://www.adlightning.com/privacy"
+    },
+    "3257": {
+        "id": 3257,
+        "name": "HYP Pty Ltd",
+        "privacy": "https://www.hyp.mobi/privacy-policy"
+    },
+    "3260": {
+        "id": 3260,
+        "name": "Machine Advertising",
+        "privacy": "https://f.hubspotusercontent40.net/hubfs/5138747/Website_Assets/Policies/Privacy_Policy.pdf?hsLang=en"
+    },
+    "3270": {
+        "id": 3270,
+        "name": "Animmoov Media",
+        "privacy": "https://www.animmoov.com/privacy-policy.html"
+    },
+    "3272": {
+        "id": 3272,
+        "name": "ablida",
+        "privacy": "https://www.ablida.de/nutzungsbedingungen"
+    },
+    "3281": {
+        "id": 3281,
+        "name": "Peer39",
+        "privacy": "https://www.peer39.com/privacy-policy/"
+    },
+    "3288": {
+        "id": 3288,
+        "name": "Nørgård Mikkelsen A/S",
+        "privacy": "https://www.nmic.dk/privatlivspolitik?hsLang=da-dk"
+    },
+    "3290": {
+        "id": 3290,
+        "name": "Porsche AG",
+        "privacy": "https://ux.porsche.com/privacy-policy/"
+    },
+    "3292": {
+        "id": 3292,
+        "name": "IAB Tech Lab",
+        "privacy": "https://www.iab.com/topics/public-policy/"
+    },
+    "3293": {
+        "id": 3293,
+        "name": "YSO Corp",
+        "privacy": "https://www.ysocorp.com/privacy-policy"
+    },
+    "3296": {
+        "id": 3296,
+        "name": "Bliss Point Media",
+        "privacy": "https://www.blisspointmedia.com/privacy"
+    },
+    "3299": {
+        "id": 3299,
+        "name": "Sabio, Inc",
+        "privacy": "https://www.sabio.inc/privacypolicy"
+    },
+    "3300": {
+        "id": 3300,
+        "name": "Bannercloud.io",
+        "privacy": "https://www.bannercloud.io/privacy-policy"
+    },
+    "3306": {
+        "id": 3306,
+        "name": "Position2",
+        "privacy": "https://www.position2.com/privacy-policy/"
+    },
+    "3307": {
+        "id": 3307,
+        "name": "Altice Media Ads & Connect",
+        "privacy": "https://www.bfmtv.com/politique-donnees-personnelles/"
+    },
+    "3309": {
+        "id": 3309,
+        "name": "Lacuna",
+        "privacy": "https://lacunads.ushareit.com/policy.html"
+    },
+    "3314": {
+        "id": 3314,
+        "name": "Everflow – Partner Marketing Platform",
+        "privacy": "https://www.everflow.io/legal/gdpr-policy"
+    },
+    "3315": {
+        "id": 3315,
+        "name": "Boomplay",
+        "privacy": "https://www.boomplay.com/privacyPolicy"
+    },
+    "3316": {
+        "id": 3316,
+        "name": "Go Mobile Inc",
+        "privacy": "https://gonet-ads.com/policy.html"
+    },
+    "3318": {
+        "id": 3318,
+        "name": "Malaberg Ltd",
+        "privacy": "https://madisondsp.com/privacy-policy/"
+    },
+    "3324": {
+        "id": 3324,
+        "name": "Xiaomi DSP",
+        "privacy": "https://trust.mi.com/"
+    },
+    "3328": {
+        "id": 3328,
+        "name": "Mobinner",
+        "privacy": "https://mobinner.com/end-user-privacy-policy.html"
+    },
+    "3330": {
+        "id": 3330,
+        "name": "Nimbus",
+        "privacy": "http://www.adsbynimbus.com/privacy-policy"
+    },
+    "3331": {
+        "id": 3331,
+        "name": "MetaAds",
+        "privacy": "https://metaads.io/user-privacy-policy/"
+    },
+    "3531": {
+        "id": 3531,
+        "name": "Mobidriven",
+        "privacy": "https://greengreyholding.com/static/policy.pdf"
+    },
+    "3731": {
+        "id": 3731,
+        "name": "Coupang",
+        "privacy": "https://www.coupang.com/np/policies/privacy"
+    },
+    "3831": {
+        "id": 3831,
+        "name": "IVS",
+        "privacy": "https://ivs.tv/privacy-policy"
+    },
+    "3931": {
+        "id": 3931,
+        "name": "Gameloft SE",
+        "privacy": "https://www.gameloft.com/en/privacy-notice"
+    },
+    "4131": {
+        "id": 4131,
+        "name": "Indeed",
+        "privacy": "https://hrtechprivacy.com/brands/indeed#s8"
+    },
+    "4531": {
+        "id": 4531,
+        "name": "Skypiea Tech Co.,Limited",
+        "privacy": "https://www.ad-piece.com/gdpr/index.html?p=111"
+    },
+    "4631": {
+        "id": 4631,
+        "name": "Clickadu",
+        "privacy": "https://www.clickadu.com/privacy"
+    },
+    "4731": {
+        "id": 4731,
+        "name": "Paradox Media Tech",
+        "privacy": "https://paradoxgroup.uk/knowledge-base/privacy-policy/"
+    },
+    "4831": {
+        "id": 4831,
+        "name": "Kinesso",
+        "privacy": "https://kinesso.com/privacy-center/"
+    },
+    "5231": {
+        "id": 5231,
+        "name": "Amplified Intelligence",
+        "privacy": "https://www.amplifiedintelligence.com.au/privacy-policy/"
+    },
+    "6931": {
+        "id": 6931,
+        "name": "Playable Factory",
+        "privacy": "https://playablefactory.com/privacy-policy/"
+    },
+    "7235": {
+        "id": 7235,
+        "name": "LendingTree",
+        "privacy": "https://www.lendingtree.com/legal/privacy-policy"
+    },
+    "7831": {
+        "id": 7831,
+        "name": "IMAGIN.studio",
+        "privacy": "https://www.imaginstudio.com/privacy-policy"
+    },
+    "7931": {
+        "id": 7931,
+        "name": "SW Research",
+        "privacy": "https://swpanel.pl/klauzula-informacyjna"
+    },
+    "8931": {
+        "id": 8931,
+        "name": "Prism Partner",
+        "privacy": "https://www.prismpartner.co.jp/privacy/"
+    },
+    "9731": {
+        "id": 9731,
+        "name": "Consumable",
+        "privacy": "https://consumable.com/privacy-policy/"
+    },
+    "10231": {
+        "id": 10231,
+        "name": "Axel Kaufmann ApS",
+        "privacy": "https://www.kaufmann.dk/kundeservice/persondatapolitik"
+    },
+    "10631": {
+        "id": 10631,
+        "name": "Kubico",
+        "privacy": "https://kubico.com/privacy-policy/"
+    },
+    "10831": {
+        "id": 10831,
+        "name": "StreamShop Technologies",
+        "privacy": "https://www.streamshop.com.br/politica-de-privacidade"
+    },
+    "11031": {
+        "id": 11031,
+        "name": "Furniture Village",
+        "privacy": "https://www.furniturevillage.co.uk/privacy-policy.html"
+    },
+    "11531": {
+        "id": 11531,
+        "name": "Constellation Software, Inc",
+        "privacy": "https://www.helloconstellation.com/privacy/"
+    },
+    "12831": {
+        "id": 12831,
+        "name": "PASS3",
+        "privacy": "https://mission.p3a.net/privacy-policy"
+    },
+    "13632": {
+        "id": 13632,
+        "name": "Adthos",
+        "privacy": "https://www.adthos.com/privacy-policy/"
+    },
+    "13731": {
+        "id": 13731,
+        "name": "TemuDSP",
+        "privacy": "https://www.temu.com/privacy-and-cookie-policy.html"
+    },
+    "14237": {
+        "id": 14237,
+        "name": "Smartzer",
+        "privacy": "https://www.smartzer.com/privacy-policy"
+    },
+    "14332": {
+        "id": 14332,
+        "name": "Bidmachine",
+        "privacy": "https://bidmachine.io/privacy-policy/"
+    },
+    "15731": {
+        "id": 15731,
+        "name": "DISQO",
+        "privacy": "https://www.disqo.com/privacy-policy/"
+    },
+    "16831": {
+        "id": 16831,
+        "name": "BIGOAds",
+        "privacy": "https://www.adsbigo.com/privacy.html"
+    },
+    "16931": {
+        "id": 16931,
+        "name": "Metrike",
+        "privacy": "https://metrike.com/index.php/privacy-policy/"
+    },
+    "21233": {
+        "id": 21233,
+        "name": "Bannerse OÜ",
+        "privacy": "https://bannerse.com/wp-content/uploads/2023/07/Privacy-Policy_2023_6_7_Bannerse.pdf"
+    },
+    "23031": {
+        "id": 23031,
+        "name": "AZURE TECH PTY LTD",
+        "privacy": "https://www.azurebid.com/privacy-policy"
+    },
+    "24431": {
+        "id": 24431,
+        "name": "RAAS LAB",
+        "privacy": "https://www.raaslab.com/privacy-policy"
+    },
+    "25731": {
+        "id": 25731,
+        "name": "Anonymised",
+        "privacy": "https://www.anonymised.io/privacy"
+    },
+    "25931": {
+        "id": 25931,
+        "name": "Nowbetnow",
+        "privacy": "https://www.nowbetnow.com/privacy.php"
+    },
+    "26031": {
+        "id": 26031,
+        "name": "Videostori",
+        "privacy": "https://www.videostori.io/privacy_policy"
+    },
+    "26831": {
+        "id": 26831,
+        "name": "Synamedia",
+        "privacy": "https://www.synamedia.com/privacy-policy/"
+    },
+    "27731": {
+        "id": 27731,
+        "name": "DM3 Concepts B.V.",
+        "privacy": "https://www.dm3concepts.com/privacy-policy/"
+    },
+    "27831": {
+        "id": 27831,
+        "name": "Octillion",
+        "privacy": "https://www.octillion.tech/privacy-policy"
+    },
+    "28031": {
+        "id": 28031,
+        "name": "AccuWeather",
+        "privacy": "https://www.accuweather.com/en/privacy"
+    },
+    "28731": {
+        "id": 28731,
+        "name": "Whistle Feed",
+        "privacy": "https://whistle.mobi/home/privacy_policy"
+    },
+    "28831": {
+        "id": 28831,
+        "name": "Mobian",
+        "privacy": "https://themobian.com/privacy/"
+    },
+    "29631": {
+        "id": 29631,
+        "name": "Adwise - Your Digital Brain",
+        "privacy": "https://www.adwise.nl/privacy-statement.html"
+    },
+    "31631": {
+        "id": 31631,
+        "name": "Codevelop Technologies",
+        "privacy": "https://codevelop.io/en/privacy"
+    }
+}

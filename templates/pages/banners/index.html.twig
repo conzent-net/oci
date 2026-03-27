@@ -1,0 +1,1554 @@
+{% extends 'layouts/base.html.twig' %}
+{% import 'components/macros.html.twig' as ui %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/driver.js@1.3.1/dist/driver.css">
+{% endblock %}
+
+{% block content %}
+<div x-data="bannerSettings()">
+
+    <nav class="breadcrumb mb-3" aria-label="breadcrumbs">
+        <ul>
+            <li><a href="/">Dashboard</a></li>
+            <li class="is-active"><a href="#" aria-current="page">Banners</a></li>
+        </ul>
+    </nav>
+
+    {# ── Header + Site Selector ────────────────────────── #}
+    <div class="columns is-vcentered mb-4">
+        <div class="column">
+            <h1 class="title is-4 mb-1">Banner Settings</h1>
+            <p class="subtitle is-6 has-text-grey">Configure your consent banner</p>
+        </div>
+        <div class="column is-narrow">
+            <div class="is-flex is-align-items-center" style="gap:0.75rem">
+                {{ ui.siteSelector(sites, siteId, '/banners') }}
+                <button class="button is-info is-outlined" @click="openPreview()" title="Preview banner on site">
+                    <span class="icon"><i class="fas fa-eye"></i></span>
+                    <span>Preview</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    {% if bannerSettings is empty %}
+        <div class="box has-text-centered py-6">
+            <span class="icon is-large has-text-grey-light">
+                <i class="fas fa-window-maximize fa-3x"></i>
+            </span>
+            <p class="title is-5 mt-4">No banner configured</p>
+            <p class="subtitle is-6 has-text-grey">
+                This site does not have a consent banner set up yet.
+            </p>
+        </div>
+    {% else %}
+
+    {# ── Template Info Bar ─────────────────────────────── #}
+    <div class="box mb-4" style="padding:0.75rem 1rem">
+        <div class="level mb-0">
+            <div class="level-left">
+                <div class="tags mb-0" style="gap:0.375rem">
+                    {% if siteFrameworkNames is defined and siteFrameworkNames|length > 0 %}
+                        {% set maxShow = 3 %}
+                        {% for fwName in siteFrameworkNames|slice(0, maxShow) %}
+                            <span class="tag is-info is-light">{{ fwName }}</span>
+                        {% endfor %}
+                        {% if siteFrameworkNames|length > maxShow %}
+                            <span class="tag is-info is-light" style="cursor:pointer; position:relative"
+                                  x-data="{ showAll: false }"
+                                  @mouseenter="showAll = true" @mouseleave="showAll = false">
+                                +{{ siteFrameworkNames|length - maxShow }} more
+                                <div x-show="showAll" x-transition.opacity x-cloak
+                                     style="position:absolute; top:100%; left:0; z-index:30; min-width:220px; margin-top:6px"
+                                     @mouseenter="showAll = true" @mouseleave="showAll = false">
+                                    <div class="box p-3" style="box-shadow:0 4px 12px rgba(0,0,0,.15)">
+                                        <p class="is-size-7 has-text-weight-semibold mb-2">Selected frameworks</p>
+                                        <div class="tags" style="gap:0.25rem">
+                                            {% for fwName in siteFrameworkNames %}
+                                                <span class="tag is-info is-light is-small">{{ fwName }}</span>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </span>
+                        {% endif %}
+                    {% else %}
+                        <span class="tag is-info is-light">{{ bannerType|upper }}</span>
+                    {% endif %}
+                    {% if bannerSettings.template_id %}
+                        {% for tpl in templates %}
+                            {% if tpl.id == bannerSettings.template_id %}
+                                <span class="tag is-light">{{ tpl.banner_name }}</span>
+                            {% endif %}
+                        {% endfor %}
+                    {% endif %}
+                    {% if bannerSettings.updated_at %}
+                        <span class="tag is-light">Updated {{ bannerSettings.updated_at|date('d M Y H:i') }}</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="level-right">
+                <button class="button is-primary is-small" :class="{ 'is-loading': saving }"
+                        @click="saveSettings()">
+                    <span class="icon"><i class="fas fa-save"></i></span>
+                    <span>Save Changes</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    {# ══════════════════════════════════════════════════════ #}
+    {# 1. GENERAL SETTINGS                                    #}
+    {# ══════════════════════════════════════════════════════ #}
+    <div id="section-general" class="box mb-4">
+        {{ ui.sectionHeader('cog', 'General Settings', 'general') }}
+        <div x-show="sections.general" x-transition class="oci-section-body">
+
+            {# Geo Targeting — custom dropdown #}
+            {{ ui.dropdown('settings.general.geo_target', 'geo', 'Geo Targeting') }}
+
+            {# Country multi-select (shown when "Selected Countries") #}
+            <div class="field mt-3" x-show="settings.general.geo_target === 'selected'" x-transition>
+                <label class="label">Select Countries</label>
+                <div class="oci-country-selector">
+                    {# Search filter #}
+                    <div class="control has-icons-left mb-2">
+                        <input class="input is-small" type="text" placeholder="Search countries..."
+                               x-model="countrySearch" @input="filterCountries()">
+                        <span class="icon is-left"><i class="fas fa-search"></i></span>
+                    </div>
+                    {# Selected tags #}
+                    <div class="tags mb-2" x-show="settings.general.geo_target_selected.length > 0">
+                        <template x-for="code in settings.general.geo_target_selected" :key="code">
+                            <span class="tag is-info is-light">
+                                <span x-text="countryName(code)"></span>
+                                <button class="delete is-small" @click="removeCountry(code)"></button>
+                            </span>
+                        </template>
+                    </div>
+                    {# Country list (scrollable) #}
+                    <div style="max-height:200px;overflow-y:auto;border:1px solid var(--oci-border, #dbdbdb);border-radius:4px;padding:0.25rem;display:flex;flex-direction:column">
+                        <template x-for="c in filteredCountries" :key="c.code">
+                            <label class="oci-country-option" style="display:flex;align-items:center;gap:0.5rem;padding:0.25rem 0.5rem;cursor:pointer;font-size:0.8125rem"
+                                   :style="settings.general.geo_target_selected.includes(c.code) ? 'background:var(--oci-primary-light, #eef2ff)' : ''"
+                                   @mouseenter="$el.style.background='var(--oci-primary-light, #eef2ff)'"
+                                   @mouseleave="$el.style.background=settings.general.geo_target_selected.includes(c.code) ? 'var(--oci-primary-light, #eef2ff)' : ''">
+                                <input type="checkbox"
+                                       :checked="settings.general.geo_target_selected.includes(c.code)"
+                                       @change="toggleCountry(c.code)">
+                                <span x-text="c.name"></span>
+                                <span class="has-text-grey is-size-7" x-text="'(' + c.code.toUpperCase() + ')'"></span>
+                            </label>
+                        </template>
+                    </div>
+                </div>
+            </div>
+
+            {% if bannerType == 'gdpr' or bannerType == 'gdpr_ccpa' %}
+            <div class="oci-field-grid mt-4">
+                <div class="field">
+                    {% if tcf_enabled %}
+                        {{ ui.toggle('settings.general.iab_support', 'IAB TCF v2.3 Support', 'Required for EU ad networks and IAB-compliant vendors') }}
+                    {% else %}
+                        <label class="label has-text-grey-light">
+                            <span class="icon is-small"><i class="fas fa-lock"></i></span>
+                            IAB TCF v2.3 Support
+                        </label>
+                        <p class="help">TCF is not enabled. Set <code>CMP_ID</code> to a valid IAB-registered CMP ID in your environment configuration. Requires an IAB Europe CMP membership.</p>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="oci-field-grid mt-4">
+                <div class="field">
+                    {{ ui.toggle('settings.general.google_consent', 'Google Consent Mode v2', 'Send consent signals to Google tags') }}
+                </div>
+            </div>
+
+            {% if bannerType == 'ccpa' or bannerType == 'gdpr_ccpa' %}
+            <hr class="oci-divider">
+            <div class="field">
+                {{ ui.toggle('settings.general.show_banner', 'Show CCPA Banner', 'Display banner for US visitors under CCPA/CPRA') }}
+            </div>
+            <div class="field mt-4">
+                <label class="label">"Do Not Sell" Link Code</label>
+                <div class="control">
+                    <textarea class="textarea is-small" rows="3" style="font-family:monospace;font-size:0.8125rem"
+                              x-model="settings.general.do_not_sell_code"
+                              placeholder="<a href='javascript:void(0)' onclick='revisitCnzConsent()'>Do Not Sell or Share My Personal Information</a>"></textarea>
+                </div>
+            </div>
+            {% endif %}
+
+            <hr class="oci-divider">
+            <div class="oci-field-grid">
+                <div class="field">
+                    <label class="label">Consent Expiration (days)</label>
+                    <div class="control">
+                        <input class="input" type="number" min="1" max="730"
+                               x-model.number="settings.general.consent_expiration" placeholder="365">
+                    </div>
+                </div>
+                <div class="field" style="display:flex;align-items:flex-end">
+                    {{ ui.toggle('settings.general.reload_on', 'Reload page after consent', 'Page reloads when visitor gives or updates consent') }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ══════════════════════════════════════════════════════ #}
+    {# 1b. BANNER LAYOUT (template selection)                 #}
+    {# ══════════════════════════════════════════════════════ #}
+    <div id="section-banner-layout" class="box mb-4">
+        {{ ui.sectionHeader('palette', 'Banner Layout', 'bannerLayout') }}
+        <div x-show="sections.bannerLayout" x-transition class="oci-section-body">
+            <p class="has-text-grey is-size-7 mb-3">Choose a layout template for your consent banner. Custom layouts can be created from the <a href="/layouts?site_id={{ siteId }}">Layouts</a> page.</p>
+
+            <div class="field">
+                <label class="label">Active Layout</label>
+                <div class="select">
+                    <select x-model="layoutKey" @change="layoutChanged()">
+                        {% for slug, layout in systemLayouts|default({}) %}
+                        <option value="gdpr/{{ slug }}">{{ layout.name }}{{ layout.default|default(false) ? ' (Default)' : '' }}</option>
+                        {% endfor %}
+                        {% for cl in customLayouts|default([]) %}
+                        <option value="custom:{{ cl.id }}">{{ cl.layout_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <a href="/layouts?site_id={{ siteId }}" class="button is-small is-outlined mt-2">
+                <span class="icon"><i class="fas fa-pen-ruler"></i></span>
+                <span>Manage Layouts</span>
+            </a>
+        </div>
+    </div>
+
+    {# ══════════════════════════════════════════════════════ #}
+    {# 2. LAYOUT SETTINGS                                     #}
+    {# ══════════════════════════════════════════════════════ #}
+    <div id="section-layout" class="box mb-4">
+        {{ ui.sectionHeader('th-large', 'Layout Settings', 'layout') }}
+        <div x-show="sections.layout" x-transition class="oci-section-body">
+
+            {# Banner Type — custom dropdown #}
+            {{ ui.dropdown('settings.layout.banner_type', 'bannerType', 'Banner Type') }}
+
+            {# Display Position — visual cards #}
+            <div class="field mt-4">
+                <label class="label">Display Position</label>
+
+                {# Banner positions #}
+                <div class="oci-position-grid" x-show="settings.layout.banner_type === 'banner'">
+                    {{ ui.positionCard('settings.layout.position', 'top', 'Top', 'bar-top') }}
+                    {{ ui.positionCard('settings.layout.position', 'bottom', 'Bottom', 'bar-bottom') }}
+                </div>
+
+                {# Box positions #}
+                <div class="oci-position-grid" x-show="settings.layout.banner_type === 'box'">
+                    {{ ui.positionCard('settings.layout.position', 'bottom_left', 'Bottom Left', 'box-bl') }}
+                    {{ ui.positionCard('settings.layout.position', 'bottom_right', 'Bottom Right', 'box-br') }}
+                    {{ ui.positionCard('settings.layout.position', 'top_left', 'Top Left', 'box-tl') }}
+                    {{ ui.positionCard('settings.layout.position', 'top_right', 'Top Right', 'box-tr') }}
+                </div>
+
+                {# Popup position #}
+                <div class="oci-position-grid" x-show="settings.layout.banner_type === 'popup'">
+                    {{ ui.positionCard('settings.layout.position', 'center', 'Center', 'popup') }}
+                </div>
+            </div>
+
+            {% if bannerType == 'gdpr' or bannerType == 'gdpr_ccpa' %}
+            <hr class="oci-divider">
+
+            {# Preference Center Display — visual cards #}
+            <div class="field">
+                <label class="label">Preference Center Display</label>
+                <div class="oci-position-grid">
+                    {{ ui.positionCard('settings.layout.preference_display', 'center', 'Center', 'popup') }}
+                    {{ ui.positionCard('settings.layout.preference_display', 'sidebar', 'Sidebar', 'sidebar-right') }}
+                    {{ ui.positionCard('settings.layout.preference_display', 'push_down', 'Push Down', 'pushdown') }}
+                </div>
+            </div>
+
+            <div class="field mt-4">
+                {{ ui.toggle('settings.layout.category_on_first_layer', 'Show categories on cookie notice', 'Display category toggles directly on the first-layer banner') }}
+            </div>
+            {% endif %}
+
+            {% if bannerType == 'ccpa' or bannerType == 'gdpr_ccpa' %}
+            <hr class="oci-divider">
+            <div class="field">
+                <label class="label">Opt-out Center Display</label>
+                <div class="oci-position-grid">
+                    {{ ui.positionCard('settings.layout.optout_display', 'center', 'Center', 'popup') }}
+                    {{ ui.positionCard('settings.layout.optout_display', 'sidebar', 'Sidebar', 'sidebar-right') }}
+                    {{ ui.positionCard('settings.layout.optout_display', 'push_down', 'Push Down', 'pushdown') }}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {# ══════════════════════════════════════════════════════ #}
+    {# 3. CONTENT SETTINGS                                    #}
+    {# ══════════════════════════════════════════════════════ #}
+    <div id="section-content" class="box mb-4">
+        {{ ui.sectionHeader('font', 'Content Settings', 'content') }}
+        <div x-show="sections.content" x-transition class="oci-section-body">
+
+            <p class="has-text-weight-medium mb-3">Cookie Notice</p>
+            <div class="oci-field-grid">
+                {% if bannerType == 'gdpr' or bannerType == 'gdpr_ccpa' %}
+                <div>{{ ui.toggle('settings.content.accept_all_button', 'Accept All Button') }}</div>
+                <div>{{ ui.toggle('settings.content.reject_all_button', 'Reject All Button') }}</div>
+                <div>{{ ui.toggle('settings.content.customize_button', 'Customize Button') }}</div>
+                {% endif %}
+                {# Close button toggle removed — always disabled #}
+                <div>{{ ui.toggle('settings.content.cookie_policy_link', 'Cookie Policy Link') }}</div>
+                {% if canRemoveBranding %}
+                <div>{{ ui.toggle('settings.content.disable_branding', 'Remove "Powered by Conzent" Branding') }}</div>
+                {% else %}
+                <div class="is-flex is-align-items-center is-justify-content-space-between">
+                    <span class="has-text-grey">Remove "Powered by Conzent" Branding</span>
+                    <span class="tag is-warning is-light">Business Plan</span>
+                </div>
+                {% endif %}
+            </div>
+
+            {% if bannerType == 'gdpr' or bannerType == 'gdpr_ccpa' %}
+            <hr class="oci-divider">
+            <p class="has-text-weight-medium mb-3">Preference Center</p>
+            <div>{{ ui.toggle('settings.content.show_google_privacy_policy', 'Show Google Privacy Policy') }}</div>
+            {% endif %}
+
+            {% if bannerType == 'ccpa' or bannerType == 'gdpr_ccpa' %}
+            <hr class="oci-divider">
+            <p class="has-text-weight-medium mb-3">Opt-out Center</p>
+            <div>{{ ui.toggle('settings.content.respect_global_privacy_control', 'Respect "Global Privacy Control"', 'Honor GPC browser signal for CCPA opt-out') }}</div>
+            {% endif %}
+
+            <hr class="oci-divider">
+            <p class="has-text-weight-medium mb-3">Cookie List</p>
+            <div class="oci-field-grid">
+                <div>{{ ui.toggle('settings.content.show_cookie_on_banner', 'Show cookie list on banner') }}</div>
+                <div>
+                    <label class="label">Embed Code</label>
+                    <div class="control">
+                        <textarea class="textarea is-small" readonly rows="2" style="font-family:monospace;font-size:0.8125rem"
+                                  x-model="settings.content.embed_code"
+                                  placeholder='<div class="cnz-cookie-policy"></div>'></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <hr class="oci-divider">
+            <p class="has-text-weight-medium mb-3">Revisit Consent Button</p>
+            <div class="oci-field-grid">
+                <div>{{ ui.toggle('settings.content.floating_button', 'Show floating revisit button') }}</div>
+                <div x-show="settings.content.floating_button">
+                    {{ ui.dropdown('settings.content.button_position', 'revisitPos', 'Button Position') }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ══════════════════════════════════════════════════════ #}
+    {# 4. COLOR SETTINGS                                      #}
+    {# ══════════════════════════════════════════════════════ #}
+    <div id="section-colors" class="box mb-4">
+        {{ ui.sectionHeader('palette', 'Color Settings', 'colors') }}
+        <div x-show="sections.colors" x-transition class="oci-section-body">
+
+            {# Theme tabs #}
+            <div class="tabs is-small is-toggle mb-4">
+                <ul>
+                    <li :class="colorTheme === 'light' ? 'is-active' : ''">
+                        <a @click.prevent="colorTheme = 'light'">
+                            <span class="icon is-small"><i class="fas fa-sun"></i></span>
+                            <span>Light Theme</span>
+                        </a>
+                    </li>
+                    <li :class="colorTheme === 'dark' ? 'is-active' : ''">
+                        <a @click.prevent="colorTheme = 'dark'">
+                            <span class="icon is-small"><i class="fas fa-moon"></i></span>
+                            <span>Dark Theme</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            {# Cookie Notice Colors #}
+            <p class="has-text-weight-medium mb-3">Cookie Notice</p>
+            <div class="oci-color-row">
+                <template x-for="field in ['background', 'border', 'title', 'message']">
+                    <div class="oci-color-field">
+                        <input type="color" :value="getColor('banner', field)"
+                               :data-color-element="'banner'" :data-color-field="field"
+                               @input="setColor('banner', field, $event.target.value)">
+                        <span class="color-label" x-text="field.charAt(0).toUpperCase() + field.slice(1)"></span>
+                    </div>
+                </template>
+            </div>
+
+            {% if bannerType == 'gdpr' or bannerType == 'gdpr_ccpa' %}
+            <hr class="oci-divider">
+            <p class="has-text-weight-medium mb-3">"Accept All" Button</p>
+            <div class="oci-color-row">
+                <template x-for="field in ['background', 'border', 'text']">
+                    <div class="oci-color-field">
+                        <input type="color" :value="getColor('accept_all_button', field)"
+                               :data-color-element="'accept_all_button'" :data-color-field="field"
+                               @input="setColor('accept_all_button', field, $event.target.value)">
+                        <span class="color-label" x-text="field.charAt(0).toUpperCase() + field.slice(1)"></span>
+                    </div>
+                </template>
+            </div>
+
+            <hr class="oci-divider">
+            <p class="has-text-weight-medium mb-3">"Reject All" Button</p>
+            <div class="oci-color-row">
+                <template x-for="field in ['background', 'border', 'text']">
+                    <div class="oci-color-field">
+                        <input type="color" :value="getColor('reject_all_button', field)"
+                               :data-color-element="'reject_all_button'" :data-color-field="field"
+                               @input="setColor('reject_all_button', field, $event.target.value)">
+                        <span class="color-label" x-text="field.charAt(0).toUpperCase() + field.slice(1)"></span>
+                    </div>
+                </template>
+            </div>
+
+            <hr class="oci-divider">
+            <p class="has-text-weight-medium mb-3">"Customize" Button</p>
+            <div class="oci-color-row">
+                <template x-for="field in ['background', 'border', 'text']">
+                    <div class="oci-color-field">
+                        <input type="color" :value="getColor('customize_button', field)"
+                               :data-color-element="'customize_button'" :data-color-field="field"
+                               @input="setColor('customize_button', field, $event.target.value)">
+                        <span class="color-label" x-text="field.charAt(0).toUpperCase() + field.slice(1)"></span>
+                    </div>
+                </template>
+            </div>
+
+            <hr class="oci-divider">
+            <p class="has-text-weight-medium mb-3">Preference Center</p>
+            <div class="oci-color-row">
+                <div class="oci-color-field">
+                    <input type="color" :value="getColor('toggle_switch', 'enabled_state')"
+                           data-color-element="toggle_switch" data-color-field="enabled_state"
+                           @input="setColor('toggle_switch', 'enabled_state', $event.target.value)">
+                    <span class="color-label">Toggle Enabled</span>
+                </div>
+                <div class="oci-color-field">
+                    <input type="color" :value="getColor('toggle_switch', 'disabled_state')"
+                           data-color-element="toggle_switch" data-color-field="disabled_state"
+                           @input="setColor('toggle_switch', 'disabled_state', $event.target.value)">
+                    <span class="color-label">Toggle Disabled</span>
+                </div>
+            </div>
+
+            <hr class="oci-divider">
+            <p class="has-text-weight-medium mb-3">"Save My Preferences" Button</p>
+            <div class="oci-color-row">
+                <template x-for="field in ['background', 'border', 'text']">
+                    <div class="oci-color-field">
+                        <input type="color" :value="getColor('save_preference_button', field)"
+                               :data-color-element="'save_preference_button'" :data-color-field="field"
+                               @input="setColor('save_preference_button', field, $event.target.value)">
+                        <span class="color-label" x-text="field.charAt(0).toUpperCase() + field.slice(1)"></span>
+                    </div>
+                </template>
+            </div>
+            {% endif %}
+
+            {% if bannerType == 'ccpa' or bannerType == 'gdpr_ccpa' %}
+            <hr class="oci-divider">
+            <p class="has-text-weight-medium mb-3">"Do Not Sell" Link</p>
+            <div class="oci-color-row">
+                <div class="oci-color-field">
+                    <input type="color" :value="getColor('do_not_sell_link', 'text')"
+                           data-color-element="do_not_sell_link" data-color-field="text"
+                           @input="setColor('do_not_sell_link', 'text', $event.target.value)">
+                    <span class="color-label">Text</span>
+                </div>
+            </div>
+
+            <hr class="oci-divider">
+            <p class="has-text-weight-medium mb-3">Opt-out Center</p>
+            <div class="oci-color-row">
+                <div class="oci-color-field">
+                    <input type="color" :value="getColor('checkbox', 'enabled_state')"
+                           data-color-element="checkbox" data-color-field="enabled_state"
+                           @input="setColor('checkbox', 'enabled_state', $event.target.value)">
+                    <span class="color-label">Checkbox Enabled</span>
+                </div>
+                <div class="oci-color-field">
+                    <input type="color" :value="getColor('checkbox', 'disabled_state')"
+                           data-color-element="checkbox" data-color-field="disabled_state"
+                           @input="setColor('checkbox', 'disabled_state', $event.target.value)">
+                    <span class="color-label">Checkbox Disabled</span>
+                </div>
+            </div>
+            <div class="oci-color-row mt-3">
+                <template x-for="field in ['background', 'border', 'text']">
+                    <div class="oci-color-field">
+                        <input type="color" :value="getColor('cancel_button', field)"
+                               :data-color-element="'cancel_button'" :data-color-field="field"
+                               @input="setColor('cancel_button', field, $event.target.value)">
+                        <span class="color-label" x-text="'Cancel ' + field.charAt(0).toUpperCase() + field.slice(1)"></span>
+                    </div>
+                </template>
+            </div>
+            <div class="oci-color-row mt-3">
+                <template x-for="field in ['background', 'border', 'text']">
+                    <div class="oci-color-field">
+                        <input type="color" :value="getColor('save_preference_button', field)"
+                               :data-color-element="'save_preference_button'" :data-color-field="field"
+                               @input="setColor('save_preference_button', field, $event.target.value)">
+                        <span class="color-label" x-text="'Save ' + field.charAt(0).toUpperCase() + field.slice(1)"></span>
+                    </div>
+                </template>
+            </div>
+            {% endif %}
+
+            <hr class="oci-divider">
+            <p class="has-text-weight-medium mb-3">Revisit Consent Button</p>
+            <div class="oci-color-row">
+                <div class="oci-color-field">
+                    <input type="color" :value="getColor('floating_button', 'background')"
+                           data-color-element="floating_button" data-color-field="background"
+                           @input="setColor('floating_button', 'background', $event.target.value)">
+                    <span class="color-label">Background</span>
+                </div>
+            </div>
+
+            <hr class="oci-divider">
+            <p class="has-text-weight-medium mb-3">Blocked Content Alt Text</p>
+            <div class="oci-color-row">
+                <template x-for="field in ['background', 'border', 'text']">
+                    <div class="oci-color-field">
+                        <input type="color" :value="getColor('alttext_button', field)"
+                               :data-color-element="'alttext_button'" :data-color-field="field"
+                               @input="setColor('alttext_button', field, $event.target.value)">
+                        <span class="color-label" x-text="field.charAt(0).toUpperCase() + field.slice(1)"></span>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </div>
+
+    {# ══════════════════════════════════════════════════════ #}
+    {# 5. BANNER CONTENT & TRANSLATIONS (inline editor)       #}
+    {# ══════════════════════════════════════════════════════ #}
+    {% if siteLanguages is not empty and fieldGroups is not empty %}
+    <div id="section-translations" class="box mb-4">
+        {{ ui.sectionHeader('language', 'Banner Content & Translations', 'translations') }}
+        <div x-show="sections.translations" x-transition class="oci-section-body">
+
+            {# ── Language Tabs ────────────────────────────── #}
+            <div class="tabs is-boxed mb-4">
+                <ul>
+                    {% for lang in siteLanguages %}
+                    <li :class="contentLangId === {{ lang.id }} ? 'is-active' : ''">
+                        <a @click.prevent="switchLang({{ lang.id }})">
+                            {{ lang.lang_name }}
+                            {% if lang.is_default %}
+                                <span class="tag is-success is-light ml-2" style="font-size:0.625rem">Default</span>
+                            {% endif %}
+                        </a>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+
+            {# ── Non-default language hint ────────────────── #}
+            <template x-if="contentLangId !== defaultLangId">
+                <div class="notification is-info is-light mb-4" style="padding:0.75rem 1rem;font-size:0.875rem">
+                    <span class="icon"><i class="fas fa-info-circle"></i></span>
+                    Editing translations. Default language values shown as reference.
+                    <button class="button is-info is-small ml-3" @click="copyFromDefault()"
+                            :class="{ 'is-loading': contentCopying }">
+                        <span class="icon"><i class="fas fa-copy"></i></span>
+                        <span>Copy from Default</span>
+                    </button>
+                    {% if openrouter_enabled %}
+                    <button class="button is-warning is-small ml-2" @click="autoTranslate()"
+                            :class="{ 'is-loading': translating }" :disabled="translating">
+                        <span class="icon"><i class="fas fa-language"></i></span>
+                        <span>Auto Translate</span>
+                    </button>
+                    {% endif %}
+                    <span class="ml-2 has-text-success is-size-7" x-show="translateDone" x-transition>
+                        <i class="fas fa-check-circle"></i> Translated &amp; saved
+                    </span>
+                    <span class="ml-2 has-text-danger is-size-7" x-show="translateError" x-transition x-text="translateError"></span>
+                </div>
+            </template>
+
+            {# ── Field Groups ─────────────────────────────── #}
+            {% for group in fieldGroups %}
+            <div class="mb-5">
+                <p class="has-text-weight-medium mb-3">
+                    <span class="section-icon" style="display:inline-flex;width:24px;height:24px;background:var(--oci-primary-light, #e6f5ed);color:var(--oci-primary, #2e9e5e);border-radius:5px;align-items:center;justify-content:center;font-size:0.7rem;margin-right:0.375rem">
+                        <i class="fas fa-layer-group"></i>
+                    </span>
+                    {{ group.category }}
+                </p>
+
+                {% for field in group.fields %}
+                <div class="field mb-3" :style="contentLangId !== defaultLangId ? 'display:grid;grid-template-columns:1fr 1fr;gap:1rem' : ''">
+
+                    {# Default value reference (non-default language only) #}
+                    <template x-if="contentLangId !== defaultLangId">
+                        <div>
+                            <label class="label is-small has-text-grey">Default value</label>
+                            {% if field.field_type == 'textarea' %}
+                                <div class="content is-small" style="background:var(--oci-hover-bg, #f5f5f5);padding:0.5rem 0.75rem;border-radius:6px;border:1px solid var(--oci-border, #e5e5e5);min-height:80px;color:var(--oci-text-light, #6b7280)"
+                                     x-text="getDefaultValue({{ field.id }})"></div>
+                            {% else %}
+                                <input class="input" type="text" disabled
+                                       :value="getDefaultValue({{ field.id }})">
+                            {% endif %}
+                        </div>
+                    </template>
+
+                    {# Editable value #}
+                    <div>
+                        <label class="label is-small">{{ field.field_key|replace({'_': ' '})|capitalize }}</label>
+                        {% if field.field_type == 'textarea' %}
+                            <textarea class="textarea" rows="3"
+                                      x-model="contentFields[{{ field.id }}]"
+                                      placeholder="{{ field.default_value }}"></textarea>
+                        {% else %}
+                            <input class="input" type="text"
+                                   x-model="contentFields[{{ field.id }}]"
+                                   placeholder="{{ field.default_value }}">
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+
+                {% if not loop.last %}
+                <hr class="oci-divider">
+                {% endif %}
+            </div>
+            {% endfor %}
+
+            {# ── Save Content Button ──────────────────────── #}
+            <div class="field mt-4">
+                <button class="button is-success" :class="{ 'is-loading': contentSaving }"
+                        @click="saveContent()">
+                    <span class="icon"><i class="fas fa-check"></i></span>
+                    <span>Save Content</span>
+                </button>
+                <span class="ml-3 has-text-success" x-show="contentSaved" x-transition>
+                    <i class="fas fa-check-circle"></i> Saved
+                </span>
+            </div>
+        </div>
+    </div>
+    {% elseif siteLanguages is empty %}
+    <div id="section-translations" class="box mb-4">
+        {{ ui.sectionHeader('language', 'Banner Content & Translations', 'translations') }}
+        <div x-show="sections.translations" x-transition class="oci-section-body">
+            <div class="notification is-warning is-light" style="padding:0.75rem 1rem">
+                <span class="icon"><i class="fas fa-exclamation-triangle"></i></span>
+                No languages configured for this site.
+                <a href="/languages" class="ml-2">Add languages</a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {# ══════════════════════════════════════════════════════ #}
+    {# 6. ADVANCED SETTINGS (site-level)                       #}
+    {# ══════════════════════════════════════════════════════ #}
+    <div id="section-advanced" class="box mb-4">
+        {{ ui.sectionHeader('sliders', 'Advanced Settings', 'advanced') }}
+        <div x-show="sections.advanced" x-transition class="oci-section-body">
+
+            <div class="oci-field-grid">
+                {# Block Iframes #}
+                <div>
+                    <label class="label">Block Iframes</label>
+                    <div class="control">
+                        <label class="radio">
+                            <input type="radio" x-model.number="siteSettings.block_iframe" value="0"> Only Youtube
+                        </label>
+                        <label class="radio ml-3">
+                            <input type="radio" x-model.number="siteSettings.block_iframe" value="1"> All
+                        </label>
+                    </div>
+                    <p class="help">Block third-party iframes until consent is given.</p>
+                </div>
+
+                {# Banner Display Delay #}
+                <div>
+                    <label class="label">Banner Display Delay (ms)</label>
+                    <div class="control">
+                        <input class="input" type="number" min="0" step="100"
+                               x-model.number="siteSettings.banner_delay_ms"
+                               placeholder="2000">
+                    </div>
+                    <p class="help">Delay in milliseconds before the banner appears. Default: 2000 (1 second = 1000).</p>
+                </div>
+            </div>
+
+            <hr class="oci-divider">
+
+            <div class="oci-field-grid">
+                {# Load All Languages #}
+                <div>
+                    {{ ui.toggle('siteSettings.include_all_languages', 'Load All Languages', 'When enabled, all languages are loaded for auto-translation on banner display. Otherwise only selected languages are loaded.') }}
+                </div>
+
+                {# Allow Google Tags to fire before consent #}
+                <div>
+                    {{ ui.toggle('siteSettings.tag_fire_enabled', 'Allow Google Tags to fire before consent', 'Required by IAB Europe and TCF 2.3 if using TCF support.') }}
+                </div>
+            </div>
+
+            <hr class="oci-divider">
+
+            <div class="oci-field-grid">
+                {# Disable Google Consent Mode V2 #}
+                <div>
+                    {{ ui.toggle('siteSettings.gcm_enabled', 'Google Consent Mode V2 (GCM)', 'Enable or disable GCM V2 integration. When disabled, consent signals will not be sent to Google services.') }}
+                </div>
+                <div>
+                    {{ ui.toggle('siteSettings.meta_consent_enabled', 'Meta Consent Mode', 'Control Meta Pixel consent state. When enabled, fbq consent signals are sent based on marketing cookie consent.') }}
+                </div>
+                <div>
+                    {{ ui.toggle('siteSettings.uet_enabled', 'Microsoft UET Consent Mode', 'Control Microsoft Advertising (Bing) UET consent state. When enabled, consent signals are sent to window.uetq based on marketing cookie consent.') }}
+                </div>
+                <div>
+                    {{ ui.toggle('siteSettings.clarity_enabled', 'Microsoft Clarity Consent Mode', 'Control Microsoft Clarity analytics consent independently. When enabled, clarity("consent") signals are sent based on analytics cookie consent.') }}
+                </div>
+                <div>
+                    {{ ui.toggle('siteSettings.amazon_consent_enabled', 'Amazon Consent Signal', 'Control Amazon advertising consent state. When enabled, consent signals are sent to Amazon Publisher Services (apstag) and Amazon Ads Tag.') }}
+                </div>
+            </div>
+
+            {# Google Tag Manager Auto-Inject #}
+            <div class="oci-field-grid mt-4" style="grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="field">
+                    <label class="label is-small">GTM Container ID</label>
+                    <div class="control">
+                        <input class="input is-small" type="text"
+                               x-model="siteSettings.gtm_container_id"
+                               placeholder="GTM-XXXXXXX"
+                               style="max-width:200px;font-family:monospace" />
+                    </div>
+                    <p class="help">Optional. Conzent will auto-inject GTM with consent-aware loading.</p>
+                </div>
+                <div class="field">
+                    <label class="label is-small">GTM Data Layer Name</label>
+                    <div class="control">
+                        <input class="input is-small" type="text"
+                               x-model="siteSettings.gtm_data_layer"
+                               placeholder="dataLayer"
+                               style="max-width:200px;font-family:monospace" />
+                    </div>
+                    <p class="help">Leave empty for the default <code>dataLayer</code>.</p>
+                </div>
+            </div>
+
+            <hr class="oci-divider">
+
+            {# Renew User Consents #}
+            <div class="field">
+                <label class="label">Renew User Consents</label>
+                <p class="is-size-7 has-text-grey mb-2">
+                    Force all visitors to re-consent. Last renewed:
+                    <strong x-text="siteSettings.renew_user_consent_at || 'Never'"></strong>
+                </p>
+                <button class="button is-small is-warning" @click="renewConsent()" :class="{ 'is-loading': renewingConsent }">
+                    <span class="icon"><i class="fas fa-sync-alt"></i></span>
+                    <span>Renew Now</span>
+                </button>
+            </div>
+
+            <hr class="oci-divider">
+
+            {# Purge Script Cache #}
+            <div class="field">
+                <label class="label">Purge Script Cache</label>
+                <p class="is-size-7 has-text-grey mb-2">
+                    Force-regenerate the consent script and purge all caches (browser, CDN, Redis).
+                    Use this if changes are not appearing on your site.
+                </p>
+                <button class="button is-small is-link is-outlined" @click="purgeCache()" :class="{ 'is-loading': purging }">
+                    <span class="icon"><i class="fas fa-broom"></i></span>
+                    <span>Purge &amp; Regenerate</span>
+                </button>
+                <span x-show="purged" x-transition class="tag is-success is-light ml-2">Cache purged</span>
+            </div>
+
+            <hr class="oci-divider">
+
+            {# Script Whitelist #}
+            <div class="field">
+                <label class="label">Script Whitelist</label>
+                <p class="is-size-7 has-text-grey mb-2">Enter one URL or keyword per line. Scripts matching any of these patterns will never be blocked by the consent banner. Use partial URLs (e.g. <code>cdn.jsdelivr.net/npm/alpinejs</code>) or filenames (e.g. <code>alpine.min.js</code>).</p>
+                <div class="control">
+                    <textarea class="textarea" rows="4"
+                              x-model="siteSettings.allowed_scripts_text"
+                              placeholder="cdn.jsdelivr.net/npm/alpinejs&#10;cdn.example.com/framework.js"></textarea>
+                </div>
+            </div>
+
+            <hr class="oci-divider">
+
+            {# Disable Banner on Specific Pages — hidden until early blocker support is implemented #}
+            <div class="field" style="display:none">
+                <label class="label">Disable Banner on Specific Pages</label>
+                <p class="is-size-7 has-text-grey mb-2">Enter one URL path per line where the banner should not appear.</p>
+                <div class="control">
+                    <textarea class="textarea" rows="4"
+                              x-model="siteSettings.disable_on_pages_text"
+                              placeholder="/privacy-policy&#10;/terms&#10;/cookie-policy"></textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ══════════════════════════════════════════════════════ #}
+    {# 7. CUSTOM CSS                                          #}
+    {# ══════════════════════════════════════════════════════ #}
+    <div id="section-custom-css" class="box mb-4">
+        {{ ui.sectionHeader('code', 'Custom CSS', 'customCss') }}
+        <div x-show="sections.customCss" x-transition class="oci-section-body">
+            <p class="is-size-7 has-text-grey mb-3">
+                Add custom CSS to override the consent banner styling. This CSS will be injected into the banner iframe.
+            </p>
+            <div class="field">
+                <div class="control">
+                    <textarea class="textarea" rows="8"
+                              style="font-family:monospace;font-size:0.8125rem;tab-size:2"
+                              x-model="customCss"
+                              placeholder="/* Custom banner CSS */"></textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ── Bottom Save Button ───────────────────────────── #}
+    <div class="has-text-right mb-5">
+        <button class="button is-primary" :class="{ 'is-loading': saving }"
+                @click="saveSettings()">
+            <span class="icon"><i class="fas fa-save"></i></span>
+            <span>Save All Changes</span>
+        </button>
+    </div>
+
+    {% endif %}
+
+    {# ── Fullscreen Preview Modal ─────────────────── #}
+    {% include 'components/preview-modal.html.twig' with {
+        previewDomain: currentSite.domain is defined ? currentSite.domain : '',
+        websiteKey: websiteKey is defined ? websiteKey : '',
+        siteId: siteId,
+        showLayoutPanel: true
+    } %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function bannerSettings() {
+    {# ── Pre-load all language field values ──────────── #}
+    const allLangValues = {{ allLangValues|json_encode|raw }};
+    const fieldDefaults = {
+        {% for group in fieldGroups %}
+            {% for field in group.fields %}
+                {{ field.id }}: {{ field.default_value|json_encode|raw }},
+            {% endfor %}
+        {% endfor %}
+    };
+
+    {# Determine initial language #}
+    const defaultLangId = {{ defaultLangId }};
+    const siteBannerId = {{ siteBannerId }};
+    const firstLangId = {{ siteLanguages[0].id is defined ? siteLanguages[0].id : 0 }};
+    const initLangId = defaultLangId || firstLangId;
+
+    {# Build initial content fields from the first language's values #}
+    function buildFields(langId) {
+        const vals = allLangValues[langId] || {};
+        const fields = {};
+        for (const fid in fieldDefaults) {
+            fields[fid] = (vals[fid] !== undefined && vals[fid] !== '') ? vals[fid] : fieldDefaults[fid];
+        }
+        return fields;
+    }
+
+    return {
+        siteId: {{ siteId }},
+        bannerId: {{ bannerSettings.id is defined ? bannerSettings.id : 0 }},
+        saving: false,
+        purging: false,
+        purged: false,
+        colorTheme: {{ bannerSettings.colors._activeTheme is defined and bannerSettings.colors._activeTheme == 'dark' ? "'dark'" : "'light'" }},
+        sections: {
+            general: true,
+            bannerLayout: false,
+            layout: false,
+            content: false,
+            colors: false,
+            translations: false,
+            advanced: false,
+            customCss: false
+        },
+
+        layoutKey: '{{ bannerSettings.custom_layout_id is defined and bannerSettings.custom_layout_id ? "custom:" ~ bannerSettings.custom_layout_id : (bannerSettings.layout_key is defined and bannerSettings.layout_key ? bannerSettings.layout_key : "gdpr/classic") }}',
+        customLayoutId: {{ bannerSettings.custom_layout_id is defined and bannerSettings.custom_layout_id ? bannerSettings.custom_layout_id : 'null' }},
+
+        layoutChanged() {
+            const val = this.layoutKey;
+            if (val.startsWith('custom:')) {
+                this.customLayoutId = parseInt(val.split(':')[1]);
+            } else {
+                this.customLayoutId = null;
+            }
+        },
+
+        {# ── Dropdown option sets ─────────────────────── #}
+        geoOptions: [
+            { value: 'all',      label: 'Worldwide',           icon: '<i class="fas fa-globe"></i>' },
+            { value: 'eu',       label: 'EU Countries & UK',   icon: '<i class="fas fa-earth-europe"></i>' },
+            { value: 'selected', label: 'Selected Countries',  icon: '<i class="fas fa-map-pin"></i>' }
+        ],
+        bannerTypeOptions: [
+            { value: 'banner', label: 'Banner',  icon: '<i class="fas fa-window-maximize"></i>' },
+            { value: 'box',    label: 'Box',     icon: '<i class="fas fa-square"></i>' },
+            { value: 'popup',  label: 'Popup',   icon: '<i class="fas fa-clone"></i>' }
+        ],
+        revisitPosOptions: [
+            { value: 'left',  label: 'Left',  icon: '<i class="fas fa-align-left"></i>' },
+            { value: 'right', label: 'Right', icon: '<i class="fas fa-align-right"></i>' }
+        ],
+
+        {# ── Country selector state ─────────────────────── #}
+        countrySearch: '',
+        allCountries: [
+            {code:'at',name:'Austria'},{code:'be',name:'Belgium'},{code:'bg',name:'Bulgaria'},{code:'hr',name:'Croatia'},
+            {code:'cy',name:'Cyprus'},{code:'cz',name:'Czech Republic'},{code:'dk',name:'Denmark'},{code:'ee',name:'Estonia'},
+            {code:'fi',name:'Finland'},{code:'fr',name:'France'},{code:'de',name:'Germany'},{code:'gr',name:'Greece'},
+            {code:'hu',name:'Hungary'},{code:'ie',name:'Ireland'},{code:'it',name:'Italy'},{code:'lv',name:'Latvia'},
+            {code:'lt',name:'Lithuania'},{code:'lu',name:'Luxembourg'},{code:'mt',name:'Malta'},{code:'nl',name:'Netherlands'},
+            {code:'pl',name:'Poland'},{code:'pt',name:'Portugal'},{code:'ro',name:'Romania'},{code:'sk',name:'Slovakia'},
+            {code:'si',name:'Slovenia'},{code:'es',name:'Spain'},{code:'se',name:'Sweden'},
+            {code:'gb',name:'United Kingdom'},{code:'no',name:'Norway'},{code:'is',name:'Iceland'},{code:'li',name:'Liechtenstein'},
+            {code:'ch',name:'Switzerland'},
+            {code:'us',name:'United States'},{code:'ca',name:'Canada'},{code:'au',name:'Australia'},{code:'nz',name:'New Zealand'},
+            {code:'br',name:'Brazil'},{code:'mx',name:'Mexico'},{code:'ar',name:'Argentina'},{code:'cl',name:'Chile'},
+            {code:'co',name:'Colombia'},{code:'in',name:'India'},{code:'jp',name:'Japan'},{code:'kr',name:'South Korea'},
+            {code:'cn',name:'China'},{code:'sg',name:'Singapore'},{code:'hk',name:'Hong Kong'},{code:'tw',name:'Taiwan'},
+            {code:'th',name:'Thailand'},{code:'my',name:'Malaysia'},{code:'id',name:'Indonesia'},{code:'ph',name:'Philippines'},
+            {code:'vn',name:'Vietnam'},{code:'za',name:'South Africa'},{code:'ng',name:'Nigeria'},{code:'ke',name:'Kenya'},
+            {code:'eg',name:'Egypt'},{code:'ae',name:'United Arab Emirates'},{code:'sa',name:'Saudi Arabia'},
+            {code:'il',name:'Israel'},{code:'tr',name:'Turkey'},{code:'ru',name:'Russia'},{code:'ua',name:'Ukraine'}
+        ],
+        filteredCountries: [],
+
+        {# ── Custom CSS ─────────────────────────────────── #}
+        customCss: `{{ bannerSettings.custom_css is defined ? bannerSettings.custom_css|e('js') : '' }}`,
+
+        {# ── Advanced / Site-level settings ────────────── #}
+        previewModal: false,
+        previewDevice: 'desktop',
+        previewUrl: '',
+        scriptCheckStatus: 'idle',
+        scriptCheckReason: '',
+        renewingConsent: false,
+        siteSettings: {
+            block_iframe: {{ currentSite.block_iframe is defined ? currentSite.block_iframe : 0 }},
+            banner_delay_ms: {{ currentSite.banner_delay_ms is defined ? currentSite.banner_delay_ms : 2000 }},
+            include_all_languages: {{ currentSite.include_all_languages is defined and currentSite.include_all_languages ? 'true' : 'false' }},
+            tag_fire_enabled: {{ currentSite.tag_fire_enabled is defined and currentSite.tag_fire_enabled ? 'true' : 'false' }},
+            gcm_enabled: {{ currentSite.gcm_enabled is defined and currentSite.gcm_enabled ? 'true' : 'false' }},
+            meta_consent_enabled: {{ currentSite.meta_consent_enabled is defined and currentSite.meta_consent_enabled ? 'true' : 'false' }},
+            uet_enabled: {{ currentSite.uet_enabled is defined and currentSite.uet_enabled ? 'true' : 'false' }},
+            clarity_enabled: {{ currentSite.clarity_enabled is defined and currentSite.clarity_enabled ? 'true' : 'false' }},
+            amazon_consent_enabled: {{ currentSite.amazon_consent_enabled is defined and currentSite.amazon_consent_enabled ? 'true' : 'false' }},
+            gtm_container_id: '{{ currentSite.gtm_container_id is defined and currentSite.gtm_container_id ? currentSite.gtm_container_id : "" }}',
+            gtm_data_layer: '{{ currentSite.gtm_data_layer is defined and currentSite.gtm_data_layer ? currentSite.gtm_data_layer : "" }}',
+            renew_user_consent_at: '{{ currentSite.renew_user_consent_at is defined and currentSite.renew_user_consent_at ? currentSite.renew_user_consent_at : "" }}',
+            disable_on_pages_text: `{{ disableOnPagesText is defined ? disableOnPagesText|e('js') : '' }}`,
+            allowed_scripts_text: `{{ allowedScriptsText is defined ? allowedScriptsText|e('js') : '' }}`
+        },
+
+        settings: {
+            general: {
+                geo_target: '{{ bannerSettings.general.geo_target is defined ? bannerSettings.general.geo_target : "all" }}',
+                geo_target_selected: {{ bannerSettings.general.geo_target_selected is defined ? bannerSettings.general.geo_target_selected|json_encode|raw : '[]' }},
+                iab_support: {{ tcf_enabled and bannerSettings.general.iab_support is defined and bannerSettings.general.iab_support ? 'true' : 'false' }},
+                google_consent: {{ bannerSettings.general.google_consent is defined and bannerSettings.general.google_consent ? 'true' : 'false' }},
+                show_banner: {{ bannerSettings.general.show_banner is defined and bannerSettings.general.show_banner ? 'true' : 'false' }},
+                do_not_sell_code: `{{ bannerSettings.general.do_not_sell_code is defined ? bannerSettings.general.do_not_sell_code : '' }}`,
+                consent_expiration: {{ bannerSettings.general.consent_expiration is defined ? bannerSettings.general.consent_expiration : 365 }},
+                reload_on: {{ bannerSettings.general.reload_on is defined and bannerSettings.general.reload_on ? 'true' : 'false' }}
+            },
+            layout: {
+                banner_type: '{{ bannerSettings.layout.banner_type is defined ? bannerSettings.layout.banner_type : "banner" }}',
+                position: '{{ bannerSettings.layout.position is defined ? bannerSettings.layout.position : "bottom" }}',
+                preference_display: '{{ bannerSettings.layout.preference_display is defined ? bannerSettings.layout.preference_display : "center" }}',
+                category_on_first_layer: {{ bannerSettings.layout.category_on_first_layer is defined and bannerSettings.layout.category_on_first_layer ? 'true' : 'false' }},
+                optout_display: '{{ bannerSettings.layout.optout_display is defined ? bannerSettings.layout.optout_display : "center" }}'
+            },
+            content: {
+                accept_all_button: {{ bannerSettings.content.accept_all_button is defined and bannerSettings.content.accept_all_button ? 'true' : 'false' }},
+                reject_all_button: {{ bannerSettings.content.reject_all_button is defined and bannerSettings.content.reject_all_button ? 'true' : 'false' }},
+                customize_button: {{ bannerSettings.content.customize_button is defined and bannerSettings.content.customize_button ? 'true' : 'false' }},
+                close_button: false,
+                cookie_policy_link: {{ bannerSettings.content.cookie_policy_link is defined and bannerSettings.content.cookie_policy_link ? 'true' : 'false' }},
+                disable_branding: {{ canRemoveBranding and bannerSettings.content.disable_branding is defined and bannerSettings.content.disable_branding ? 'true' : 'false' }},
+                show_google_privacy_policy: {{ bannerSettings.content.show_google_privacy_policy is defined and bannerSettings.content.show_google_privacy_policy ? 'true' : 'false' }},
+                respect_global_privacy_control: {{ bannerSettings.content.respect_global_privacy_control is defined and bannerSettings.content.respect_global_privacy_control ? 'true' : 'false' }},
+                show_cookie_on_banner: {{ bannerSettings.content.show_cookie_on_banner is defined and bannerSettings.content.show_cookie_on_banner ? 'true' : 'false' }},
+                embed_code: `{{ bannerSettings.content.embed_code is defined ? bannerSettings.content.embed_code|e('js') : '<div class="cnz-cookie-policy"></div>' }}`,
+                floating_button: {{ bannerSettings.content.floating_button is defined and bannerSettings.content.floating_button ? 'true' : 'false' }},
+                button_position: '{{ bannerSettings.content.button_position is defined ? bannerSettings.content.button_position : "right" }}'
+            },
+            colors: Object.assign({}, {{ bannerSettings.colors|json_encode|raw }})
+        },
+
+        {# ── Content / Translations state ─────────────── #}
+        defaultLangId: defaultLangId,
+        contentLangId: initLangId,
+        contentFields: buildFields(initLangId),
+        contentSaving: false,
+        contentSaved: false,
+        contentCopying: false,
+        translating: false,
+        translateDone: false,
+        translateError: '',
+        _langCache: {},
+
+        init() {
+            // Cache initial fields
+            this._langCache[initLangId] = { ...this.contentFields };
+            // Initialize country filter
+            this.filteredCountries = [...this.allCountries];
+            // Build preview URL
+            const domain = '{{ currentSite.domain is defined ? currentSite.domain : "" }}';
+            const key = '{{ websiteKey is defined ? websiteKey : "" }}';
+            this.previewUrl = domain ? (domain.startsWith('http') ? domain : (domain.includes('localhost') ? 'http://' : 'https://') + domain) + '?conzent_preview=' + key : '';
+
+            // Force-update all color input swatches when theme changes
+            this.$watch('colorTheme', () => {
+                this.$nextTick(() => {
+                    document.querySelectorAll('#section-colors input[type="color"]').forEach(el => {
+                        const e = el.dataset.colorElement;
+                        const f = el.dataset.colorField;
+                        if (e && f) el.value = this.getColor(e, f);
+                    });
+                });
+            });
+        },
+
+        openPreview() {
+            this.previewModal = true;
+            if (this.scriptCheckStatus === 'idle' || this.scriptCheckStatus === 'not_installed') {
+                this.runScriptCheck();
+            }
+        },
+
+        runScriptCheck() {
+            this.scriptCheckStatus = 'checking';
+            this.scriptCheckReason = '';
+            fetch('/app/dashboard/script-check', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ site_id: {{ siteId }} })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success && data.data.installed) {
+                    this.scriptCheckStatus = 'installed';
+                    // If site blocks iframing, use the built-in preview page
+                    if (data.data.frameable === false) {
+                        this.previewUrl = '/app/banners/preview?site_id={{ siteId }}';
+                    }
+                } else {
+                    this.scriptCheckStatus = 'not_installed';
+                    this.scriptCheckReason = data.data?.reason || 'Consent script not found on the website.';
+                    // Even if script not installed, check if site blocks iframing
+                    if (data.data.frameable === false) {
+                        this.previewUrl = '/app/banners/preview?site_id={{ siteId }}';
+                    }
+                }
+            })
+            .catch(() => {
+                this.scriptCheckStatus = 'not_installed';
+                this.scriptCheckReason = 'Could not check the website. Please verify manually.';
+            });
+        },
+
+        copySnippet(event) {
+            const key = '{{ websiteKey is defined ? websiteKey : "" }}';
+            const domain = '{{ currentSite.domain is defined ? currentSite.domain : "" }}';
+            const snippet = '<script async src="{{ base_url }}/c/consent.js"\n    data-key="' + key + '"><\/script>';
+            navigator.clipboard.writeText(snippet).then(() => {
+                const btn = event.target.closest('.copy-btn');
+                if (btn) { btn.innerHTML = '<i class="fas fa-check"></i> Copied!'; setTimeout(() => { btn.innerHTML = '<i class="fas fa-copy"></i> Copy'; }, 2000); }
+            });
+        },
+
+        reloadPreview() {
+            if (this.$refs.previewFrame) {
+                this.$refs.previewFrame.src = this.previewUrl + '&_t=' + Date.now();
+            }
+        },
+
+        saveAndPreview() {
+            this.saving = true;
+            const pages = this.siteSettings.disable_on_pages_text
+                .split('\n').map(p => p.trim()).filter(p => p.length > 0);
+            const allowedScripts = this.siteSettings.allowed_scripts_text
+                .split('\n').map(p => p.trim()).filter(p => p.length > 0);
+
+            fetch('/app/banners/' + this.bannerId, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    site_id: this.siteId,
+                    general_setting: this.settings.general,
+                    layout_setting: this.settings.layout,
+                    content_setting: this.settings.content,
+                    color_setting: { ...this.settings.colors, _activeTheme: this.colorTheme },
+                    layout_key: this.customLayoutId ? null : this.layoutKey,
+                    custom_layout_id: this.customLayoutId,
+                    custom_css: this.customCss,
+                    site_settings: {
+                        block_iframe: this.siteSettings.block_iframe ? 1 : 0,
+                        banner_delay_ms: parseInt(this.siteSettings.banner_delay_ms) || 2000,
+                        include_all_languages: this.siteSettings.include_all_languages ? 1 : 0,
+                        tag_fire_enabled: this.siteSettings.tag_fire_enabled ? 1 : 0,
+                        gcm_enabled: this.siteSettings.gcm_enabled ? 1 : 0,
+                        meta_consent_enabled: this.siteSettings.meta_consent_enabled ? 1 : 0,
+                        uet_enabled: this.siteSettings.uet_enabled ? 1 : 0,
+                        clarity_enabled: this.siteSettings.clarity_enabled ? 1 : 0,
+                        amazon_consent_enabled: this.siteSettings.amazon_consent_enabled ? 1 : 0,
+                        disable_on_pages: JSON.stringify(pages),
+                        allowed_scripts: JSON.stringify(allowedScripts)
+                    }
+                })
+            })
+            .then(r => {
+                if (r.status === 401) { window.location.href = '/login'; return null; }
+                return r.json();
+            })
+            .then(data => {
+                this.saving = false;
+                if (!data) return;
+                if (data.success) {
+                    if (data.data && data.data.warning) {
+                        alert('Saved with warning: ' + data.data.warning);
+                    }
+                    this.reloadPreview();
+                } else {
+                    alert('Save failed: ' + (data.error?.message || 'Unknown error'));
+                }
+            })
+            .catch(err => { this.saving = false; alert('Save failed: ' + err.message); });
+        },
+
+        filterCountries() {
+            const q = this.countrySearch.toLowerCase();
+            this.filteredCountries = q === ''
+                ? [...this.allCountries]
+                : this.allCountries.filter(c => c.name.toLowerCase().includes(q) || c.code.includes(q));
+        },
+
+        toggleCountry(code) {
+            const idx = this.settings.general.geo_target_selected.indexOf(code);
+            if (idx === -1) {
+                this.settings.general.geo_target_selected.push(code);
+            } else {
+                this.settings.general.geo_target_selected.splice(idx, 1);
+            }
+        },
+
+        removeCountry(code) {
+            this.settings.general.geo_target_selected = this.settings.general.geo_target_selected.filter(c => c !== code);
+        },
+
+        countryName(code) {
+            const c = this.allCountries.find(c => c.code === code);
+            return c ? c.name : code.toUpperCase();
+        },
+
+        switchLang(langId) {
+            if (langId === this.contentLangId) return;
+            // Save current edits to cache
+            this._langCache[this.contentLangId] = { ...this.contentFields };
+            // Load from cache or build fresh
+            this.contentLangId = langId;
+            this.contentFields = this._langCache[langId]
+                ? { ...this._langCache[langId] }
+                : buildFields(langId);
+            this.contentSaved = false;
+        },
+
+        getDefaultValue(fieldId) {
+            const defVals = allLangValues[defaultLangId] || {};
+            return defVals[fieldId] || fieldDefaults[fieldId] || '';
+        },
+
+        copyFromDefault() {
+            this.contentCopying = true;
+            const defVals = allLangValues[defaultLangId] || {};
+            for (const fid in fieldDefaults) {
+                this.contentFields[fid] = defVals[fid] || fieldDefaults[fid] || '';
+            }
+            this.contentCopying = false;
+        },
+
+        autoTranslate() {
+            const langNames = { {% for lang in siteLanguages %}{{ lang.id }}: '{{ lang.lang_name }}'{{ not loop.last ? ',' : '' }}{% endfor %} };
+            const targetLang = langNames[this.contentLangId] || '';
+            if (!targetLang) return;
+
+            // Collect default language values to translate
+            const defVals = allLangValues[defaultLangId] || {};
+            const fieldsToTranslate = {};
+            for (const fid in fieldDefaults) {
+                fieldsToTranslate[fid] = defVals[fid] || fieldDefaults[fid] || '';
+            }
+
+            this.translating = true;
+            this.translateDone = false;
+            this.translateError = '';
+
+            fetch('/app/banners/translate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    target_language: targetLang,
+                    fields: fieldsToTranslate
+                })
+            })
+            .then(r => r.json())
+            .then(data => {
+                this.translating = false;
+                if (data.success && data.data.translations) {
+                    for (const fid in data.data.translations) {
+                        if (data.data.translations[fid]) {
+                            this.contentFields[fid] = data.data.translations[fid];
+                        }
+                    }
+                    // Auto-save translations and regenerate script
+                    this.saveContent();
+                    this.translateDone = true;
+                    setTimeout(() => { this.translateDone = false; }, 4000);
+                } else {
+                    this.translateError = data.error?.message || 'Translation failed';
+                    setTimeout(() => { this.translateError = ''; }, 5000);
+                }
+            })
+            .catch(() => {
+                this.translating = false;
+                this.translateError = 'Network error';
+                setTimeout(() => { this.translateError = ''; }, 5000);
+            });
+        },
+
+        saveContent() {
+            this.contentSaving = true;
+            this.contentSaved = false;
+            fetch('/app/banners/content', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    site_id: this.siteId,
+                    site_banner_id: siteBannerId,
+                    language_id: this.contentLangId,
+                    fields: this.contentFields
+                })
+            })
+            .then(r => r.json())
+            .then(data => {
+                this.contentSaving = false;
+                if (data.success) {
+                    this.contentSaved = true;
+                    // Update cache and source data
+                    this._langCache[this.contentLangId] = { ...this.contentFields };
+                    allLangValues[this.contentLangId] = { ...this.contentFields };
+                    setTimeout(() => { this.contentSaved = false; }, 3000);
+                }
+            })
+            .catch(() => { this.contentSaving = false; });
+        },
+
+        defaultColors: {
+            light: {
+                banner:                 { background: '#ffffff', border: '#e0e0e0', title: '#1a1a2e', message: '#4a4a68' },
+                accept_all_button:      { background: '#22b573', border: '#1da065', text: '#ffffff' },
+                reject_all_button:      { background: '#f5f5f5', border: '#dbdbdb', text: '#363636' },
+                customize_button:       { background: '#ffffff', border: '#dbdbdb', text: '#363636' },
+                toggle_switch:          { enabled_state: '#22b573', disabled_state: '#dbdbdb' },
+                save_preference_button: { background: '#22b573', border: '#1da065', text: '#ffffff' },
+                checkbox:               { enabled_state: '#22b573', disabled_state: '#dbdbdb' },
+                cancel_button:          { background: '#f5f5f5', border: '#dbdbdb', text: '#363636' },
+                floating_button:        { background: '#22b573' },
+                alttext_button:         { background: '#f5f5f5', border: '#dbdbdb', text: '#363636' },
+                do_not_sell_link:        { text: '#3273dc' }
+            },
+            dark: {
+                banner:                 { background: '#1a1a2e', border: '#2d2d44', title: '#ffffff', message: '#c8c8d4' },
+                accept_all_button:      { background: '#22b573', border: '#1da065', text: '#ffffff' },
+                reject_all_button:      { background: '#2d2d44', border: '#3d3d5c', text: '#e0e0e0' },
+                customize_button:       { background: '#2d2d44', border: '#3d3d5c', text: '#e0e0e0' },
+                toggle_switch:          { enabled_state: '#22b573', disabled_state: '#3d3d5c' },
+                save_preference_button: { background: '#22b573', border: '#1da065', text: '#ffffff' },
+                checkbox:               { enabled_state: '#22b573', disabled_state: '#3d3d5c' },
+                cancel_button:          { background: '#2d2d44', border: '#3d3d5c', text: '#e0e0e0' },
+                floating_button:        { background: '#22b573' },
+                alttext_button:         { background: '#2d2d44', border: '#3d3d5c', text: '#e0e0e0' },
+                do_not_sell_link:        { text: '#6ea8fe' }
+            }
+        },
+
+        getColor(element, field) {
+            const theme = this.colorTheme;
+            const c = this.settings.colors;
+            if (c && c[element] && c[element][theme] && c[element][theme][field]) {
+                return c[element][theme][field];
+            }
+            const d = this.defaultColors[theme];
+            if (d && d[element] && d[element][field]) {
+                return d[element][field];
+            }
+            return '#ffffff';
+        },
+
+        setColor(element, field, value) {
+            const theme = this.colorTheme;
+            if (!this.settings.colors || Array.isArray(this.settings.colors)) this.settings.colors = {};
+            if (!this.settings.colors[element] || Array.isArray(this.settings.colors[element])) this.settings.colors[element] = {};
+            if (!this.settings.colors[element][theme] || Array.isArray(this.settings.colors[element][theme])) this.settings.colors[element][theme] = {};
+            this.settings.colors[element][theme][field] = value;
+        },
+
+        renewConsent() {
+            if (!confirm('This will force all visitors to re-consent. Continue?')) return;
+            this.renewingConsent = true;
+            fetch('/app/banners/' + this.bannerId, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    site_id: this.siteId,
+                    site_settings: { renew_user_consent: true }
+                })
+            })
+            .then(r => r.json())
+            .then(data => {
+                this.renewingConsent = false;
+                if (data.success) {
+                    this.siteSettings.renew_user_consent_at = new Date().toISOString().slice(0, 19).replace('T', ' ');
+                }
+            })
+            .catch(() => { this.renewingConsent = false; });
+        },
+
+        purgeCache() {
+            this.purging = true;
+            this.purged = false;
+            fetch('/app/banners/purge', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ site_id: this.siteId })
+            })
+            .then(r => {
+                if (r.status === 401) { window.location.href = '/login'; return null; }
+                return r.json();
+            })
+            .then(data => {
+                this.purging = false;
+                if (!data) return;
+                if (data.success) {
+                    this.purged = true;
+                    setTimeout(() => { this.purged = false; }, 3000);
+                } else {
+                    alert('Purge failed: ' + (data.error?.message || 'Unknown error'));
+                }
+            })
+            .catch(err => { this.purging = false; alert('Purge failed: ' + err.message); });
+        },
+
+        saveSettings() {
+            this.saving = true;
+
+            // Parse disable_on_pages textarea into JSON array
+            const pages = this.siteSettings.disable_on_pages_text
+                .split('\n')
+                .map(p => p.trim())
+                .filter(p => p.length > 0);
+
+            // Parse allowed_scripts textarea into JSON array
+            const allowedScripts = this.siteSettings.allowed_scripts_text
+                .split('\n')
+                .map(p => p.trim())
+                .filter(p => p.length > 0);
+
+            fetch('/app/banners/' + this.bannerId, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    site_id: this.siteId,
+                    general_setting: this.settings.general,
+                    layout_setting: this.settings.layout,
+                    content_setting: this.settings.content,
+                    color_setting: { ...this.settings.colors, _activeTheme: this.colorTheme },
+                    layout_key: this.customLayoutId ? null : this.layoutKey,
+                    custom_layout_id: this.customLayoutId,
+                    custom_css: this.customCss,
+                    site_settings: {
+                        block_iframe: this.siteSettings.block_iframe ? 1 : 0,
+                        banner_delay_ms: parseInt(this.siteSettings.banner_delay_ms) || 2000,
+                        include_all_languages: this.siteSettings.include_all_languages ? 1 : 0,
+                        tag_fire_enabled: this.siteSettings.tag_fire_enabled ? 1 : 0,
+                        gcm_enabled: this.siteSettings.gcm_enabled ? 1 : 0,
+                        meta_consent_enabled: this.siteSettings.meta_consent_enabled ? 1 : 0,
+                        uet_enabled: this.siteSettings.uet_enabled ? 1 : 0,
+                        clarity_enabled: this.siteSettings.clarity_enabled ? 1 : 0,
+                        amazon_consent_enabled: this.siteSettings.amazon_consent_enabled ? 1 : 0,
+                        disable_on_pages: JSON.stringify(pages),
+                        allowed_scripts: JSON.stringify(allowedScripts)
+                    }
+                })
+            })
+            .then(r => {
+                if (r.status === 401) { window.location.href = '/login'; return null; }
+                return r.json();
+            })
+            .then(data => {
+                this.saving = false;
+                if (!data) return;
+                if (data.success) {
+                    if (data.data && data.data.warning) {
+                        alert('Saved with warning: ' + data.data.warning);
+                    }
+                    window.location.reload();
+                } else {
+                    alert('Save failed: ' + (data.error?.message || 'Unknown error'));
+                }
+            })
+            .catch(err => { this.saving = false; alert('Save failed: ' + err.message); });
+        }
+    };
+}
+</script>
+
+{# ── Onboarding Tour (Banner Settings) ───────────────── #}
+{% if current_user is defined and current_user and bannerSettings is not empty %}
+<script src="https://cdn.jsdelivr.net/npm/driver.js@1.3.1/dist/driver.js.iife.js"></script>
+<script>
+(function() {
+    var autoStart = {{ show_onboarding_tour ? 'true' : 'false' }};
+    var tourParam = new URLSearchParams(window.location.search).has('tour');
+
+    // Signal that this page has a tour ready
+    window.__ociTourReady = true;
+
+    function markOnboardingComplete() {
+        fetch('/app/onboarding/complete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+        }).catch(function() {});
+    }
+
+    function startBannerTour() {
+        var driverObj = window.driver.js.driver({
+            showProgress: true,
+            animate: true,
+            overlayColor: 'rgba(0,0,0,0.5)',
+            popoverClass: 'oci-tour-popover',
+            nextBtnText: 'Next',
+            prevBtnText: 'Back',
+            doneBtnText: 'Done',
+            steps: [
+                {
+                    element: '#section-general',
+                    popover: {
+                        title: 'General Settings',
+                        description: 'Configure geo targeting (show banner to all visitors, EU only, or specific countries), enable IAB TCF v2.3, and Google Consent Mode v2.',
+                        side: 'bottom',
+                        align: 'center'
+                    }
+                },
+                {
+                    element: '#section-banner-layout',
+                    popover: {
+                        title: 'Banner Layout',
+                        description: 'Choose a visual template for your consent banner. Pick from system layouts or create your own custom layout.',
+                        side: 'bottom',
+                        align: 'center'
+                    }
+                },
+                {
+                    element: '#section-layout',
+                    popover: {
+                        title: 'Layout Settings',
+                        description: 'Set the banner type (box, banner, or popup), position on screen, and preference center display mode.',
+                        side: 'bottom',
+                        align: 'center'
+                    }
+                },
+                {
+                    element: '#section-content',
+                    popover: {
+                        title: 'Content Settings',
+                        description: 'Toggle accept/reject/customize buttons, close button, cookie policy link, branding, and the floating revisit consent button.',
+                        side: 'bottom',
+                        align: 'center'
+                    }
+                },
+                {
+                    element: '#section-colors',
+                    popover: {
+                        title: 'Color Settings',
+                        description: 'Customize colors for both light and dark themes. Each element (background, text, buttons) can be individually styled.',
+                        side: 'bottom',
+                        align: 'center'
+                    }
+                },
+                {
+                    element: '#section-translations',
+                    popover: {
+                        title: 'Banner Content & Translations',
+                        description: 'Edit the text displayed on your banner for each language. Translate titles, descriptions, and button labels.',
+                        side: 'top',
+                        align: 'center'
+                    }
+                }
+            ],
+            onDestroyed: function() {
+                if (autoStart) {
+                    markOnboardingComplete();
+                }
+            }
+        });
+        driverObj.drive();
+    }
+
+    // Auto-start on first visit or when ?tour param is present
+    if (autoStart || tourParam) {
+        setTimeout(startBannerTour, 800);
+        var btn = document.getElementById('oci-tour-trigger');
+        if (btn) btn.classList.add('tour-trigger-pulse');
+    }
+
+    // Replay on navbar button click
+    window.addEventListener('oci:start-tour', startBannerTour);
+})();
+</script>
+{% endif %}
+{% endblock %}
