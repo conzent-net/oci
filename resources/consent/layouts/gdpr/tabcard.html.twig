@@ -1,0 +1,51 @@
+{#
+  Layout: Tabcard
+  Compact card with colored header strip and logo.
+  Inspired by CookiePopup — card popup with accent header,
+  message body, category toggle grid in the footer,
+  and right-aligned action buttons.
+#}
+{% extends "gdpr/base.html.twig" %}
+
+{% block banner %}
+<div id="Conzent" tabindex="0" class="conzent-{{ banner_type }}{{ display_position }}">
+  <div class="conzent-inner-content-box cnz-tabcard"
+       style="border:1px solid {{ colors.notice_border }};background-color:{{ colors.notice_bg }};">
+    <div class="conzent-notice">
+      {# Colored header strip with logo #}
+      <div class="cnz-tabcard-header" style="background-color:{{ colors.notice_border }};">
+        <div class="cnz-tabcard-logo">{{ logo_html|raw }}</div>
+      </div>
+
+      {# Body: title + description #}
+      <div class="cnz-tabcard-body">
+        <div class="cnz-tabcard-title" style="color:{{ colors.notice_title }};">
+          [conzent_cookie_notice_banner_title]
+        </div>
+        <div class="cnz-tabcard-message" style="color:{{ colors.notice_description }};">
+          {% if iab|default(false) %}[conzent_iab_notice_description]{% else %}[conzent_cookie_notice_message]{% endif %}
+          {{ privacy_policy_link|raw }}
+        </div>
+      </div>
+
+      {# Footer: buttons, separator, category toggles, branding #}
+      <div class="cnz-tabcard-footer" style="background-color:{{ colors.notice_border }};">
+        <div class="cnz-tabcard-actions">
+          <div class="btn-wrap">
+            {{ buttons_html|raw }}
+          </div>
+        </div>
+
+        <div class="cnz-tabcard-separator"></div>
+
+        {# Inline category toggles — accordion flattened into 2x2 grid via CSS #}
+        <div class="cnz-tabcard-categories">
+          <div class="conzent-accordion-wrapper cnz-category-table">
+            {{ cookie_categories_html|raw }}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

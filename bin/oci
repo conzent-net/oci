@@ -1,0 +1,929 @@
+#!/usr/bin/env php
+<?php
+
+/**
+ * OCI CLI — Command-line entry point.
+ *
+ * Replaces all legacy cron scripts with named, logged commands.
+ *
+ * Usage:
+ *   php bin/oci <command> [options]
+ *
+ * Commands:
+ *   setup                           First-run setup: create admin account
+ *   health                         Check application health
+ *   migrations:migrate             Run database migrations
+ *   legacy:migrate <domain|all>    Migrate legacy data to oci_* tables
+ *   cache:clear                    Clear application cache
+ *   queue:work                     Process queued jobs (long-running)
+ *   ingest:flush                   Flush beacon buffer to DB (long-running)
+ *   schedule:run                   Run scheduled tasks (long-running)
+ *   scripts:regenerate             Regenerate consent scripts for all active sites
+ *   cleanup:non-admin-users        Delete all non-admin users and cascaded data
+ *   blog:generate [--max=N]        Generate blog articles from RSS feeds via AI
+ *   www:translate [--lang=XX]      Auto-translate website content via AI
+ *   publish <version>              Publish core code to public GitHub repo
+ *   cookies:sync [--dry-run]       Sync Open Cookie Database into oci_cookies_global
+ *   cookies:translate               Translate cookie descriptions into all languages
+ *
+ * Legacy Migration Options:
+ *   --dry-run              Preview without writing data
+ *   --batch-size=N         Rows per batch (default: 1000)
+ *
+ * Domains: users, sites, languages, categories, cookies, banners,
+ *          consents, plans, scans, policies, agencies, all
+ *
+ * Environment:
+ *   LEGACY_EXCLUDE_USER_IDS=1,5,99  Comma-separated user IDs to skip
+ *
+ * More commands will be added as domains are built.
+ */
+
+declare(strict_types=1);
+
+use OCI\Http\Kernel\Application;
+use OCI\Infrastructure\Database\LegacyMigrationRunner;
+
+require_once dirname(__DIR__) . '/vendor/autoload.php';
+
+$app = Application::boot(dirname(__DIR__));
+$container = $app->getContainer();
+
+// Simple CLI router (will be expanded into a proper CommandRunner)
+$command = $argv[1] ?? 'help';
+
+match ($command) {
+    'setup' => (function () use ($container, $argv) {
+        echo "╔══════════════════════════════════════════╗\n";
+        echo "║   Conzent OCI — First-Run Setup          ║\n";
+        echo "╚══════════════════════════════════════════╝\n\n";
+
+        $db = $container->get(\Doctrine\DBAL\Connection::class);
+
+        // Check if users table exists (migrations must run first)
+        $tableExists = (bool) $db->fetchOne(
+            "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'oci_users'",
+        );
+        if (!$tableExists) {
+            echo "ERROR: Database tables not found. Run migrations first:\n";
+            echo "  php bin/oci migrations:migrate\n\n";
+            exit(1);
+        }
+
+        // Check if any users already exist
+        $userCount = (int) $db->fetchOne('SELECT COUNT(*) FROM oci_users');
+        if ($userCount > 0) {
+            echo "Setup already completed ({$userCount} user(s) exist).\n";
+            echo "Log in at: " . ($_ENV['APP_URL'] ?? 'http://localhost:8100') . "\n";
+            exit(0);
+        }
+
+        // Parse CLI arguments: --email=x --password=x
+        $email = null;
+        $password = null;
+        foreach ($argv as $arg) {
+            if (str_starts_with($arg, '--email=')) {
+                $email = substr($arg, 8);
+            }
+            if (str_starts_with($arg, '--password=')) {
+                $password = substr($arg, 11);
+            }
+        }
+
+        // Interactive mode if arguments not provided
+        if ($email === null) {
+            if (!defined('STDIN') || !posix_isatty(STDIN)) {
+                echo "ERROR: No --email provided and no interactive terminal available.\n";
+                echo "Usage: php bin/oci setup --email=admin@example.com --password=yourpassword\n\n";
+                exit(1);
+            }
+            echo "Admin email: ";
+            $email = trim(fgets(STDIN));
+        }
+
+        if ($password === null) {
+            if (!defined('STDIN') || !posix_isatty(STDIN)) {
+                echo "ERROR: No --password provided and no interactive terminal available.\n";
+                echo "Usage: php bin/oci setup --email=admin@example.com --password=yourpassword\n\n";
+                exit(1);
+            }
+            echo "Admin password (min 8 chars): ";
+            // Attempt to hide input on Unix
+            if (function_exists('readline')) {
+                system('stty -echo 2>/dev/null');
+                $password = trim(fgets(STDIN));
+                system('stty echo 2>/dev/null');
+                echo "\n";
+            } else {
+                $password = trim(fgets(STDIN));
+            }
+        }
+
+        // Validate
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            echo "ERROR: Invalid email address: {$email}\n";
+            exit(1);
+        }
+        if (\strlen($password) < 8) {
+            echo "ERROR: Password must be at least 8 characters.\n";
+            exit(1);
+        }
+
+        // Create admin user via UserService
+        $userService = $container->get(\OCI\Identity\Service\UserService::class);
+        $result = $userService->createUser([
+            'email' => $email,
+            'username' => $email,
+            'first_name' => 'Admin',
+            'last_name' => '',
+            'password' => $password,
+            'role' => 'admin',
+            'is_active' => 1,
+        ]);
+
+        if (!$result['success']) {
+            echo "ERROR: Failed to create admin user.\n";
+            foreach ($result['errors'] ?? [] as $field => $msg) {
+                echo "  {$field}: {$msg}\n";
+            }
+            exit(1);
+        }
+
+        $appUrl = $_ENV['APP_URL'] ?? 'http://localhost:8100';
+
+        echo "\n";
+        echo "✓ Admin account created successfully!\n\n";
+        echo "  Email:    {$email}\n";
+        echo "  Role:     admin\n\n";
+        echo "  Log in at: {$appUrl}\n\n";
+    })(),
+
+    'health' => (function () use ($container, $app) {
+        try {
+            $db = $container->get(\Doctrine\DBAL\Connection::class);
+            $db->fetchOne('SELECT 1');
+            echo "Database: OK\n";
+        } catch (\Throwable $e) {
+            echo "Database: FAILED — {$e->getMessage()}\n";
+        }
+
+        try {
+            $redis = $container->get(\Predis\Client::class);
+            $redis->ping();
+            echo "Redis: OK\n";
+        } catch (\Throwable $e) {
+            echo "Redis: FAILED — {$e->getMessage()}\n";
+        }
+
+        echo "Environment: {$app->getEnvironment()}\n";
+        echo "Debug: " . ($app->isDebug() ? 'true' : 'false') . "\n";
+    })(),
+
+    'cache:clear' => (function () use ($app) {
+        $cachePath = $container->get('config.base_path') . '/var/cache';
+        if (is_dir($cachePath)) {
+            $files = new RecursiveIteratorIterator(
+                new RecursiveDirectoryIterator($cachePath, FilesystemIterator::SKIP_DOTS),
+                RecursiveIteratorIterator::CHILD_FIRST,
+            );
+            foreach ($files as $file) {
+                $file->isDir() ? rmdir($file->getRealPath()) : unlink($file->getRealPath());
+            }
+        }
+        echo "Cache cleared.\n";
+    })(),
+
+    'queue:work' => (function () use ($container) {
+        $scanService = $container->get(\OCI\Scanning\Service\ScanService::class);
+        $logger = $container->get(\Psr\Log\LoggerInterface::class);
+
+        echo "Queue worker started. Waiting for jobs...\n";
+        $logger->info('Queue worker started');
+
+        $idleCount = 0;
+
+        while (true) {
+            try {
+                $processed = $scanService->processNextScan();
+
+                if ($processed) {
+                    $idleCount = 0;
+                } else {
+                    $idleCount++;
+                    // Check for stale scans every 60 idle cycles (~5 min with 5s blocking pop)
+                    if ($idleCount % 60 === 0) {
+                        $scanService->processStaleScans();
+                    }
+                }
+            } catch (\Throwable $e) {
+                $logger->error('Queue worker error: ' . $e->getMessage());
+                echo "Error: {$e->getMessage()}\n";
+                sleep(5);
+            }
+        }
+    })(),
+
+    'ingest:flush' => (function () use ($container) {
+        $flushService = $container->get(\OCI\Scanning\Service\BeaconFlushService::class);
+        $logger = $container->get(\Psr\Log\LoggerInterface::class);
+
+        echo "Beacon flush worker started. Processing buffer...\n";
+        $logger->info('Beacon flush worker started');
+
+        while (true) {
+            try {
+                $count = $flushService->flush(200);
+
+                if ($count === 0) {
+                    usleep(500_000); // 500ms idle sleep
+                }
+            } catch (\Throwable $e) {
+                $logger->error('Beacon flush error: ' . $e->getMessage());
+                echo "Error: {$e->getMessage()}\n";
+                sleep(5);
+            }
+        }
+    })(),
+
+    'schedule:run' => (function () use ($container) {
+        $scanService = $container->get(\OCI\Scanning\Service\ScanService::class);
+        $reportService = $container->get(\OCI\Report\Service\ReportService::class);
+        $logger = $container->get(\Psr\Log\LoggerInterface::class);
+
+        echo "Scheduler started. Checking every 5 minutes...\n";
+        $logger->info('Scheduler started');
+
+        while (true) {
+            try {
+                $scanService->processDueScheduledScans();
+            } catch (\Throwable $e) {
+                $logger->error('Scheduler error (scans): ' . $e->getMessage());
+                echo "Error: {$e->getMessage()}\n";
+            }
+
+            try {
+                $reportService->processDueSchedules();
+            } catch (\Throwable $e) {
+                $logger->error('Scheduler error (reports): ' . $e->getMessage());
+                echo "Error: {$e->getMessage()}\n";
+            }
+
+            sleep(300); // Check every 5 minutes
+        }
+    })(),
+
+    'migrations:migrate' => (function () use ($container) {
+        echo "Running OCI migrations...\n";
+
+        $db = $container->get(\Doctrine\DBAL\Connection::class);
+
+        // Ensure tracking table exists
+        $db->executeStatement('
+            CREATE TABLE IF NOT EXISTS oci_migration_versions (
+                version VARCHAR(255) NOT NULL PRIMARY KEY,
+                executed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ');
+
+        // Discover migration files
+        $migrationsDir = dirname(__DIR__) . '/migrations/versions';
+        $files = glob($migrationsDir . '/Version*.php');
+        sort($files);
+
+        if (empty($files)) {
+            echo "No migration files found in {$migrationsDir}\n";
+            return;
+        }
+
+        // Already executed
+        $executed = $db->fetchFirstColumn('SELECT version FROM oci_migration_versions ORDER BY version');
+        $executedMap = array_flip($executed);
+
+        $pending = [];
+        foreach ($files as $file) {
+            $className = 'OCI\\Database\\Migrations\\' . pathinfo($file, PATHINFO_FILENAME);
+            if (!isset($executedMap[$className])) {
+                $pending[$className] = $file;
+            }
+        }
+
+        if (empty($pending)) {
+            echo "No new migrations to run. (" . \count($executed) . " already executed)\n";
+            return;
+        }
+
+        echo \count($pending) . " new migration(s) to execute.\n\n";
+
+        foreach ($pending as $className => $file) {
+            require_once $file;
+
+            if (!class_exists($className)) {
+                echo "  SKIP: Class {$className} not found in {$file}\n";
+                continue;
+            }
+
+            $shortName = pathinfo($file, PATHINFO_FILENAME);
+            echo "  ▸ {$shortName}...";
+
+            try {
+                $migration = new $className($db);
+                $migration->up();
+
+                $db->insert('oci_migration_versions', [
+                    'version' => $className,
+                    'executed_at' => date('Y-m-d H:i:s'),
+                ]);
+
+                echo " ✓\n";
+            } catch (\Throwable $e) {
+                echo " ✗ {$e->getMessage()}\n";
+                exit(1);
+            }
+        }
+
+        echo "\nMigrations completed successfully.\n";
+    })(),
+
+    'scripts:regenerate' => (function () use ($container) {
+        $db = $container->get(\Doctrine\DBAL\Connection::class);
+        $gen = $container->get(\OCI\Banner\Service\ScriptGenerationService::class);
+
+        $sites = $db->fetchAllAssociative("SELECT id, domain FROM oci_sites WHERE status = 'active'");
+
+        if (empty($sites)) {
+            echo "No active sites found.\n";
+            return;
+        }
+
+        echo "Regenerating consent scripts for " . \count($sites) . " site(s)...\n";
+
+        foreach ($sites as $site) {
+            echo "  ▸ {$site['domain']} (ID {$site['id']})...";
+            try {
+                $gen->generate((int) $site['id']);
+                echo " ✓\n";
+            } catch (\Throwable $e) {
+                echo " ✗ {$e->getMessage()}\n";
+            }
+        }
+
+        // Also purge the shared loader from edge cache
+        $cachePurge = $container->get(\OCI\Banner\Service\CachePurgeService::class);
+        $cachePurge->purgeLoader();
+        echo "Loader cache purged.\n";
+
+        echo "Done.\n";
+    })(),
+
+    'cookies:sync' => (function () use ($container, $argv) {
+        $dryRun = \in_array('--dry-run', $argv, true);
+        $sync = $container->get(\OCI\Cookie\Service\OpenCookieDatabaseSync::class);
+
+        echo "Syncing Open Cookie Database" . ($dryRun ? ' (dry run)' : '') . "...\n";
+
+        $stats = $sync->sync($dryRun);
+
+        echo "Done. Inserted: {$stats['inserted']}, Updated: {$stats['updated']}, "
+            . "Skipped: {$stats['skipped']}, Errors: {$stats['errors']}\n";
+    })(),
+
+    'cookies:translate' => (function () use ($container, $argv) {
+        $generate = \in_array('--generate', $argv, true);
+        $insert = \in_array('--insert', $argv, true);
+        $dryRun = \in_array('--dry-run', $argv, true);
+        $force = \in_array('--force', $argv, true);
+        $lang = null;
+        $delay = 2;
+
+        foreach ($argv as $arg) {
+            if (str_starts_with($arg, '--lang=')) {
+                $lang = substr($arg, 7);
+            }
+            if (str_starts_with($arg, '--delay=')) {
+                $delay = (int) substr($arg, 8);
+            }
+        }
+
+        if (!$generate && !$insert) {
+            echo "Usage: php bin/oci cookies:translate [options]\n\n";
+            echo "Translates cookie descriptions from oci_cookies_global into all languages.\n\n";
+            echo "Options:\n";
+            echo "  --generate          Translate via AI and write to cache file\n";
+            echo "  --insert            Read cache file and upsert into database\n";
+            echo "  --lang=XX           Process only one language code (e.g., --lang=da)\n";
+            echo "  --delay=N           Seconds between API calls (default: 2)\n";
+            echo "  --force             Re-translate even if cached\n";
+            echo "  --dry-run           Show what would happen without writing\n";
+            return;
+        }
+
+        $db = $container->get(\Doctrine\DBAL\Connection::class);
+        $ai = $container->get(\OCI\Modules\Blog\Service\OpenRouterClient::class);
+        $logger = $container->get(\Psr\Log\LoggerInterface::class);
+        $basePath = $container->get('config.base_path');
+
+        $seeder = new \OCI\Cookie\Service\CookieTranslationSeeder($db, $ai, $logger, $basePath);
+
+        echo "╔══════════════════════════════════════════╗\n";
+        echo "║   Cookie Description Translator           ║\n";
+        echo "╚══════════════════════════════════════════╝\n\n";
+
+        if ($dryRun) {
+            echo "  DRY RUN — no changes will be written.\n\n";
+        }
+
+        // --- Phase 1: Generate translations via AI ---
+        if ($generate) {
+            $cookies = $seeder->getTranslatableCookies();
+            echo "Translatable cookies: " . \count($cookies) . "\n\n";
+
+            if (empty($cookies)) {
+                echo "No cookies with descriptions found. Run 'cookies:sync' first.\n";
+                return;
+            }
+
+            $seeder->generateTranslations(
+                singleLang: $lang,
+                force: $force,
+                delaySeconds: $dryRun ? 0 : $delay,
+                onProgress: \Closure::fromCallable(function (string $code, string $name, string $status) {
+                    echo "  {$name} ({$code}) — {$status}\n";
+                }),
+            );
+
+            echo "\nCache file written: resources/data/cookie-global-translations.php\n\n";
+        }
+
+        // --- Phase 2: Insert into database ---
+        if ($insert) {
+            $cached = $seeder->loadCachedTranslations();
+
+            if (empty($cached)) {
+                echo "ERROR: No cached translations found. Run with --generate first.\n";
+                exit(1);
+            }
+
+            if ($lang !== null) {
+                $cached = array_filter($cached, fn($code) => $code === $lang, ARRAY_FILTER_USE_KEY);
+            }
+
+            $totalEntries = 0;
+            foreach ($cached as $cookies) {
+                $totalEntries += \count($cookies);
+            }
+
+            echo "Inserting {$totalEntries} translations (" . \count($cached) . " languages) into oci_cookies_global_translations...\n";
+
+            $stats = $seeder->insertIntoDatabase($cached, $dryRun);
+
+            echo "  Inserted: {$stats['inserted']}\n";
+            echo "  Updated:  {$stats['updated']}\n";
+            echo "  Skipped:  {$stats['skipped']}\n\n";
+        }
+
+        echo "Done.\n";
+    })(),
+
+    'cache:purge-loader' => (function () use ($container) {
+        $cachePurge = $container->get(\OCI\Banner\Service\CachePurgeService::class);
+        $cachePurge->purgeLoader();
+        echo "Loader cache purged from Cloudflare edge.\n";
+    })(),
+
+    'legacy:migrate' => (function () use ($container, $argv) {
+        $domain = $argv[2] ?? null;
+        $dryRun = \in_array('--dry-run', $argv, true);
+        $batchSize = 1000;
+
+        // Parse --batch-size=N
+        foreach ($argv as $arg) {
+            if (str_starts_with($arg, '--batch-size=')) {
+                $batchSize = (int) substr($arg, 13);
+            }
+        }
+
+        $runner = new LegacyMigrationRunner(
+            $container->get(\Doctrine\DBAL\Connection::class),
+            $container->get(\Psr\Log\LoggerInterface::class),
+        );
+
+        $runner->setBatchSize($batchSize);
+        $runner->setDryRun($dryRun);
+
+        if ($domain === null) {
+            echo "Usage: php bin/oci legacy:migrate <domain|all> [--dry-run] [--batch-size=N]\n\n";
+            echo "Available domains:\n";
+            foreach ($runner->getAvailableDomains() as $d) {
+                echo "  {$d}\n";
+            }
+            echo "  all\n\n";
+            echo "Environment:\n";
+            $excludeIds = $_ENV['LEGACY_EXCLUDE_USER_IDS'] ?? '(not set)';
+            echo "  LEGACY_EXCLUDE_USER_IDS={$excludeIds}\n";
+            return;
+        }
+
+        echo "╔══════════════════════════════════════════╗\n";
+        echo "║   OCI Legacy Data Migration              ║\n";
+        echo "╚══════════════════════════════════════════╝\n\n";
+
+        echo "Domain:     {$domain}\n";
+        echo "Batch size: {$batchSize}\n";
+        echo "Dry run:    " . ($dryRun ? 'YES (no data will be written)' : 'NO') . "\n";
+        $excludeIds = $_ENV['LEGACY_EXCLUDE_USER_IDS'] ?? '';
+        echo "Excluding:  " . ($excludeIds !== '' ? "user IDs [{$excludeIds}]" : 'none') . "\n";
+        echo "\n";
+
+        $started = microtime(true);
+
+        try {
+            $result = $runner->run($domain);
+        } catch (\InvalidArgumentException $e) {
+            echo "ERROR: {$e->getMessage()}\n";
+            exit(1);
+        }
+
+        $elapsed = round(microtime(true) - $started, 2);
+
+        echo "\n";
+        echo "═══════════════════════════════════════════\n";
+        echo " Migrated: {$result['migrated']}\n";
+        echo " Skipped:  {$result['skipped']}\n";
+        echo " Errors:   {$result['errors']}\n";
+        echo " Time:     {$elapsed}s\n";
+        echo "═══════════════════════════════════════════\n";
+
+        exit($result['errors'] > 0 ? 1 : 0);
+    })(),
+
+    'cleanup:non-admin-users' => (function () use ($container, $argv) {
+        $db = $container->get(\Doctrine\DBAL\Connection::class);
+        $dryRun = \in_array('--dry-run', $argv, true);
+
+        $userCount = (int) $db->fetchOne("SELECT COUNT(*) FROM oci_users WHERE role != 'admin'");
+        $siteCount = (int) $db->fetchOne('SELECT COUNT(*) FROM oci_sites');
+        $orphanSiteCount = (int) $db->fetchOne("SELECT COUNT(*) FROM oci_sites WHERE user_id NOT IN (SELECT id FROM oci_users WHERE role = 'admin')");
+
+        echo "Found {$userCount} non-admin user(s), {$siteCount} total site(s) ({$orphanSiteCount} to remove).\n";
+
+        if ($userCount === 0 && $orphanSiteCount === 0) {
+            echo "Nothing to clean up.\n";
+            return;
+        }
+
+        if ($dryRun) {
+            echo "Dry run — no changes made.\n";
+            $users = $db->fetchAllAssociative("SELECT id, email, role FROM oci_users WHERE role != 'admin' ORDER BY id");
+            foreach ($users as $u) {
+                echo "  Would delete user: #{$u['id']} {$u['email']} ({$u['role']})\n";
+            }
+            $sites = $db->fetchAllAssociative("SELECT id, domain, user_id FROM oci_sites ORDER BY id");
+            foreach ($sites as $s) {
+                echo "  Would delete site: #{$s['id']} {$s['domain']} (user #{$s['user_id']})\n";
+            }
+            return;
+        }
+
+        // Delete all sites first (including any orphans not tied to an admin)
+        $deletedSites = $db->executeStatement("DELETE FROM oci_sites WHERE user_id NOT IN (SELECT id FROM oci_users WHERE role = 'admin')");
+        echo "Deleted {$deletedSites} site(s) and all cascaded data (banners, consents, etc.).\n";
+
+        // Then delete non-admin users
+        $deletedUsers = $db->executeStatement("DELETE FROM oci_users WHERE role != 'admin'");
+        echo "Deleted {$deletedUsers} user(s) and all cascaded data.\n";
+
+        // Also reset legacy_migrated_at so admin can re-test
+        $db->executeStatement("UPDATE oci_users SET legacy_migrated_at = NULL WHERE role = 'admin'");
+        echo "Reset legacy_migrated_at on admin user(s).\n";
+    })(),
+
+    'blog:generate' => (function () use ($container, $argv) {
+        $maxArticles = 5;
+        foreach ($argv as $arg) {
+            if (str_starts_with($arg, '--max=')) {
+                $maxArticles = (int) substr($arg, 6);
+            }
+        }
+
+        $blogService = $container->get(\OCI\Modules\Blog\Service\BlogService::class);
+        $logger = $container->get(\Psr\Log\LoggerInterface::class);
+
+        echo "╔══════════════════════════════════════════╗\n";
+        echo "║   Conzent Blog — AI Content Generator     ║\n";
+        echo "╚══════════════════════════════════════════╝\n\n";
+        echo "Max articles per run: {$maxArticles}\n\n";
+
+        $started = microtime(true);
+        $stats = $blogService->runPipeline($maxArticles);
+        $elapsed = round(microtime(true) - $started, 2);
+
+        echo "\n";
+        echo "═══════════════════════════════════════════\n";
+        echo " Feeds fetched:      {$stats['feeds_fetched']}\n";
+        echo " New feed items:     {$stats['new_items']}\n";
+        echo " Articles generated: {$stats['articles_generated']}\n";
+        echo " Errors:             {$stats['errors']}\n";
+        echo " Time:               {$elapsed}s\n";
+        echo "═══════════════════════════════════════════\n";
+
+        if ($stats['articles_generated'] > 0) {
+            echo "\nArticles created as drafts. Review at /app/blog\n";
+        }
+    })(),
+
+    'publish' => (function () use ($argv) {
+        // Standalone script — no app bootstrap needed, runs with any PHP >= 8.0
+        $script = dirname(__DIR__) . '/scripts/publish.php';
+        $args = implode(' ', array_map('escapeshellarg', \array_slice($argv, 2)));
+        $exitCode = 0;
+        passthru("php \"{$script}\" {$args}", $exitCode);
+        exit($exitCode);
+    })(),
+
+    'banners:seed-translations' => (function () use ($container, $argv) {
+        $generate = \in_array('--generate', $argv, true);
+        $insert = \in_array('--insert', $argv, true);
+        $backfillSites = \in_array('--backfill-sites', $argv, true);
+        $categories = \in_array('--categories', $argv, true);
+        $dryRun = \in_array('--dry-run', $argv, true);
+        $force = \in_array('--force', $argv, true);
+        $lang = null;
+        $delay = 2;
+
+        foreach ($argv as $arg) {
+            if (str_starts_with($arg, '--lang=')) {
+                $lang = substr($arg, 7);
+            }
+            if (str_starts_with($arg, '--delay=')) {
+                $delay = (int) substr($arg, 8);
+            }
+        }
+
+        if (!$generate && !$insert && !$categories) {
+            echo "Usage: php bin/oci banners:seed-translations [options]\n\n";
+            echo "Options:\n";
+            echo "  --generate          Translate via AI and write to cache file\n";
+            echo "  --insert            Read cache file and upsert into database\n";
+            echo "  --backfill-sites    Also update existing site banners (untouched only)\n";
+            echo "  --lang=XX           Process only one language code (e.g., --lang=da)\n";
+            echo "  --delay=N           Seconds between API calls (default: 2)\n";
+            echo "  --categories        Translate cookie categories for missing languages\n";
+            echo "  --force             Re-translate even if cached (use after English changes)\n";
+            echo "  --dry-run           Show what would happen without writing\n";
+            return;
+        }
+
+        $db = $container->get(\Doctrine\DBAL\Connection::class);
+        $ai = $container->get(\OCI\Modules\Blog\Service\OpenRouterClient::class);
+        $logger = $container->get(\Psr\Log\LoggerInterface::class);
+        $basePath = $container->get('config.base_path');
+
+        $seeder = new \OCI\Banner\Service\BannerTranslationSeeder($db, $ai, $logger, $basePath);
+
+        echo "╔══════════════════════════════════════════╗\n";
+        echo "║   Banner Translation Seeder               ║\n";
+        echo "╚══════════════════════════════════════════╝\n\n";
+
+        if ($dryRun) {
+            echo "  DRY RUN — no changes will be written.\n\n";
+        }
+        if ($force) {
+            echo "  FORCE — re-translating all languages (ignoring cache).\n\n";
+        }
+
+        // --- Phase 1: Generate translations via AI ---
+        if ($generate) {
+            $cached = $seeder->loadCachedTranslations();
+            $targetLanguages = $seeder->getTargetLanguages();
+
+            if ($lang !== null) {
+                if (!isset($targetLanguages[$lang])) {
+                    echo "ERROR: Language '{$lang}' not found in database.\n";
+                    exit(1);
+                }
+                $targetLanguages = [$lang => $targetLanguages[$lang]];
+            }
+
+            $templates = ['gdpr', 'ccpa'];
+            $totalLangs = \count($targetLanguages);
+            $current = 0;
+            $errors = 0;
+
+            foreach ($templates as $template) {
+                $fields = $seeder->getTranslatableFields($template);
+                echo "Template: {$template} (" . \count($fields) . " fields)\n";
+
+                if (!isset($cached[$template])) {
+                    $cached[$template] = [];
+                }
+
+                $current = 0;
+                foreach ($targetLanguages as $code => $name) {
+                    $current++;
+                    $pct = round($current / $totalLangs * 100);
+
+                    // Skip if already cached (unless --force)
+                    if (!$force && isset($cached[$template][$code]) && !empty($cached[$template][$code])) {
+                        echo "  [{$pct}%] {$name} ({$code}) — cached, skipping\n";
+                        continue;
+                    }
+
+                    echo "  [{$pct}%] {$name} ({$code}) — translating...";
+
+                    if ($dryRun) {
+                        echo " (dry run)\n";
+                        continue;
+                    }
+
+                    $result = $seeder->translateForLanguage($code, $name, $fields);
+
+                    if ($result === null) {
+                        echo " FAILED\n";
+                        $errors++;
+                        continue;
+                    }
+
+                    // Count non-empty translations
+                    $filled = \count(array_filter($result, fn($v) => $v !== ''));
+                    echo " ✓ ({$filled}/" . \count($fields) . " fields)\n";
+
+                    $cached[$template][$code] = $result;
+
+                    // Save incrementally after each successful language
+                    $seeder->saveCachedTranslations($cached);
+
+                    // Rate limit
+                    if ($delay > 0 && $current < $totalLangs) {
+                        sleep($delay);
+                    }
+                }
+
+                echo "\n";
+            }
+
+            if ($errors > 0) {
+                echo "WARNING: {$errors} translation(s) failed. Re-run to retry.\n\n";
+            }
+
+            echo "Cache file written: resources/data/banner-field-translations.php\n\n";
+        }
+
+        // --- Phase 2: Insert into database ---
+        if ($insert) {
+            $cached = $seeder->loadCachedTranslations();
+
+            if (empty($cached)) {
+                echo "ERROR: No cached translations found. Run with --generate first.\n";
+                exit(1);
+            }
+
+            // Count total entries
+            $totalEntries = 0;
+            foreach ($cached as $langs) {
+                foreach ($langs as $fields) {
+                    $totalEntries += \count($fields);
+                }
+            }
+
+            echo "Inserting {$totalEntries} translations into oci_banner_field_translations...\n";
+
+            $stats = $seeder->insertIntoDatabase($cached, $dryRun);
+
+            echo "  Inserted: {$stats['inserted']}\n";
+            echo "  Updated:  {$stats['updated']}\n";
+            echo "  Skipped:  {$stats['skipped']}\n\n";
+
+            // --- Phase 3: Backfill site banners ---
+            if ($backfillSites) {
+                echo "Backfilling existing site banners (untouched translations only)...\n";
+
+                $bfStats = $seeder->backfillSiteBanners($cached, $dryRun);
+
+                echo "  Updated: {$bfStats['updated']}\n";
+                echo "  Skipped: {$bfStats['skipped']}\n\n";
+            }
+
+            if (!$dryRun) {
+                echo "Done. Run 'php bin/oci scripts:regenerate' to update consent scripts.\n";
+            }
+        }
+
+        // --- Phase 4: Cookie category translations ---
+        if ($categories) {
+            $cats = $seeder->getCookieCategories();
+            $missingLangs = $seeder->getLanguagesMissingCategoryTranslations();
+
+            if ($lang !== null) {
+                $missingLangs = array_intersect_key($missingLangs, [$lang => true]);
+            }
+
+            if (empty($missingLangs)) {
+                echo "All languages already have cookie category translations.\n";
+            } else {
+                echo "Translating cookie categories for " . \count($missingLangs) . " language(s)...\n";
+
+                $catErrors = 0;
+                foreach ($missingLangs as $code => $name) {
+                    echo "  {$name} ({$code}) — translating...";
+
+                    if ($dryRun) {
+                        echo " (dry run)\n";
+                        continue;
+                    }
+
+                    $catResult = $seeder->translateCategoriesForLanguage($code, $name, $cats);
+
+                    if ($catResult === null) {
+                        echo " FAILED\n";
+                        $catErrors++;
+                        continue;
+                    }
+
+                    $count = $seeder->insertCategoryTranslations($code, $catResult);
+                    echo " ✓ ({$count} inserted)\n";
+
+                    if ($delay > 0) {
+                        sleep($delay);
+                    }
+                }
+
+                if ($catErrors > 0) {
+                    echo "\nWARNING: {$catErrors} category translation(s) failed. Re-run to retry.\n";
+                }
+
+                echo "\n";
+            }
+        }
+    })(),
+
+    'www:translate' => (function () use ($container, $argv) {
+        $lang = null;
+        $force = \in_array('--force', $argv, true);
+        $dryRun = \in_array('--dry-run', $argv, true);
+
+        foreach ($argv as $arg) {
+            if (str_starts_with($arg, '--lang=')) {
+                $lang = substr($arg, 7);
+            }
+        }
+
+        $service = $container->get(\OCI\Modules\Www\Service\TranslationService::class);
+
+        echo "╔══════════════════════════════════════════╗\n";
+        echo "║   Conzent — Website Auto-Translation      ║\n";
+        echo "╚══════════════════════════════════════════╝\n\n";
+
+        if ($dryRun) {
+            echo "  DRY RUN — no files will be written.\n\n";
+        }
+        if ($force) {
+            echo "  FORCE — re-translating all files.\n\n";
+        }
+
+        $started = microtime(true);
+        $stats = $service->run([
+            'lang' => $lang,
+            'force' => $force,
+            'dry_run' => $dryRun,
+        ]);
+        $elapsed = round(microtime(true) - $started, 2);
+
+        echo "═══════════════════════════════════════════\n";
+        echo " Languages:   " . implode(', ', $stats['languages']) . "\n";
+        echo " Translated:  {$stats['translated']}\n";
+        echo " Skipped:     {$stats['skipped']}\n";
+        echo " Errors:      {$stats['errors']}\n";
+        echo " Time:        {$elapsed}s\n";
+        echo "═══════════════════════════════════════════\n";
+
+        if ($stats['translated'] > 0 && !$dryRun) {
+            echo "\nRun 'php www/build.php' to rebuild the site with translations.\n";
+        }
+    })(),
+
+    default => (function () use ($command) {
+        echo "OCI — Open Consent Infrastructure CLI\n\n";
+        if ($command !== 'help') {
+            echo "Unknown command: {$command}\n\n";
+        }
+        echo "Available commands:\n";
+        echo "  setup                          First-run setup: create admin account\n";
+        echo "  health                         Check application health\n";
+        echo "  migrations:migrate             Run Doctrine schema migrations\n";
+        echo "  legacy:migrate <domain|all>    Migrate legacy data to oci_* tables\n";
+        echo "  cache:clear                    Clear application cache\n";
+        echo "  queue:work                     Process queued jobs\n";
+        echo "  ingest:flush                   Flush beacon buffer to database\n";
+        echo "  schedule:run                   Run scheduled tasks\n";
+        echo "  scripts:regenerate             Regenerate all consent scripts\n";
+        echo "  cache:purge-loader             Purge CMP loader from Cloudflare edge\n";
+        echo "  cleanup:non-admin-users        Delete all non-admin users and cascaded data\n";
+        echo "  blog:generate [--max=N]        Generate blog articles from RSS feeds (default: 5)\n";
+        echo "  www:translate [--lang=XX]      Auto-translate website content via AI\n";
+        echo "  publish <version>              Publish core code to public GitHub repo\n";
+        echo "  cookies:sync [--dry-run]        Sync Open Cookie Database into oci_cookies_global\n";
+        echo "  cookies:translate               Translate cookie descriptions into all languages\n";
+        echo "  banners:seed-translations      Pre-translate banner content for all languages\n";
+        echo "\n";
+    })(),
+};
