@@ -1,0 +1,943 @@
+{
+  "$schema": "privacy-frameworks-v1",
+  "$version": "1.0.0",
+  "$updated": "2026-03-23",
+  "$description": "Single source of truth for cookie/privacy framework rules. Used by backend (Java) as ruleset engine and by frontend (UI) as framework selector. Extend by adding new entries to the 'frameworks' array following the same structure.",
+
+  "_enums": {
+    "consent_model": ["opt_in", "opt_out", "notice_only", "implied", "hybrid"],
+    "blocking_strategy": ["block_all_non_essential", "block_none", "block_category_specific"],
+    "cookie_category": ["strictly_necessary", "functional", "analytics", "marketing", "advertising", "social_media", "personalization"],
+    "signal_type": ["gpc", "dnt", "iab_tcf", "iab_gpp", "google_consent_mode_v2", "microsoft_uet_consent_mode"],
+    "enforcement_type": ["dpa", "attorney_general", "dedicated_authority", "court", "self_regulatory"],
+    "region": ["eu", "eea", "uk", "us_federal", "us_state", "canada", "latam", "brazil", "asia_east", "asia_south", "asia_southeast", "oceania", "middle_east", "africa", "caribbean", "global"],
+    "banner_button": ["accept_all", "reject_all", "manage_preferences", "save_preferences", "do_not_sell", "limit_sensitive", "close_x"],
+    "legal_basis": ["consent", "legitimate_interest", "contract", "legal_obligation", "vital_interest", "public_interest"]
+  },
+
+  "frameworks": [
+    {
+      "id": "gdpr",
+      "name": "GDPR",
+      "full_name": "General Data Protection Regulation",
+      "short_description": "EU's comprehensive data protection regulation",
+      "region": "eu",
+      "countries": ["AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "DE", "GR", "HU", "IE", "IT", "LV", "LT", "LU", "MT", "NL", "PL", "PT", "RO", "SK", "SI", "ES", "SE", "IS", "LI", "NO"],
+      "effective_date": "2018-05-25",
+      "last_amended": "2018-05-25",
+      "status": "active",
+      "official_text_url": "https://eur-lex.europa.eu/eli/reg/2016/679/oj",
+      "authority": {
+        "name": "European Data Protection Board (EDPB) + National DPAs",
+        "type": "dpa",
+        "website": "https://edpb.europa.eu"
+      },
+
+      "consent": {
+        "model": "opt_in",
+        "prior_consent_required": true,
+        "consent_must_be_freely_given": true,
+        "consent_must_be_specific": true,
+        "consent_must_be_informed": true,
+        "consent_must_be_unambiguous": true,
+        "granular_per_purpose": true,
+        "pre_checked_boxes_allowed": false,
+        "scrolling_as_consent": false,
+        "cookie_wall_allowed": false,
+        "bundled_consent_allowed": false,
+        "reconsent_on_policy_change": true,
+        "withdrawal_must_be_as_easy_as_giving": true,
+        "valid_consent_actions": ["click_accept", "toggle_categories", "affirmative_action"],
+        "invalid_consent_actions": ["scrolling", "continued_browsing", "silence", "pre_checked", "inactivity"]
+      },
+
+      "blocking": {
+        "strategy": "block_all_non_essential",
+        "block_before_consent": true,
+        "categories_to_block": ["analytics", "marketing", "advertising", "social_media", "personalization", "functional"],
+        "categories_exempt": ["strictly_necessary"],
+        "must_block_tag_managers": true,
+        "must_block_pixels": true,
+        "must_block_local_storage": true,
+        "must_block_fingerprinting": true,
+        "applies_to_personal_data_only": false,
+        "note": "All non-essential cookies/trackers must be blocked until explicit consent. Includes scripts, pixels, local storage, session storage."
+      },
+
+      "banner": {
+        "required": true,
+        "must_show_before_cookies_fire": true,
+        "required_buttons": ["accept_all", "reject_all", "manage_preferences"],
+        "accept_reject_equal_prominence": true,
+        "dark_patterns_prohibited": true,
+        "close_x_counts_as_reject": false,
+        "must_link_to_cookie_policy": true,
+        "must_link_to_privacy_policy": true,
+        "must_not_block_imprint_access": true,
+        "preference_center_required": true,
+        "persistent_footer_widget_recommended": true,
+        "must_show_on_first_visit": true,
+        "must_not_show_to_returning_consented_users": true,
+        "language_requirements": "local_language_of_user",
+        "accessibility_required": true,
+        "wcag_level": "AA"
+      },
+
+      "do_not_sell": {
+        "required": false,
+        "link_required": false,
+        "note": "GDPR does not have a 'Do Not Sell' concept. Uses consent/opt-in model instead."
+      },
+
+      "opt_out_rights": {
+        "right_to_withdraw_consent": true,
+        "right_to_object_to_processing": true,
+        "right_to_restrict_processing": true,
+        "right_to_erasure": true,
+        "right_to_data_portability": true,
+        "right_to_access": true,
+        "right_to_rectification": true,
+        "right_not_to_be_profiled": true
+      },
+
+      "signals": {
+        "must_honor_gpc": false,
+        "gpc_recognized_by_some_dpas": true,
+        "must_honor_dnt": false,
+        "iab_tcf_supported": true,
+        "iab_tcf_version": "2.3",
+        "iab_gpp_supported": true,
+        "google_consent_mode_v2_required": true,
+        "google_consent_mode_v2_note": "Mandatory for EU/EEA/UK advertisers using Google products since March 2024"
+      },
+
+      "logging": {
+        "consent_logging_required": true,
+        "must_demonstrate_consent": true,
+        "log_fields_required": ["user_identifier", "timestamp", "consent_status", "categories_consented", "categories_rejected", "banner_version", "policy_version", "geolocation", "withdrawal_timestamp"],
+        "retention_period_recommendation_years": 2,
+        "must_be_tamper_proof": true,
+        "must_be_audit_ready": true,
+        "must_be_exportable": true,
+        "gdpr_article": "Article 7(1)"
+      },
+
+      "children": {
+        "special_protection": true,
+        "age_of_consent_default": 16,
+        "age_of_consent_can_be_lowered_to": 13,
+        "parental_consent_required_below_age": true,
+        "note": "Member states can lower to 13. Verify per country."
+      },
+
+      "sensitive_data": {
+        "explicit_consent_required": true,
+        "categories": ["racial_ethnic_origin", "political_opinions", "religious_beliefs", "trade_union_membership", "genetic_data", "biometric_data", "health_data", "sex_life_orientation"]
+      },
+
+      "cross_border": {
+        "transfer_restrictions": true,
+        "adequacy_decisions_apply": true,
+        "sccs_required_without_adequacy": true,
+        "note": "Data transfers outside EU/EEA require adequacy decision, SCCs, or BCRs."
+      },
+
+      "penalties": {
+        "max_fine_fixed": "20000000 EUR",
+        "max_fine_percentage": "4% of global annual revenue",
+        "whichever_is_higher": true,
+        "private_right_of_action": true,
+        "criminal_penalties": false
+      }
+    },
+
+    {
+      "id": "eprivacy_directive",
+      "name": "ePrivacy Directive",
+      "full_name": "Directive 2002/58/EC (amended by 2009/136/EC)",
+      "short_description": "EU cookie-specific directive — the original 'cookie law'",
+      "region": "eu",
+      "countries": ["AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "DE", "GR", "HU", "IE", "IT", "LV", "LT", "LU", "MT", "NL", "PL", "PT", "RO", "SK", "SI", "ES", "SE"],
+      "effective_date": "2002-07-31",
+      "last_amended": "2009-11-25",
+      "status": "active",
+      "official_text_url": "https://eur-lex.europa.eu/legal-content/EN/ALL/?uri=CELEX%3A32002L0058",
+      "authority": {
+        "name": "Transposed into national law by each member state",
+        "type": "dpa",
+        "website": null
+      },
+      "consent": {
+        "model": "opt_in",
+        "prior_consent_required": true,
+        "consent_must_be_freely_given": true,
+        "consent_must_be_specific": true,
+        "consent_must_be_informed": true,
+        "consent_must_be_unambiguous": true,
+        "granular_per_purpose": true,
+        "pre_checked_boxes_allowed": false,
+        "scrolling_as_consent": false,
+        "cookie_wall_allowed": false,
+        "bundled_consent_allowed": false,
+        "reconsent_on_policy_change": true,
+        "withdrawal_must_be_as_easy_as_giving": true,
+        "valid_consent_actions": ["click_accept", "toggle_categories"],
+        "invalid_consent_actions": ["scrolling", "continued_browsing", "silence", "pre_checked"]
+      },
+      "blocking": {
+        "strategy": "block_all_non_essential",
+        "block_before_consent": true,
+        "categories_to_block": ["analytics", "marketing", "advertising", "social_media", "personalization", "functional"],
+        "categories_exempt": ["strictly_necessary"],
+        "must_block_tag_managers": true,
+        "must_block_pixels": true,
+        "must_block_local_storage": true,
+        "must_block_fingerprinting": true,
+        "applies_to_personal_data_only": false,
+        "note": "Covers ALL storage/access on user devices, not just personal data. Broader than GDPR in this regard."
+      },
+      "banner": {
+        "required": true,
+        "must_show_before_cookies_fire": true,
+        "required_buttons": ["accept_all", "reject_all", "manage_preferences"],
+        "accept_reject_equal_prominence": true,
+        "dark_patterns_prohibited": true,
+        "close_x_counts_as_reject": false,
+        "must_link_to_cookie_policy": true,
+        "must_link_to_privacy_policy": true,
+        "must_not_block_imprint_access": true,
+        "preference_center_required": true,
+        "persistent_footer_widget_recommended": true,
+        "must_show_on_first_visit": true,
+        "must_not_show_to_returning_consented_users": true,
+        "language_requirements": "local_language_of_user",
+        "accessibility_required": true,
+        "wcag_level": "AA"
+      },
+      "do_not_sell": { "required": false, "link_required": false },
+      "opt_out_rights": { "right_to_withdraw_consent": true },
+      "signals": { "must_honor_gpc": false, "must_honor_dnt": false, "iab_tcf_supported": true, "iab_tcf_version": "2.3", "iab_gpp_supported": true, "google_consent_mode_v2_required": true },
+      "logging": { "consent_logging_required": true, "must_demonstrate_consent": true, "log_fields_required": ["user_identifier", "timestamp", "consent_status", "categories_consented", "banner_version"], "retention_period_recommendation_years": 2, "must_be_tamper_proof": true, "must_be_audit_ready": true, "must_be_exportable": true },
+      "children": { "special_protection": true, "age_of_consent_default": 16, "parental_consent_required_below_age": true },
+      "sensitive_data": { "explicit_consent_required": true },
+      "cross_border": { "transfer_restrictions": true },
+      "penalties": { "max_fine_fixed": "Varies by member state transposition", "note": "Penalties defined in national implementations. GDPR penalties may also apply for personal data aspects." }
+    },
+
+    {
+      "id": "tdddg",
+      "name": "TDDDG / TTDSG",
+      "full_name": "Telekommunikation-Telemedien-Datenschutz-Gesetz (Telecommunications Digital Services Data Protection Act)",
+      "short_description": "Germany's ePrivacy implementation — covers all device storage",
+      "region": "eu",
+      "countries": ["DE"],
+      "effective_date": "2021-12-01",
+      "last_amended": "2025-04-01",
+      "status": "active",
+      "official_text_url": "https://www.gesetze-im-internet.de/ttdsg/",
+      "authority": { "name": "BfDI (Federal Commissioner for Data Protection) + Federal Network Agency", "type": "dpa", "website": "https://www.bfdi.bund.de" },
+      "consent": {
+        "model": "opt_in",
+        "prior_consent_required": true,
+        "consent_must_be_freely_given": true,
+        "consent_must_be_specific": true,
+        "consent_must_be_informed": true,
+        "consent_must_be_unambiguous": true,
+        "granular_per_purpose": true,
+        "pre_checked_boxes_allowed": false,
+        "scrolling_as_consent": false,
+        "cookie_wall_allowed": false,
+        "bundled_consent_allowed": true,
+        "bundled_consent_note": "Bundled TTDSG+GDPR consent allowed if transparent about what user agrees to",
+        "reconsent_on_policy_change": true,
+        "withdrawal_must_be_as_easy_as_giving": true,
+        "valid_consent_actions": ["click_accept", "click_i_consent", "toggle_categories"],
+        "invalid_consent_actions": ["scrolling", "continued_browsing", "silence", "pre_checked", "click_okay"],
+        "invalid_button_texts": ["Okay", "OK", "Got it"],
+        "valid_button_texts": ["Accept", "I Consent", "Agree"]
+      },
+      "blocking": {
+        "strategy": "block_all_non_essential",
+        "block_before_consent": true,
+        "categories_to_block": ["analytics", "marketing", "advertising", "social_media", "personalization", "functional"],
+        "categories_exempt": ["strictly_necessary"],
+        "must_block_tag_managers": true,
+        "must_block_pixels": true,
+        "must_block_local_storage": true,
+        "must_block_fingerprinting": true,
+        "must_block_cookieless_tracking": true,
+        "applies_to_personal_data_only": false,
+        "applies_to_all_device_storage": true,
+        "extends_to_apps": true,
+        "extends_to_smart_home": true,
+        "extends_to_iot": true,
+        "note": "Section 25 TDDDG: ALL storage/access on end-user devices requires consent. Broader than GDPR. Includes cookies, local storage, pixels, AND cookieless tracking. Also covers apps, smart home, IoT."
+      },
+      "banner": {
+        "required": true,
+        "must_show_before_cookies_fire": true,
+        "required_buttons": ["accept_all", "reject_all", "manage_preferences"],
+        "accept_reject_equal_prominence": true,
+        "dark_patterns_prohibited": true,
+        "nudging_invalidates_consent": true,
+        "close_x_counts_as_reject": false,
+        "must_link_to_cookie_policy": true,
+        "must_link_to_privacy_policy": true,
+        "must_not_block_imprint_access": true,
+        "must_disclose_third_party_access": true,
+        "must_inform_about_third_country_transfers": true,
+        "preference_center_required": true,
+        "language_requirements": "German",
+        "accessibility_required": true
+      },
+      "do_not_sell": { "required": false, "link_required": false },
+      "opt_out_rights": { "right_to_withdraw_consent": true, "must_respect_dnt_settings": true },
+      "signals": { "must_honor_gpc": false, "must_honor_dnt": true, "iab_tcf_supported": true, "iab_tcf_version": "2.3", "google_consent_mode_v2_required": true },
+      "logging": {
+        "consent_logging_required": true,
+        "must_demonstrate_consent": true,
+        "log_fields_required": ["user_identifier", "timestamp", "consent_status", "categories_consented", "categories_rejected", "banner_version", "policy_version"],
+        "retention_period_recommendation_years": 5,
+        "must_be_tamper_proof": true,
+        "must_be_audit_ready": true
+      },
+      "children": { "special_protection": true, "age_of_consent_default": 18, "parental_consent_required_below_age": true, "note": "Under Art. 8 GDPR applied via TDDDG, minors under 18 need parental consent in Germany." },
+      "sensitive_data": { "explicit_consent_required": true },
+      "cross_border": { "transfer_restrictions": true, "must_inform_user_about_transfers": true },
+      "penalties": { "max_fine_fixed": "300000 EUR", "max_fine_note": "TDDDG-specific. GDPR fines (up to €20M/4%) may also apply for personal data violations." },
+      "consent_management_ordinance": {
+        "effective_date": "2025-04-01",
+        "allows_centralized_consent_services": true,
+        "reduces_cookie_banner_fatigue": true,
+        "note": "New German ordinance allows recognized consent management services to store preferences centrally, reducing repeated banners across sites."
+      }
+    },
+
+    {
+      "id": "ccpa_cpra",
+      "name": "CCPA / CPRA",
+      "full_name": "California Consumer Privacy Act / California Privacy Rights Act",
+      "short_description": "California's flagship privacy law — opt-out model",
+      "region": "us_state",
+      "countries": ["US"],
+      "states": ["CA"],
+      "effective_date": "2020-01-01",
+      "last_amended": "2023-01-01",
+      "status": "active",
+      "official_text_url": "https://leginfo.legislature.ca.gov/faces/codes_displayText.xhtml?division=3.&part=4.&lawCode=CIV&title=1.81.5",
+      "authority": { "name": "California Privacy Protection Agency (CPPA) + Attorney General", "type": "dedicated_authority", "website": "https://cppa.ca.gov" },
+      "applies_if": {
+        "annual_gross_revenue_min": 25000000,
+        "consumers_data_processed_min": 50000,
+        "revenue_from_selling_data_percentage_min": 50,
+        "note": "Must meet at least ONE threshold"
+      },
+      "consent": {
+        "model": "opt_out",
+        "prior_consent_required": false,
+        "cookies_can_fire_before_consent": true,
+        "opt_in_required_for_minors_13_16": true,
+        "opt_in_required_for_children_under_13_parental": true,
+        "granular_per_purpose": false,
+        "cookie_wall_allowed": false,
+        "note": "Cookies can fire immediately. User must be able to opt out of sale/sharing. Opt-in only for minors."
+      },
+      "blocking": {
+        "strategy": "block_none",
+        "block_before_consent": false,
+        "categories_to_block": [],
+        "categories_exempt": ["strictly_necessary", "functional", "analytics", "marketing", "advertising"],
+        "note": "No pre-consent blocking required. Scripts can run by default. But opt-out must genuinely stop sale/sharing when exercised."
+      },
+      "banner": {
+        "required": false,
+        "recommended": true,
+        "required_buttons": ["do_not_sell", "limit_sensitive"],
+        "do_not_sell_link_required_on_homepage": true,
+        "do_not_sell_link_text": "Do Not Sell or Share My Personal Information",
+        "limit_sensitive_link_required": true,
+        "limit_sensitive_link_text": "Limit the Use of My Sensitive Personal Information",
+        "dark_patterns_prohibited": true,
+        "accept_reject_equal_prominence": false,
+        "must_link_to_privacy_policy": true,
+        "preference_center_required": false,
+        "preference_center_recommended": true,
+        "language_requirements": "English",
+        "note": "Cookie banner not technically required. But 'Do Not Sell/Share' and 'Limit Sensitive' links ARE required. Banner is best practice."
+      },
+      "do_not_sell": {
+        "required": true,
+        "link_required": true,
+        "link_text": "Do Not Sell or Share My Personal Information",
+        "must_be_on_homepage": true,
+        "must_be_in_footer": true,
+        "opt_out_must_stop_data_sale": true,
+        "opt_out_must_stop_data_sharing": true,
+        "opt_out_must_stop_behavioral_advertising": true,
+        "note": "CPRA expanded 'sale' to include 'sharing' for cross-context behavioral advertising."
+      },
+      "opt_out_rights": {
+        "right_to_opt_out_of_sale": true,
+        "right_to_opt_out_of_sharing": true,
+        "right_to_limit_sensitive_data_use": true,
+        "right_to_deletion": true,
+        "right_to_access": true,
+        "right_to_correction": true,
+        "right_to_portability": true,
+        "right_to_non_discrimination": true,
+        "right_to_opt_out_of_automated_decision_making": true
+      },
+      "signals": {
+        "must_honor_gpc": true,
+        "gpc_is_valid_opt_out": true,
+        "must_honor_dnt": false,
+        "iab_tcf_supported": false,
+        "iab_gpp_supported": true,
+        "iab_gpp_section": "usca",
+        "google_consent_mode_v2_required": false,
+        "note": "GPC is MANDATORY. Must be honored as valid opt-out of sale/sharing."
+      },
+      "logging": {
+        "consent_logging_required": false,
+        "consent_logging_recommended": true,
+        "must_be_able_to_prove_opt_out_compliance": true,
+        "log_fields_required": ["opt_out_timestamp", "opt_out_method", "user_identifier"],
+        "retention_period_recommendation_years": 1,
+        "note": "Not explicitly required by name, but must prove compliance with opt-out requirements."
+      },
+      "children": { "special_protection": true, "opt_in_required_13_16": true, "parental_opt_in_required_under_13": true },
+      "sensitive_data": { "explicit_consent_required": false, "user_can_limit_use": true, "link_required": true },
+      "cross_border": { "transfer_restrictions": false },
+      "penalties": { "max_fine_per_violation": "7500 USD", "max_fine_unintentional": "2500 USD", "private_right_of_action": true, "private_right_of_action_scope": "data_breaches_only" }
+    },
+
+    {
+      "id": "vcdpa",
+      "name": "VCDPA",
+      "full_name": "Virginia Consumer Data Protection Act",
+      "short_description": "Virginia's privacy law — opt-out with opt-in exceptions",
+      "region": "us_state",
+      "countries": ["US"],
+      "states": ["VA"],
+      "effective_date": "2023-01-01",
+      "status": "active",
+      "authority": { "name": "Virginia Attorney General", "type": "attorney_general" },
+      "consent": {
+        "model": "hybrid",
+        "default_model": "opt_out",
+        "opt_in_required_for": ["sensitive_data", "children_data", "new_purposes"],
+        "prior_consent_required": false,
+        "cookies_can_fire_before_consent": true,
+        "note": "Opt-out default for general data. Opt-in required for sensitive data, children, and repurposed data."
+      },
+      "blocking": {
+        "strategy": "block_category_specific",
+        "block_before_consent": false,
+        "categories_to_block_without_opt_in": [],
+        "categories_requiring_opt_in_if_sensitive": ["analytics", "marketing", "advertising"],
+        "categories_exempt": ["strictly_necessary", "functional"],
+        "note": "No general blocking required. But if processing sensitive data via cookies, opt-in consent must be obtained first."
+      },
+      "banner": {
+        "required": false,
+        "recommended": true,
+        "required_buttons": [],
+        "opt_out_mechanism_required": true,
+        "must_link_to_privacy_policy": true,
+        "dark_patterns_prohibited": true,
+        "note": "No banner required for general processing. But must provide clear opt-out mechanism for targeted ads, data sales, and profiling."
+      },
+      "do_not_sell": {
+        "required": true,
+        "link_required": false,
+        "opt_out_of_targeted_advertising": true,
+        "opt_out_of_sale_of_personal_data": true,
+        "opt_out_of_profiling": true,
+        "note": "Broader opt-out scope than CCPA — covers targeted advertising, sale, AND profiling."
+      },
+      "opt_out_rights": { "right_to_opt_out_of_sale": true, "right_to_opt_out_of_targeted_advertising": true, "right_to_opt_out_of_profiling": true, "right_to_deletion": true, "right_to_access": true, "right_to_correction": true, "right_to_portability": true, "right_to_appeal": true },
+      "signals": { "must_honor_gpc": false, "iab_gpp_supported": true },
+      "logging": { "consent_logging_required": false, "consent_logging_recommended": true, "data_protection_assessment_required": true },
+      "children": { "special_protection": true, "opt_in_required_under_13_coppa": true },
+      "sensitive_data": { "explicit_consent_required": true, "categories": ["racial_ethnic_origin", "religious_beliefs", "health_data", "sexual_orientation", "citizenship_immigration", "genetic_data", "biometric_data", "geolocation_precise", "children_data"] },
+      "penalties": { "max_fine_per_violation": "7500 USD", "cure_period_days": 30, "private_right_of_action": false, "enforcement": "attorney_general_only" }
+    },
+
+    {
+      "id": "lgpd",
+      "name": "LGPD",
+      "full_name": "Lei Geral de Proteção de Dados Pessoais",
+      "short_description": "Brazil's GDPR-inspired data protection law",
+      "region": "latam",
+      "countries": ["BR"],
+      "effective_date": "2020-09-18",
+      "status": "active",
+      "official_text_url": "http://www.planalto.gov.br/ccivil_03/_ato2015-2018/2018/lei/L13709.htm",
+      "authority": { "name": "ANPD (Autoridade Nacional de Proteção de Dados)", "type": "dedicated_authority", "website": "https://www.gov.br/anpd" },
+      "consent": {
+        "model": "opt_in",
+        "prior_consent_required": true,
+        "consent_must_be_freely_given": true,
+        "consent_must_be_specific": true,
+        "consent_must_be_informed": true,
+        "consent_must_be_unambiguous": true,
+        "granular_per_purpose": true,
+        "generic_consent_is_void": true,
+        "pre_checked_boxes_allowed": false,
+        "scrolling_as_consent": false,
+        "cookie_wall_allowed": false,
+        "by_using_site_you_accept_cookies_is_invalid": true,
+        "withdrawal_must_be_free_and_facilitated": true,
+        "note": "Generic consent for all cookies is void. Must be granular by purpose. 'By using this site you accept cookies' is NOT valid."
+      },
+      "blocking": {
+        "strategy": "block_all_non_essential",
+        "block_before_consent": true,
+        "categories_to_block": ["analytics", "marketing", "advertising", "social_media", "personalization"],
+        "categories_exempt": ["strictly_necessary"],
+        "note": "Non-essential cookies should be blocked until opt-in consent."
+      },
+      "banner": {
+        "required": true,
+        "must_show_before_cookies_fire": true,
+        "layered_approach_recommended": true,
+        "layer_1": { "buttons": ["accept_all", "reject_all", "manage_cookies"], "note": "First layer: Accept/Reject/Manage options" },
+        "layer_2": { "content": "Detailed cookie info, purposes, retention periods, third parties, blocking options", "note": "Second layer: Cookie preference center" },
+        "accept_reject_equal_prominence": true,
+        "equal_size_font_color_format": true,
+        "must_identify_each_third_party_by_name": true,
+        "must_link_to_cookie_policy": true,
+        "non_essential_unchecked_by_default": true,
+        "language_requirements": "Portuguese (pt-BR)",
+        "note": "ANPD recommends two-layer approach. Must identify EACH third party by name (not just 'analytics')."
+      },
+      "do_not_sell": { "required": false, "link_required": false },
+      "opt_out_rights": { "right_to_withdraw_consent": true, "right_to_deletion": true, "right_to_access": true, "right_to_correction": true, "right_to_portability": true, "right_to_object_to_processing": true, "right_to_information_about_sharing": true },
+      "signals": { "must_honor_gpc": false, "iab_tcf_supported": false, "google_consent_mode_v2_required": false },
+      "logging": {
+        "consent_logging_required": true,
+        "must_demonstrate_consent": true,
+        "log_fields_required": ["user_identifier", "timestamp", "consent_status", "categories_consented", "consent_content", "withdrawal_timestamp"],
+        "controller_bears_burden_of_proof": true,
+        "note": "Controller must maintain adequate records and documentation of consent."
+      },
+      "children": { "special_protection": true, "best_interest_of_child_principle": true },
+      "sensitive_data": { "explicit_consent_required": true },
+      "cross_border": { "transfer_restrictions": true },
+      "penalties": { "max_fine_percentage": "2% of revenue in Brazil", "max_fine_cap": "50000000 BRL", "per_breach": true }
+    },
+
+    {
+      "id": "popia",
+      "name": "POPIA",
+      "full_name": "Protection of Personal Information Act",
+      "short_description": "South Africa's comprehensive privacy law",
+      "region": "africa",
+      "countries": ["ZA"],
+      "effective_date": "2021-07-01",
+      "status": "active",
+      "official_text_url": "https://popia.co.za",
+      "authority": { "name": "Information Regulator", "type": "dedicated_authority", "website": "https://inforegulator.org.za" },
+      "consent": {
+        "model": "opt_in",
+        "prior_consent_required": true,
+        "consent_must_be_voluntary": true,
+        "consent_must_be_specific": true,
+        "consent_must_be_informed": true,
+        "cookie_wall_allowed": false,
+        "withdrawal_at_any_time": true,
+        "note": "Consent must be voluntary, specific, informed. Cookie walls not permissible. Both individuals AND juristic persons protected."
+      },
+      "blocking": {
+        "strategy": "block_all_non_essential",
+        "block_before_consent": true,
+        "categories_to_block": ["analytics", "marketing", "advertising", "social_media", "personalization"],
+        "categories_exempt": ["strictly_necessary"],
+        "note": "Trending toward GDPR-like approach. Interpretation still evolving."
+      },
+      "banner": {
+        "required": true,
+        "must_show_at_user_friendly_intervals": true,
+        "dont_show_every_visit": true,
+        "cookie_preferences_in_footer_recommended": true,
+        "reconsent_on_purpose_change": true,
+        "reconsent_on_new_cookies": true,
+        "must_link_to_cookie_policy": true,
+        "language_requirements": "English or local language",
+        "note": "Banner should appear at user-friendly intervals (not every visit). Add Cookie Preferences in footer."
+      },
+      "do_not_sell": { "required": false, "link_required": false },
+      "opt_out_rights": { "right_to_withdraw_consent": true, "right_to_object_to_direct_marketing": true, "right_to_object_to_automated_decisions": true, "right_to_access": true, "right_to_correction": true, "right_to_deletion": true },
+      "signals": { "must_honor_gpc": false },
+      "logging": { "consent_logging_required": true, "responsible_party_bears_burden_of_proof": true },
+      "children": { "special_protection": true, "parental_consent_required": true, "child_age": 18 },
+      "sensitive_data": { "explicit_consent_required": true, "categories": ["racial_ethnic_origin", "religious_beliefs", "political_opinions", "health_data", "sex_life", "biometric_data", "criminal_behaviour", "trade_union_membership"] },
+      "cross_border": { "transfer_restrictions": true },
+      "penalties": { "max_fine_min": "1000000 ZAR", "max_fine_max": "10000000 ZAR", "imprisonment_max_years": 10, "note": "R1M-R10M fine AND/OR up to 10 years imprisonment." },
+      "protects_juristic_persons": true
+    },
+
+    {
+      "id": "uk_gdpr",
+      "name": "UK GDPR + PECR",
+      "full_name": "UK General Data Protection Regulation + Privacy and Electronic Communications Regulations",
+      "short_description": "UK's post-Brexit GDPR equivalent plus cookie regulations",
+      "region": "uk",
+      "countries": ["GB"],
+      "effective_date": "2021-01-01",
+      "last_amended": "2025-06-01",
+      "status": "active",
+      "authority": { "name": "Information Commissioner's Office (ICO)", "type": "dpa", "website": "https://ico.org.uk" },
+      "consent": {
+        "model": "opt_in",
+        "prior_consent_required": true,
+        "consent_must_be_freely_given": true,
+        "consent_must_be_specific": true,
+        "consent_must_be_informed": true,
+        "consent_must_be_unambiguous": true,
+        "granular_per_purpose": true,
+        "low_risk_cookie_exemptions": true,
+        "low_risk_exemptions_count": 5,
+        "low_risk_exemptions_note": "Data Use and Access Act (June 2025) introduced 5 narrow exemptions for low-risk cookies. Core analytics and advertising still require consent.",
+        "note": "Substantially identical to EU GDPR. ICO reviewed top 1,000 websites. 5 narrow low-risk exemptions added June 2025."
+      },
+      "blocking": {
+        "strategy": "block_all_non_essential",
+        "block_before_consent": true,
+        "categories_to_block": ["marketing", "advertising", "social_media", "personalization"],
+        "categories_potentially_exempt": ["analytics_low_risk"],
+        "categories_exempt": ["strictly_necessary"],
+        "note": "Core analytics and advertising cookies still require prior consent despite new exemptions."
+      },
+      "banner": {
+        "required": true,
+        "must_show_before_cookies_fire": true,
+        "required_buttons": ["accept_all", "reject_all", "manage_preferences"],
+        "accept_reject_equal_prominence": true,
+        "dark_patterns_prohibited": true,
+        "must_link_to_cookie_policy": true
+      },
+      "do_not_sell": { "required": false },
+      "signals": { "must_honor_gpc": false, "google_consent_mode_v2_required": true },
+      "logging": { "consent_logging_required": true, "must_demonstrate_consent": true },
+      "penalties": { "max_fine_fixed": "17500000 GBP", "max_fine_percentage": "4% of global annual turnover" }
+    },
+
+    {
+      "id": "pipeda",
+      "name": "PIPEDA",
+      "full_name": "Personal Information Protection and Electronic Documents Act",
+      "short_description": "Canada's federal private-sector privacy law",
+      "region": "canada",
+      "countries": ["CA"],
+      "effective_date": "2000-01-01",
+      "status": "active",
+      "authority": { "name": "Office of the Privacy Commissioner of Canada (OPC)", "type": "dpa", "website": "https://www.priv.gc.ca" },
+      "consent": {
+        "model": "hybrid",
+        "implied_consent_allowed_for_low_risk": true,
+        "express_consent_required_for_sensitive": true,
+        "express_consent_required_for_unexpected": true,
+        "note": "Implied consent for low-risk, well-explained purposes. Express consent for sensitive or unexpected data use."
+      },
+      "blocking": {
+        "strategy": "block_category_specific",
+        "block_before_consent": false,
+        "note": "Implied consent may suffice for low-risk cookies. Express consent needed for sensitive/unexpected tracking."
+      },
+      "banner": { "required": true, "recommended": true, "must_link_to_privacy_policy": true },
+      "do_not_sell": { "required": false },
+      "signals": { "must_honor_gpc": false },
+      "logging": { "consent_logging_required": true },
+      "penalties": { "max_fine_fixed": "100000 CAD", "note": "Fines relatively low compared to GDPR." }
+    },
+
+    {
+      "id": "quebec_law25",
+      "name": "Quebec Law 25",
+      "full_name": "An Act to modernize legislative provisions as regards the protection of personal information",
+      "short_description": "Quebec's GDPR-like provincial privacy law",
+      "region": "canada",
+      "countries": ["CA"],
+      "states": ["QC"],
+      "effective_date": "2023-09-22",
+      "status": "active",
+      "consent": {
+        "model": "opt_in",
+        "prior_consent_required": true,
+        "note": "Mandatory cookie consent banners. GDPR-like opt-in requirements."
+      },
+      "blocking": { "strategy": "block_all_non_essential", "block_before_consent": true, "categories_exempt": ["strictly_necessary"] },
+      "banner": { "required": true, "must_show_before_cookies_fire": true },
+      "do_not_sell": { "required": false },
+      "penalties": { "max_fine_fixed": "25000000 CAD", "max_fine_percentage": "4% of worldwide turnover" }
+    },
+
+    {
+      "id": "pipl",
+      "name": "PIPL",
+      "full_name": "Personal Information Protection Law",
+      "short_description": "China's comprehensive data protection law",
+      "region": "asia_east",
+      "countries": ["CN"],
+      "effective_date": "2021-11-01",
+      "status": "active",
+      "authority": { "name": "Cyberspace Administration of China (CAC)", "type": "dedicated_authority" },
+      "consent": {
+        "model": "opt_in",
+        "prior_consent_required": true,
+        "separate_explicit_consent_for_tracking": true,
+        "consent_must_be_renewed_for_changes": true,
+        "note": "Separate, explicit consent for tracking and profiling. Consent must be renewed for significant processing changes."
+      },
+      "blocking": { "strategy": "block_all_non_essential", "block_before_consent": true, "categories_exempt": ["strictly_necessary"] },
+      "banner": { "required": true, "language_requirements": "Chinese (Simplified)" },
+      "do_not_sell": { "required": false },
+      "cross_border": { "transfer_restrictions": true, "security_assessment_required": true, "government_approval_may_be_required": true },
+      "penalties": { "max_fine_fixed": "50000000 CNY", "max_fine_percentage": "5% of annual revenue", "personal_liability": true }
+    },
+
+    {
+      "id": "appi",
+      "name": "APPI",
+      "full_name": "Act on the Protection of Personal Information",
+      "short_description": "Japan's mature data protection law",
+      "region": "asia_east",
+      "countries": ["JP"],
+      "effective_date": "2003-05-30",
+      "last_amended": "2022-04-01",
+      "status": "active",
+      "authority": { "name": "Personal Information Protection Commission (PPC)", "type": "dedicated_authority" },
+      "consent": {
+        "model": "opt_in",
+        "opt_in_required_for_third_party_transfers": true,
+        "opt_in_required_for_purpose_change": true,
+        "opt_in_required_for_sensitive_data": true,
+        "note": "Opt-in required specifically for third-party data transfers (relevant for advertising cookies sharing data with ad networks)."
+      },
+      "blocking": { "strategy": "block_category_specific", "block_before_consent": false, "categories_requiring_consent_if_shared": ["advertising", "marketing", "social_media"] },
+      "banner": { "required": false, "recommended": true, "language_requirements": "Japanese" },
+      "do_not_sell": { "required": false },
+      "signals": { "must_honor_gpc": false },
+      "penalties": { "criminal_penalties": true }
+    },
+
+    {
+      "id": "pipa_kr",
+      "name": "PIPA",
+      "full_name": "Personal Information Protection Act",
+      "short_description": "South Korea's data protection law",
+      "region": "asia_east",
+      "countries": ["KR"],
+      "effective_date": "2011-09-30",
+      "last_amended": "2023-03-14",
+      "status": "active",
+      "authority": { "name": "Personal Information Protection Commission (PIPC)", "type": "dedicated_authority" },
+      "consent": { "model": "opt_in", "prior_consent_required": true, "separate_consent_per_purpose": true },
+      "blocking": { "strategy": "block_all_non_essential", "block_before_consent": true },
+      "banner": { "required": true, "language_requirements": "Korean" },
+      "do_not_sell": { "required": false },
+      "penalties": { "criminal_penalties": true, "max_fine_percentage": "3% of related revenue" }
+    },
+
+    {
+      "id": "dpdpa",
+      "name": "DPDPA",
+      "full_name": "Digital Personal Data Protection Act",
+      "short_description": "India's new comprehensive data protection law",
+      "region": "asia_south",
+      "countries": ["IN"],
+      "effective_date": "2023-08-11",
+      "phased_enforcement": true,
+      "phase_2_date": "2026-11-13",
+      "phase_3_date": "2027-05-12",
+      "status": "active_phased",
+      "authority": { "name": "Data Protection Board of India", "type": "dedicated_authority" },
+      "consent": {
+        "model": "opt_in",
+        "prior_consent_required": true,
+        "consent_must_be_free": true,
+        "consent_must_be_informed": true,
+        "consent_must_be_clear": true,
+        "one_click_withdrawal_required": true,
+        "multi_language_required": true,
+        "languages_count": 22,
+        "note": "Must work in 22+ official Indian languages. One-click withdrawal mandatory."
+      },
+      "blocking": { "strategy": "block_all_non_essential", "block_before_consent": true },
+      "banner": { "required": true, "language_requirements": "22+ Indian official languages", "must_show_before_cookies_fire": true },
+      "do_not_sell": { "required": false },
+      "consent_manager_registration": {
+        "required_from": "2026-11-13",
+        "must_be_india_incorporated": true,
+        "minimum_net_worth": "20000000 INR",
+        "foreign_cmps_excluded": true,
+        "note": "Only India-incorporated entities with ₹2 crore+ net worth can register as Consent Managers. Foreign CMPs excluded."
+      },
+      "penalties": { "max_fine_min": "500000000 INR", "max_fine_max": "2500000000 INR", "note": "₹50 crore to ₹250 crore per violation." }
+    },
+
+    {
+      "id": "pdpa_singapore",
+      "name": "PDPA (Singapore)",
+      "full_name": "Personal Data Protection Act",
+      "short_description": "Singapore's balanced privacy framework",
+      "region": "asia_southeast",
+      "countries": ["SG"],
+      "effective_date": "2012-10-15",
+      "status": "active",
+      "authority": { "name": "Personal Data Protection Commission (PDPC)", "type": "dedicated_authority" },
+      "consent": { "model": "hybrid", "express_consent_required": true, "deemed_consent_allowed": true, "deemed_consent_note": "Deemed consent when user voluntarily provides data for reasonable purpose", "withdrawal_at_any_time": true },
+      "blocking": { "strategy": "block_category_specific", "note": "No specific cookie law. PDPA applies when cookies collect personal data." },
+      "banner": { "required": false, "recommended": true },
+      "do_not_sell": { "required": false },
+      "penalties": { "max_fine_fixed": "1000000 SGD", "max_fine_percentage": "10% of annual turnover in Singapore" }
+    },
+
+    {
+      "id": "pdpa_thailand",
+      "name": "PDPA (Thailand)",
+      "full_name": "Personal Data Protection Act B.E. 2562",
+      "short_description": "Thailand's GDPR-inspired privacy law",
+      "region": "asia_southeast",
+      "countries": ["TH"],
+      "effective_date": "2022-06-01",
+      "status": "active",
+      "consent": { "model": "opt_in", "prior_consent_required": true },
+      "blocking": { "strategy": "block_all_non_essential", "block_before_consent": true },
+      "banner": { "required": true, "language_requirements": "Thai" },
+      "do_not_sell": { "required": false },
+      "penalties": { "max_fine_fixed": "5000000 THB", "criminal_penalties": true }
+    },
+
+    {
+      "id": "uae_pdpl",
+      "name": "UAE PDPL",
+      "full_name": "Federal Decree-Law No. 45 of 2021 (Personal Data Protection Law)",
+      "short_description": "UAE's federal data protection law",
+      "region": "middle_east",
+      "countries": ["AE"],
+      "effective_date": "2022-01-02",
+      "status": "active",
+      "consent": { "model": "opt_in", "prior_consent_required": true, "explicit_consent_before_processing": true },
+      "blocking": { "strategy": "block_all_non_essential", "block_before_consent": true },
+      "banner": { "required": true, "language_requirements": "Arabic and English" },
+      "do_not_sell": { "required": false },
+      "penalties": { "note": "Executive regulations pending for detailed penalty framework." },
+      "excludes_free_zones": true,
+      "excluded_zones": ["DIFC", "ADGM"]
+    },
+
+    {
+      "id": "saudi_pdpl",
+      "name": "Saudi Arabia PDPL",
+      "full_name": "Personal Data Protection Law",
+      "short_description": "Saudi Arabia's comprehensive privacy law",
+      "region": "middle_east",
+      "countries": ["SA"],
+      "effective_date": "2023-09-14",
+      "status": "active",
+      "consent": { "model": "opt_in", "prior_consent_required": true },
+      "blocking": { "strategy": "block_all_non_essential", "block_before_consent": true },
+      "banner": { "required": true, "language_requirements": "Arabic" },
+      "do_not_sell": { "required": false },
+      "cross_border": { "transfer_restrictions": true }
+    },
+
+    {
+      "id": "australia_privacy_act",
+      "name": "Australian Privacy Act",
+      "full_name": "Privacy Act 1988 + Australian Privacy Principles (APPs)",
+      "short_description": "Australia's privacy framework (undergoing reform)",
+      "region": "oceania",
+      "countries": ["AU"],
+      "effective_date": "1988-12-14",
+      "status": "active",
+      "consent": { "model": "implied", "notice_and_opt_out": true, "reform_underway": true, "note": "Currently notice-based with opt-out. Reform expected for closer GDPR alignment." },
+      "blocking": { "strategy": "block_none", "note": "Currently no pre-consent blocking requirement. Reform may change this." },
+      "banner": { "required": false, "recommended": true },
+      "do_not_sell": { "required": false },
+      "penalties": { "max_fine_fixed": "50000000 AUD", "max_fine_alternative": "3x benefit obtained or 30% of adjusted turnover" }
+    },
+
+    {
+      "id": "nz_privacy_act",
+      "name": "NZ Privacy Act 2020",
+      "full_name": "Privacy Act 2020",
+      "short_description": "New Zealand's modernized privacy law",
+      "region": "oceania",
+      "countries": ["NZ"],
+      "effective_date": "2020-12-01",
+      "status": "active",
+      "consent": { "model": "implied", "notice_based": true },
+      "blocking": { "strategy": "block_none" },
+      "banner": { "required": false, "recommended": true },
+      "do_not_sell": { "required": false }
+    }
+  ],
+
+  "_us_state_template": {
+    "_note": "Most US state laws follow a similar pattern. Use this template to quickly add new states. Override fields as needed.",
+    "region": "us_state",
+    "countries": ["US"],
+    "consent": {
+      "model": "opt_out",
+      "prior_consent_required": false,
+      "cookies_can_fire_before_consent": true,
+      "opt_in_required_for_sensitive_data": true,
+      "opt_in_required_for_children_under_13": true
+    },
+    "blocking": {
+      "strategy": "block_none",
+      "block_before_consent": false
+    },
+    "banner": {
+      "required": false,
+      "recommended": true,
+      "opt_out_mechanism_required": true
+    },
+    "do_not_sell": {
+      "required": true,
+      "opt_out_of_targeted_advertising": true,
+      "opt_out_of_sale": true,
+      "opt_out_of_profiling": true
+    },
+    "signals": {
+      "must_honor_gpc": false
+    },
+    "penalties": {
+      "max_fine_per_violation": "7500 USD",
+      "enforcement": "attorney_general_only",
+      "private_right_of_action": false
+    }
+  },
+
+  "us_state_laws": [
+    { "id": "cpa", "name": "CPA", "full_name": "Colorado Privacy Act", "states": ["CO"], "effective_date": "2023-07-01", "status": "active", "overrides": { "signals": { "must_honor_gpc": true, "universal_opt_out_required": true } } },
+    { "id": "ctdpa", "name": "CTDPA", "full_name": "Connecticut Data Privacy Act", "states": ["CT"], "effective_date": "2023-07-01", "status": "active", "overrides": { "signals": { "must_honor_gpc": true } } },
+    { "id": "ucpa", "name": "UCPA", "full_name": "Utah Consumer Privacy Act", "states": ["UT"], "effective_date": "2023-12-31", "status": "active", "overrides": { "applies_if": { "annual_gross_revenue_min": 25000000 } } },
+    { "id": "ocpa", "name": "OCPA", "full_name": "Oregon Consumer Privacy Act", "states": ["OR"], "effective_date": "2024-07-01", "status": "active", "overrides": { "covers_nonprofits": true, "nonprofit_effective_date": "2025-07-01" } },
+    { "id": "mcdpa_mt", "name": "MCDPA (Montana)", "full_name": "Montana Consumer Data Privacy Act", "states": ["MT"], "effective_date": "2024-10-01", "status": "active", "overrides": { "applies_if": { "consumers_data_processed_min": 50000 } } },
+    { "id": "tdpsa", "name": "TDPSA", "full_name": "Texas Data Privacy and Security Act", "states": ["TX"], "effective_date": "2024-07-01", "status": "active", "overrides": { "applies_if": { "no_revenue_threshold": true } } },
+    { "id": "fdbr", "name": "FDBR", "full_name": "Florida Digital Bill of Rights", "states": ["FL"], "effective_date": "2024-07-01", "status": "active", "overrides": { "applies_if": { "annual_gross_revenue_min": 1000000000 }, "note": "Very narrow scope — $1B+ revenue threshold." } },
+    { "id": "dpdpa_de", "name": "DPDPA (Delaware)", "full_name": "Delaware Personal Data Privacy Act", "states": ["DE"], "effective_date": "2025-01-01", "status": "active", "overrides": { "children": { "heightened_protections": true } } },
+    { "id": "icdpa_ia", "name": "Iowa CDPA", "full_name": "Iowa Consumer Data Protection Act", "states": ["IA"], "effective_date": "2025-01-01", "status": "active", "overrides": { "note": "Most business-friendly. No right to correct/delete third-party data." } },
+    { "id": "njdpa", "name": "NJDPA", "full_name": "New Jersey Data Protection Act", "states": ["NJ"], "effective_date": "2025-01-15", "status": "active", "overrides": { "children": { "covers_minors_13_18": true } } },
+    { "id": "nhdpl", "name": "NHDPL", "full_name": "New Hampshire Data Privacy Law", "states": ["NH"], "effective_date": "2025-01-01", "status": "active" },
+    { "id": "nebraska_dpa", "name": "Nebraska DPA", "full_name": "Nebraska Data Privacy Act", "states": ["NE"], "effective_date": "2025-01-01", "status": "active", "overrides": { "applies_if": { "no_revenue_threshold": true } } },
+    { "id": "tipa", "name": "TIPA", "full_name": "Tennessee Information Protection Act", "states": ["TN"], "effective_date": "2025-07-01", "status": "active", "overrides": { "applies_if": { "annual_gross_revenue_min": 25000000 } } },
+    { "id": "mcdpa_mn", "name": "MCDPA (Minnesota)", "full_name": "Minnesota Consumer Data Privacy Act", "states": ["MN"], "effective_date": "2025-07-31", "status": "active", "overrides": { "opt_out_rights": { "right_to_question_profiling_results": true } } },
+    { "id": "modpa", "name": "MODPA", "full_name": "Maryland Online Data Privacy Act", "states": ["MD"], "effective_date": "2025-10-01", "enforcement_start": "2026-04-01", "status": "active", "overrides": { "data_minimization_required": true, "strictest_us_state_law": true, "signals": { "universal_opt_out_required": true } } },
+    { "id": "icdpa_in", "name": "ICDPA (Indiana)", "full_name": "Indiana Consumer Data Protection Act", "states": ["IN"], "effective_date": "2026-01-01", "status": "active", "overrides": { "penalties": { "cure_period_days": 30 } } },
+    { "id": "kcdpa", "name": "KCDPA", "full_name": "Kentucky Consumer Data Protection Act", "states": ["KY"], "effective_date": "2026-01-01", "status": "active" },
+    { "id": "ridtppa", "name": "RIDTPPA", "full_name": "Rhode Island Data Transparency and Privacy Protection Act", "states": ["RI"], "effective_date": "2026-01-01", "status": "active", "overrides": { "penalties": { "cure_period_days": 0, "no_cure_period": true, "max_fine_per_incident_min": "100 USD", "max_fine_per_incident_max": "500 USD" }, "applies_if": { "consumers_data_processed_min": 35000 } } }
+  ],
+
+  "_extensibility_guide": {
+    "how_to_add_new_framework": "Copy any entry in 'frameworks' array. Fill in all fields. For US states, add to 'us_state_laws' array using '_us_state_template' as base and only specify 'overrides' for fields that differ.",
+    "how_to_add_new_field": "Add the field to the relevant object. Update '_enums' if adding a new enum type. All consumers of this JSON should handle unknown fields gracefully.",
+    "versioning": "Increment $version on every change. Use semver: major.minor.patch. Major = breaking schema change, Minor = new frameworks/fields, Patch = data corrections.",
+    "java_usage": "Deserialize into a PrivacyFramework POJO. Use 'consent.model' + 'blocking.strategy' + 'do_not_sell.required' as primary rule switches. Geo-target by matching user IP country/state to 'countries'/'states' fields.",
+    "ui_usage": "Use 'id' as select value, 'name' as display label, 'short_description' as tooltip. Filter by 'region' for grouped selectors. Use 'status' to show active/inactive badge."
+  }
+}

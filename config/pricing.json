@@ -1,0 +1,43 @@
+{
+  "currency": "EUR",
+  "currency_symbol": "\u20ac",
+  "slider_max": 1,
+  "slider_default": 1,
+  "trial_period_days": 0,
+  "lifetime_months": 0,
+  "plans": {
+    "community": {
+      "name": "Community Edition",
+      "description": "Self-hosted, all features included.",
+      "stripe_price_ids": {},
+      "tiers": [],
+      "limits": {},
+      "feature_keys": [
+        "gdpr_eprivacy_ccpa_compliance",
+        "lgpd_popia_global_frameworks",
+        "compliance_checklist",
+        "audit_logging",
+        "consent_logging_and_renewal",
+        "google_consent_mode_v2",
+        "iab_tcf_2_2_and_2_3_support",
+        "microsoft_clarity_amazon_consent",
+        "cookie_consent_banner",
+        "block_all_cookies_scripts_until_consent",
+        "automatic_monthly_cookie_scans",
+        "youtube_video_blocking",
+        "layout_colors_branding_customization",
+        "pre_translated_52_languages_geo_targeting",
+        "subdomain_consent_management",
+        "multi_language_support",
+        "custom_layouts",
+        "banner_close_button",
+        "no_branding",
+        "ab_testing",
+        "agency_support",
+        "enterprise_api_access",
+        "priority_support"
+      ],
+      "display_features": []
+    }
+  }
+}
