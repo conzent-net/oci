@@ -1,0 +1,48 @@
+{#
+  Layout: Dialog
+  Modern centered dialog with inline category toggles.
+  Inspired by Cookiebot/Usercentrics — clean popup with
+  header bar, message, flattened category toggles, and
+  equal-width action buttons in the footer.
+#}
+{% extends "gdpr/base.html.twig" %}
+
+{% block banner %}
+<div id="Conzent" tabindex="0" class="conzent-{{ banner_type }}{{ display_position }}">
+  <div class="conzent-inner-content-box cnz-dialog"
+       style="border:1px solid {{ colors.notice_border }};background-color:{{ colors.notice_bg }};">
+    <div class="conzent-notice">
+      {# Header bar: logo left, branding right #}
+      <div class="cnz-dialog-header" style="border-bottom:1px solid {{ colors.notice_border }};">
+        <div class="cnz-dialog-header-logo">{{ logo_html|raw }}</div>
+        <div class="cnz-dialog-header-branding">{{ branding_html|raw }}</div>
+      </div>
+
+      {# Body: title, message, privacy link #}
+      <div class="cnz-dialog-body">
+        <div class="cnz-dialog-title" style="color:{{ colors.notice_title }};">
+          [conzent_cookie_notice_banner_title]
+        </div>
+        <div class="cnz-dialog-message" style="color:{{ colors.notice_description }};">
+          {% if iab|default(false) %}[conzent_iab_notice_description]{% else %}[conzent_cookie_notice_message]{% endif %}
+          {{ privacy_policy_link|raw }}
+        </div>
+
+        {# Inline category toggles — accordion flattened via CSS #}
+        <div class="cnz-dialog-categories" style="border-top:1px solid {{ colors.notice_border }};border-bottom:1px solid {{ colors.notice_border }};">
+          <div class="conzent-accordion-wrapper cnz-category-table">
+            {{ cookie_categories_html|raw }}
+          </div>
+        </div>
+      </div>
+
+      {# Footer: equal-width buttons #}
+      <div class="cnz-dialog-footer">
+        <div class="btn-wrap">
+          {{ buttons_html|raw }}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

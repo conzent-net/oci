@@ -1,0 +1,75 @@
+{#
+  CCPA Banner — Base Layout
+  All CCPA banner designs extend this template.
+#}
+
+{# ── Overlay ─────────────────────────────────────────── #}
+{% block overlay %}
+<div class="conzent-overlay cnz-hide"></div>
+{% endblock %}
+
+{# ── Revisit Button ──────────────────────────────────── #}
+{% block revisit %}
+{{ revisit_html|raw }}
+{% endblock %}
+
+{# ── CCPA Notice Banner ─────────────────────────────── #}
+{% block banner %}
+<div id="Conzent" tabindex="0" class="conzent-{{ banner_type }}{{ display_position }}">
+  <div class="conzent-inner-content-box" style="border:1px solid {{ colors.notice_border }};background-color:{{ colors.notice_bg }}">
+    <div class="conzent-notice">
+      <span id="closeIcon" class="cnz-btn-close" style="position:absolute;top:8px;right:8px;cursor:pointer">{{ close_button_html|raw }}</span>
+      {% block banner_header %}
+      <p class="title-wrap" style="color:{{ colors.notice_title }}">{{ logo_html|raw }} [conzent_cookie_notice_title]</p>
+      {% endblock %}
+
+      {% block banner_body %}
+      <div class="content-wrap">
+        <div class="msg-wrap" style="color:{{ colors.notice_description }}">[conzent_cookie_notice_message]&nbsp;{{ privacy_policy_link|raw }}</div>
+        <div class="btn-wrap">
+          {{ opt_notice_buttons_html|raw }}
+        </div>
+      </div>
+      {% endblock %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{# ── Opt-Out Center Modal ────────────────────────────── #}
+{% block opt_out_center %}
+<div class="conzent-modal conzent-{{ preference_type }}{{ preference_position }}" tabindex="0">
+  <div class="conzent-preference-center" style="border:1px solid {{ colors.notice_border }};background-color:{{ colors.notice_bg }}">
+    {% block opt_header %}
+    <div class="conzent-preference-header">
+      <span class="conzent-preference-title" style="color:{{ colors.notice_title }}">[conzent_opt_out_center_title]</span>
+      <span id="preCloseBtn" class="cnz-btn-close">{{ close_button_html|raw }}</span>
+    </div>
+    {% endblock %}
+
+    {% block opt_body %}
+    <div class="conzent-preference-body-wrapper">
+      <div class="conzent-preference-content-wrapper" style="color:{{ colors.notice_description }}">
+        <div class="overview_text">[conzent_opt_out_center_overview]</div>
+        {{ global_privacy_policy|raw }}
+      </div>
+      <div class="conzent-horizontal-separator"></div>
+      {{ do_not_sell_checkbox|raw }}
+      <div class="conzent-accordion-wrapper">
+        {{ cookie_categories_html|raw }}
+      </div>
+    </div>
+    {% endblock %}
+
+    {% block opt_footer %}
+    <div class="conzent-footer-wrapper">
+      <span class="cnz-footer-shadow"></span>
+      <div class="conzent-prefrence-btn-wrapper">
+        {{ opt_center_buttons_html|raw }}
+      </div>
+      <div class="conzent-branding">{{ branding_html|raw }}</div>
+    </div>
+    {% endblock %}
+  </div>
+</div>
+{% endblock %}

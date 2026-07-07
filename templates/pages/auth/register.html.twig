@@ -1,0 +1,344 @@
+{% extends 'layouts/auth.html.twig' %}
+
+{% block title %}Create Account{% endblock %}
+
+{% block content %}
+<div class="auth-card">
+    <h2 class="title is-4 has-text-centered mb-5">Create your account</h2>
+
+    {% if error %}
+        <div class="notification is-danger is-light" style="border-radius:10px">
+            <button class="delete" onclick="this.parentElement.remove()"></button>
+            {{ error }}
+        </div>
+    {% endif %}
+
+    {# ── Google Sign-In ── #}
+    {% if google_enabled is defined and google_enabled %}
+    <a href="/auth/google" class="btn-google">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
+            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+        </svg>
+        Continue with Google
+    </a>
+
+    <div class="auth-divider">or</div>
+    {% endif %}
+
+    {# ── Registration form ── #}
+    <form method="post" action="/register" id="register-form">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+
+        <div class="columns is-mobile mb-0">
+            <div class="column">
+                <div class="field">
+                    <label class="label" for="first_name">First Name</label>
+                    <div class="control">
+                        <input class="input" type="text" id="first_name" name="first_name"
+                               value="{{ first_name }}" placeholder="John" autofocus>
+                    </div>
+                </div>
+            </div>
+            <div class="column">
+                <div class="field">
+                    <label class="label" for="last_name">Last Name</label>
+                    <div class="control">
+                        <input class="input" type="text" id="last_name" name="last_name"
+                               value="{{ last_name }}" placeholder="Doe">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="field">
+            <label class="label" for="email">Email</label>
+            <div class="control has-icons-left">
+                <input class="input {{ errors.email is defined ? 'is-danger' : '' }}" type="email" id="email" name="email"
+                       value="{{ email }}" placeholder="you@example.com"
+                       autocomplete="email" required>
+                <span class="icon is-small is-left">
+                    <i class="fas fa-envelope"></i>
+                </span>
+            </div>
+            {% if errors.email is defined %}
+                <p class="help is-danger">{{ errors.email }}</p>
+            {% endif %}
+        </div>
+
+        <div class="field">
+            <label class="label" for="password">Password</label>
+            <div class="control has-icons-left">
+                <input class="input {{ errors.password is defined ? 'is-danger' : '' }}" type="password" id="password" name="password"
+                       placeholder="At least 8 characters" autocomplete="new-password" required>
+                <span class="icon is-small is-left">
+                    <i class="fas fa-lock"></i>
+                </span>
+            </div>
+            {% if errors.password is defined %}
+                <p class="help is-danger">{{ errors.password }}</p>
+            {% endif %}
+        </div>
+
+        <div class="field">
+            <label class="label" for="password_confirm">Confirm Password</label>
+            <div class="control has-icons-left">
+                <input class="input {{ errors.password_confirm is defined ? 'is-danger' : '' }}" type="password" id="password_confirm" name="password_confirm"
+                       placeholder="Repeat your password" autocomplete="new-password" required>
+                <span class="icon is-small is-left">
+                    <i class="fas fa-lock"></i>
+                </span>
+            </div>
+            {% if errors.password_confirm is defined %}
+                <p class="help is-danger">{{ errors.password_confirm }}</p>
+            {% endif %}
+        </div>
+
+        <div class="field mt-5">
+            <button class="button is-primary is-fullwidth" type="submit">
+                Create Account
+            </button>
+        </div>
+    </form>
+
+    <p class="has-text-centered mt-4" style="font-size:0.85rem;color:#64748b">
+        Already have an account? <a href="/login" style="color:#2e9e5e;font-weight:500">Log in</a>
+    </p>
+</div>
+
+{# ── Verification modal (opened by JS once /register/start-verification returns 200) ── #}
+<div class="modal" id="verify-modal">
+    <div class="modal-background" data-verify-close></div>
+    <div class="modal-card" style="max-width:440px">
+        <header class="modal-card-head">
+            <p class="modal-card-title" style="font-size:1.1rem">Check your email</p>
+            <button class="delete" aria-label="close" data-verify-close type="button"></button>
+        </header>
+        <section class="modal-card-body">
+            <p style="font-size:0.9rem;color:#475569;margin-bottom:0.5rem">
+                We sent a 6-digit code to <span data-verify-email style="font-weight:600">your email</span>. Enter it below to finish signing up.
+            </p>
+
+            {% include 'partials/_verification_modal.html.twig' with { email: '' } only %}
+
+            <div class="otp-actions">
+                <button type="button" class="otp-resend" data-verify-resend disabled>Resend in 30s</button>
+            </div>
+        </section>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    var form = document.getElementById('register-form');
+    if (!form) return;
+
+    var modal = document.getElementById('verify-modal');
+    var inputs = modal.querySelectorAll('[data-otp-input]');
+    var msgEl = modal.querySelector('[data-otp-msg]');
+    var emailDisplay = modal.querySelector('[data-verify-email]');
+    var resendBtn = modal.querySelector('[data-verify-resend]');
+    var closeEls = modal.querySelectorAll('[data-verify-close]');
+    var verifyToken = null;
+    var resendTimer = null;
+
+    function setMsg(text, kind) {
+        msgEl.textContent = text || '';
+        msgEl.className = 'otp-msg' + (kind ? ' is-' + kind : '');
+    }
+
+    function clearInputs() {
+        inputs.forEach(function (el) { el.value = ''; el.classList.remove('is-error'); });
+        if (inputs[0]) inputs[0].focus();
+    }
+
+    function startResendCooldown(seconds) {
+        var left = seconds;
+        resendBtn.disabled = true;
+        resendBtn.textContent = 'Resend in ' + left + 's';
+        if (resendTimer) clearInterval(resendTimer);
+        resendTimer = setInterval(function () {
+            left--;
+            if (left <= 0) {
+                clearInterval(resendTimer);
+                resendBtn.disabled = false;
+                resendBtn.textContent = 'Resend code';
+            } else {
+                resendBtn.textContent = 'Resend in ' + left + 's';
+            }
+        }, 1000);
+    }
+
+    function openModal(email) {
+        emailDisplay.textContent = email;
+        modal.classList.add('is-active');
+        clearInputs();
+        startResendCooldown(30);
+    }
+
+    function closeModal() {
+        modal.classList.remove('is-active');
+        if (resendTimer) clearInterval(resendTimer);
+    }
+
+    function collectCode() {
+        var s = '';
+        inputs.forEach(function (el) { s += el.value || ''; });
+        return s;
+    }
+
+    function showFieldErrors(errors) {
+        for (var key in errors) {
+            var inputEl = form.querySelector('[name="' + key + '"]');
+            if (!inputEl) continue;
+            inputEl.classList.add('is-danger');
+            var help = inputEl.parentElement && inputEl.parentElement.parentElement
+                ? inputEl.parentElement.parentElement.querySelector('.help')
+                : null;
+            if (!help) {
+                help = document.createElement('p');
+                help.className = 'help is-danger';
+                inputEl.parentElement.parentElement.appendChild(help);
+            }
+            help.textContent = errors[key];
+        }
+    }
+
+    function clearFieldErrors() {
+        form.querySelectorAll('.is-danger').forEach(function (el) {
+            if (el.tagName === 'INPUT') {
+                el.classList.remove('is-danger');
+            } else {
+                el.remove();
+            }
+        });
+    }
+
+    form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        clearFieldErrors();
+        var formData = new FormData(form);
+        fetch('/register/start-verification', {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+            body: formData,
+        }).then(function (res) {
+            return res.json().then(function (body) { return { status: res.status, body: body }; });
+        }).then(function (r) {
+            if (r.status === 200 && r.body.success) {
+                verifyToken = r.body.data.csrf_token;
+                openModal(form.querySelector('[name="email"]').value);
+            } else if (r.status === 422) {
+                showFieldErrors((r.body.error && r.body.error.errors) || {});
+            } else {
+                alert(r.body.error && r.body.error.message ? r.body.error.message : 'Could not start verification.');
+            }
+        }).catch(function () {
+            alert('Network error. Please try again.');
+        });
+    });
+
+    function submitCode(code) {
+        if (!verifyToken) return;
+        var fd = new FormData();
+        fd.append('_csrf_token', verifyToken);
+        fd.append('code', code);
+        fetch('/register/verify-code', {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+            body: fd,
+        }).then(function (res) {
+            return res.json().then(function (body) { return { status: res.status, body: body }; });
+        }).then(function (r) {
+            if (r.status === 200 && r.body.success) {
+                window.location = r.body.data.redirect || '/login?registered=1';
+                return;
+            }
+            // Update CSRF token for next attempt
+            if (r.body.error && r.body.error.errors && r.body.error.errors.csrf_token) {
+                verifyToken = r.body.error.errors.csrf_token;
+            }
+            if (r.status === 429) {
+                closeModal();
+                alert(r.body.error.message || 'Too many wrong attempts. Please start over.');
+                return;
+            }
+            inputs.forEach(function (el) { el.classList.add('is-error'); });
+            setMsg(r.body.error && r.body.error.message ? r.body.error.message : 'Incorrect code.', 'error');
+            setTimeout(function () {
+                inputs.forEach(function (el) { el.classList.remove('is-error'); });
+                clearInputs();
+            }, 800);
+        });
+    }
+
+    inputs.forEach(function (input, idx) {
+        input.addEventListener('input', function () {
+            input.value = input.value.replace(/\D/g, '').slice(0, 1);
+            if (input.value && idx < inputs.length - 1) inputs[idx + 1].focus();
+            var code = collectCode();
+            if (code.length === 6) submitCode(code);
+        });
+        input.addEventListener('keydown', function (e) {
+            if (e.key === 'Backspace' && !input.value && idx > 0) inputs[idx - 1].focus();
+        });
+        input.addEventListener('paste', function (e) {
+            e.preventDefault();
+            var data = (e.clipboardData || window.clipboardData).getData('text');
+            var digits = (data || '').replace(/\D/g, '').slice(0, 6);
+            for (var i = 0; i < digits.length && i < inputs.length; i++) {
+                inputs[i].value = digits.charAt(i);
+            }
+            if (digits.length === 6) {
+                submitCode(digits);
+            } else {
+                inputs[Math.min(digits.length, inputs.length - 1)].focus();
+            }
+        });
+    });
+
+    closeEls.forEach(function (el) {
+        el.addEventListener('click', function () {
+            if (verifyToken) {
+                var fd = new FormData();
+                fd.append('_csrf_token', verifyToken);
+                fetch('/register/cancel-verification', {
+                    method: 'POST',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    body: fd,
+                });
+            }
+            closeModal();
+        });
+    });
+
+    resendBtn.addEventListener('click', function () {
+        if (!verifyToken || resendBtn.disabled) return;
+        var fd = new FormData();
+        fd.append('_csrf_token', verifyToken);
+        fetch('/register/resend-code', {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+            body: fd,
+        }).then(function (res) {
+            return res.json().then(function (body) { return { status: res.status, body: body }; });
+        }).then(function (r) {
+            if (r.status === 200 && r.body.success) {
+                verifyToken = r.body.data.csrf_token;
+                setMsg('A new code has been sent.', 'success');
+                startResendCooldown(30);
+            } else {
+                if (r.body.error && r.body.error.errors && r.body.error.errors.csrf_token) {
+                    verifyToken = r.body.error.errors.csrf_token;
+                }
+                setMsg(r.body.error && r.body.error.message ? r.body.error.message : 'Could not resend code.', 'error');
+            }
+        });
+    });
+})();
+</script>
+{% endblock %}

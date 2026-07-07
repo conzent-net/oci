@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 160" fill="none">
+  <!-- Page background -->
+  <rect width="280" height="160" rx="4" fill="#f0f0f0"/>
+  <!-- Page content lines -->
+  <rect x="20" y="16" width="120" height="6" rx="3" fill="#ddd"/>
+  <rect x="20" y="28" width="240" height="4" rx="2" fill="#e8e8e8"/>
+  <rect x="20" y="36" width="200" height="4" rx="2" fill="#e8e8e8"/>
+  <rect x="20" y="44" width="180" height="4" rx="2" fill="#e8e8e8"/>
+  <!-- Bottom banner -->
+  <rect x="0" y="100" width="280" height="60" rx="0" fill="#fff" stroke="#e0e0e0" stroke-width="1"/>
+  <rect x="16" y="108" width="80" height="5" rx="2.5" fill="#444"/>
+  <rect x="16" y="118" width="160" height="3" rx="1.5" fill="#999"/>
+  <rect x="16" y="124" width="140" height="3" rx="1.5" fill="#999"/>
+  <!-- Buttons -->
+  <rect x="180" y="112" width="44" height="16" rx="3" fill="#2563eb"/>
+  <rect x="228" y="112" width="36" height="16" rx="3" fill="none" stroke="#ccc" stroke-width="1"/>
+</svg>

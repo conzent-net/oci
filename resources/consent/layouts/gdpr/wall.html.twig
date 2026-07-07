@@ -1,0 +1,53 @@
+{#
+  Layout: Wall
+  Full consent wall with expandable cookie details in one view.
+  Inspired by Cookie Information — large centered dialog with
+  scrollable body, full category accordion, and fixed footer.
+  Merges banner + preference center into a single experience.
+#}
+{% extends "gdpr/base.html.twig" %}
+
+{% block banner %}
+<div id="Conzent" tabindex="0" class="conzent-popup-center">
+  <div class="conzent-inner-content-box cnz-wall"
+       style="border:1px solid {{ colors.notice_border }};background-color:{{ colors.notice_bg }};">
+    <div class="conzent-notice">
+      {# Header: logo + title left, close button right #}
+      <div class="cnz-wall-header" style="border-bottom:1px solid {{ colors.notice_border }};">
+        <p class="title-wrap" style="color:{{ colors.notice_title }};">
+          {{ logo_html|raw }} [conzent_cookie_notice_banner_title]
+        </p>
+        <span class="cnz-btn-close">{{ close_button_html|raw }}</span>
+      </div>
+
+      {# Scrollable body #}
+      <div class="cnz-wall-body">
+        {# Summary #}
+        <div class="cnz-wall-summary" style="color:{{ colors.notice_description }};">
+          {% if iab|default(false) %}[conzent_iab_notice_description]{% else %}[conzent_cookie_notice_message]{% endif %}
+          {{ privacy_policy_link|raw }}
+        </div>
+
+        {# Full accordion — not flattened, shows expandable categories #}
+        <div class="cnz-wall-details">
+          <div class="conzent-horizontal-separator"></div>
+          {{ google_privacy_policy|raw }}
+          <div class="conzent-accordion-wrapper cnz-category-table">
+            {{ cookie_categories_html|raw }}
+          </div>
+        </div>
+      </div>
+
+      {# Fixed footer: buttons + branding #}
+      <div class="cnz-wall-footer" style="border-top:1px solid {{ colors.notice_border }};">
+        <div class="btn-wrap">
+          {{ buttons_html|raw }}
+        </div>
+        <div class="conzent-branding" style="display:flex;justify-content:center;padding:8px 0 0;font-size:11px;opacity:0.7;">
+          {{ branding_html|raw }}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
