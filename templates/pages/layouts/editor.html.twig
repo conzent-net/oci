@@ -1,0 +1,274 @@
+{% extends 'layouts/base.html.twig' %}
+
+{% set active_page = 'layouts' %}
+
+{% block title %}Edit Layout: {{ layout.layout_name }}{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+      integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA=="
+      crossorigin="anonymous" referrerpolicy="no-referrer" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/codemirror.min.css"
+      crossorigin="anonymous" referrerpolicy="no-referrer" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/theme/monokai.min.css"
+      crossorigin="anonymous" referrerpolicy="no-referrer" />
+<style>
+    .editor-container { display: flex; gap: 0; height: calc(100vh - 200px); min-height: 500px; border: 1px solid #ddd; border-radius: 6px; overflow: hidden; }
+    .editor-pane { flex: 1; display: flex; flex-direction: column; }
+    .editor-pane .CodeMirror { flex: 1; height: auto; font-size: 13px; }
+    .preview-pane { flex: 1; display: flex; flex-direction: column; border-left: 1px solid #ddd; }
+    .preview-pane iframe { flex: 1; border: none; background: #f5f5f5; }
+    .preview-header, .editor-header { padding: 8px 12px; background: #f8f9fa; border-bottom: 1px solid #eee; font-size: 12px; font-weight: 600; color: #666; }
+    .validation-bar { padding: 8px 16px; border-top: 1px solid #ddd; font-size: 12px; max-height: 120px; overflow-y: auto; }
+    .validation-bar .tag { margin: 2px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container is-fluid" x-data="layoutEditor()">
+
+    <nav class="breadcrumb mb-4" aria-label="breadcrumbs">
+        <ul>
+            <li><a href="/">Dashboard</a></li>
+            <li><a href="/layouts?site_id={{ siteId }}">Layouts</a></li>
+            <li class="is-active"><a href="#" aria-current="page">{{ layout.layout_name }}</a></li>
+        </ul>
+    </nav>
+
+    <div class="level mb-4">
+        <div class="level-left">
+            <div class="level-item">
+                <h1 class="title is-4 mb-0">{{ layout.layout_name }}</h1>
+            </div>
+            <div class="level-item">
+                <span class="tag is-info is-light">Based on: {{ layout.base_layout_key }}</span>
+            </div>
+        </div>
+        <div class="level-right">
+            <div class="level-item">
+                <span class="tag" :class="hasErrors ? 'is-danger' : 'is-success is-light'" x-text="hasErrors ? missingVars.length + ' error(s)' : 'Valid'"></span>
+            </div>
+            <div class="level-item">
+                <button class="button is-primary" :class="{ 'is-loading': saving }" @click="saveLayout()" :disabled="hasErrors">
+                    <span class="icon"><i class="fas fa-save"></i></span>
+                    <span>Save</span>
+                </button>
+            </div>
+            <div class="level-item">
+                <a href="/layouts?site_id={{ siteId }}" class="button">
+                    <span class="icon"><i class="fas fa-arrow-left"></i></span>
+                    <span>Back</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    {# ── Editor + Preview Split ──────────────────────── #}
+    <div class="editor-container">
+        <div class="editor-pane">
+            <div class="editor-header">
+                <span class="icon is-small"><i class="fas fa-code"></i></span>
+                HTML / Twig Source
+            </div>
+            <textarea id="codeEditor" style="display:none;">{{ layout.html_content|e }}</textarea>
+        </div>
+        <div class="preview-pane">
+            <div class="preview-header">
+                <span class="icon is-small"><i class="fas fa-eye"></i></span>
+                Live Preview
+            </div>
+            <iframe id="previewFrame" sandbox="allow-same-origin allow-scripts"></iframe>
+        </div>
+    </div>
+
+    {# ── Validation Bar ──────────────────────────────── #}
+    <div class="validation-bar" :class="{ 'has-background-danger-light': hasErrors, 'has-background-success-light': !hasErrors }">
+        <template x-if="hasErrors">
+            <div>
+                <strong class="has-text-danger"><i class="fas fa-exclamation-triangle"></i> Missing required variables:</strong>
+                <template x-for="v in missingVars" :key="v.variable">
+                    <span class="tag is-danger is-light" x-text="v.variable" :title="v.description"></span>
+                </template>
+            </div>
+        </template>
+        <template x-if="!hasErrors && recommendedVars.length > 0">
+            <div>
+                <strong class="has-text-warning-dark"><i class="fas fa-info-circle"></i> Recommended variables (optional):</strong>
+                <template x-for="v in recommendedVars" :key="v.variable">
+                    <span class="tag is-warning is-light" x-text="v.variable" :title="v.description"></span>
+                </template>
+            </div>
+        </template>
+        <template x-if="!hasErrors && recommendedVars.length === 0">
+            <div>
+                <strong class="has-text-success"><i class="fas fa-check-circle"></i> All required and recommended variables present.</strong>
+            </div>
+        </template>
+    </div>
+
+    {# ── Variable Reference ──────────────────────────── #}
+    <details class="mt-4">
+        <summary class="has-text-weight-semibold is-size-6 mb-2" style="cursor:pointer;">
+            <span class="icon is-small"><i class="fas fa-book"></i></span>
+            Variable Reference
+        </summary>
+        <div class="box mt-2">
+            <div class="columns">
+                <div class="column">
+                    <h3 class="title is-6 mb-2">Banner (required)</h3>
+                    <ul class="is-size-7">
+                        <li><code>&#123;&#123; buttons_html|raw &#125;&#125;</code> — Action buttons</li>
+                        <li><code>&#123;&#123; branding_html|raw &#125;&#125;</code> — Branding (required)</li>
+                        <li><code>[conzent_cookie_notice_banner_title]</code> — Title text</li>
+                        <li><code>[conzent_cookie_notice_message]</code> — Message text</li>
+                    </ul>
+                </div>
+                <div class="column">
+                    <h3 class="title is-6 mb-2">Preference Center (required)</h3>
+                    <ul class="is-size-7">
+                        <li><code>&#123;&#123; cookie_categories_html|raw &#125;&#125;</code> — Category toggles</li>
+                        <li><code>&#123;&#123; pref_buttons_html|raw &#125;&#125;</code> — Save buttons</li>
+                        <li><code>&#123;&#123; close_button_html|raw &#125;&#125;</code> — Close button</li>
+                        <li><code>[conzent_preference_center_preference_title]</code> — Title</li>
+                        <li><code>[conzent_preference_center_overview]</code> — Overview text</li>
+                    </ul>
+                </div>
+                <div class="column">
+                    <h3 class="title is-6 mb-2">Optional</h3>
+                    <ul class="is-size-7">
+                        <li><code>&#123;&#123; revisit_html|raw &#125;&#125;</code> — Revisit button</li>
+                        <li><code>&#123;&#123; privacy_policy_link|raw &#125;&#125;</code> — Privacy link</li>
+                        <li><code>&#123;&#123; logo_html|raw &#125;&#125;</code> — Site logo</li>
+                        <li><code>&#123;&#123; banner_cookie_list|raw &#125;&#125;</code> — Cookie list</li>
+                        <li><code>&#123;&#123; google_privacy_policy|raw &#125;&#125;</code> — DMA text</li>
+                    </ul>
+                </div>
+                <div class="column">
+                    <h3 class="title is-6 mb-2">Styling</h3>
+                    <ul class="is-size-7">
+                        <li><code>&#123;&#123; colors.notice_bg &#125;&#125;</code></li>
+                        <li><code>&#123;&#123; colors.notice_border &#125;&#125;</code></li>
+                        <li><code>&#123;&#123; colors.notice_title &#125;&#125;</code></li>
+                        <li><code>&#123;&#123; colors.notice_description &#125;&#125;</code></li>
+                        <li><code>&#123;&#123; banner_type &#125;&#125;</code> — CSS class</li>
+                        <li><code>&#123;&#123; display_position &#125;&#125;</code> — Position</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </details>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/codemirror.min.js"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/mode/xml/xml.min.js"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/mode/javascript/javascript.min.js"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/mode/css/css.min.js"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/mode/htmlmixed/htmlmixed.min.js"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+<script>
+function layoutEditor() {
+    let editor = null;
+    let previewTimeout = null;
+
+    return {
+        saving: false,
+        missingVars: {{ missing|json_encode|raw }},
+        recommendedVars: {{ recommendations|json_encode|raw }},
+
+        get hasErrors() {
+            return this.missingVars.length > 0;
+        },
+
+        init() {
+            const textarea = document.getElementById('codeEditor');
+            editor = CodeMirror.fromTextArea(textarea, {
+                mode: 'htmlmixed',
+                theme: 'monokai',
+                lineNumbers: true,
+                lineWrapping: true,
+                matchBrackets: true,
+                autoCloseTags: true,
+                indentUnit: 2,
+                tabSize: 2,
+            });
+
+            // Debounced preview update
+            editor.on('change', () => {
+                clearTimeout(previewTimeout);
+                previewTimeout = setTimeout(() => this.updatePreview(), 600);
+            });
+
+            // Initial preview
+            this.updatePreview();
+        },
+
+        async updatePreview() {
+            const html = editor.getValue();
+
+            try {
+                const res = await fetch('/app/layouts/preview', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ html }),
+                });
+                const data = await res.json();
+                if (data.success) {
+                    const frame = document.getElementById('previewFrame');
+                    const doc = frame.contentDocument || frame.contentWindow.document;
+                    doc.open();
+                    doc.write(data.data.preview);
+                    doc.close();
+
+                    this.missingVars = data.data.missing || [];
+                    this.recommendedVars = data.data.recommendations || [];
+                }
+            } catch (e) {
+                // Silently ignore preview errors during typing
+            }
+        },
+
+        async saveLayout() {
+            if (this.hasErrors || this.saving) return;
+            this.saving = true;
+
+            try {
+                const res = await fetch('/app/layouts/{{ layout.id }}', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        html: editor.getValue(),
+                    }),
+                });
+                const data = await res.json();
+                if (data.success) {
+                    // Brief success feedback
+                    const btn = document.querySelector('.button.is-primary');
+                    const origText = btn.querySelector('span:last-child').textContent;
+                    btn.querySelector('span:last-child').textContent = 'Saved!';
+                    btn.classList.add('is-success');
+                    btn.classList.remove('is-primary');
+                    setTimeout(() => {
+                        btn.querySelector('span:last-child').textContent = origText;
+                        btn.classList.remove('is-success');
+                        btn.classList.add('is-primary');
+                    }, 2000);
+                } else {
+                    alert(data.message || 'Failed to save layout');
+                }
+            } catch (e) {
+                alert('An error occurred while saving');
+            } finally {
+                this.saving = false;
+            }
+        },
+    };
+}
+</script>
+{% endblock %}

@@ -1,0 +1,138 @@
+{% extends 'layouts/base.html.twig' %}
+
+{% block title %}Agency Dashboard{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/apexcharts@3.52.0"></script>
+{% endblock %}
+
+{% block content %}
+<div x-data="agencyDashboard()" x-init="init()">
+
+    {# ── Header ──────────────────────────────────────────── #}
+    <div class="mb-5">
+        <h1 class="title is-3 mb-1">Agency Dashboard</h1>
+        <p class="subtitle is-6 has-text-grey">Manage your reseller account</p>
+    </div>
+
+    {% if dashboard.priceModel == 'commission' %}
+    {# ── Payout Summary ──────────────────────────────────── #}
+    <div class="columns mb-5">
+        <div class="column is-4">
+            <div class="box has-text-centered">
+                <p class="heading">Payout (Last 30 Days)</p>
+                <p class="title is-3 has-text-success">
+                    {{ dashboard.payoutCurrency }}{{ dashboard.payoutAmount|number_format(2) }}
+                </p>
+                <p class="is-size-7 has-text-grey mt-2">
+                    Eligible: {{ dashboard.payoutCurrency == 'kr.' ? 'DKK 300+' : 'USD $50+' }}
+                </p>
+                <a href="/agency/payouts" class="button is-small is-link is-outlined mt-2">View Payouts</a>
+            </div>
+        </div>
+        <div class="column is-4">
+            <div class="box has-text-centered">
+                <p class="heading">Price Model</p>
+                <p class="title is-4">Commission</p>
+                <p class="is-size-7 has-text-grey mt-2">Earn on each customer subscription</p>
+            </div>
+        </div>
+        <div class="column is-4">
+            <div class="box has-text-centered">
+                <p class="heading">Currency</p>
+                <p class="title is-4">{{ dashboard.payoutCurrency == 'kr.' ? 'DKK' : 'USD' }}</p>
+            </div>
+        </div>
+    </div>
+
+    {# ── Commission Chart ────────────────────────────────── #}
+    <div class="columns">
+        <div class="column is-6">
+            <div class="box">
+                <h2 class="title is-5 mb-3">Monthly Commissions</h2>
+                <div id="commission-chart" style="min-height: 300px;"></div>
+            </div>
+        </div>
+
+        {# ── Customer Chart ──────────────────────────────── #}
+        <div class="column is-6">
+            <div class="box">
+                <h2 class="title is-5 mb-3">Monthly Customers</h2>
+                <div id="customer-chart" style="min-height: 300px;"></div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    {# ── Plan-based agency: Only customer chart ──────────── #}
+    <div class="columns mb-5">
+        <div class="column is-4">
+            <div class="box has-text-centered">
+                <p class="heading">Price Model</p>
+                <p class="title is-4">Plan</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="columns">
+        <div class="column is-8">
+            <div class="box">
+                <h2 class="title is-5 mb-3">Monthly Customers</h2>
+                <div id="customer-chart" style="min-height: 300px;"></div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function agencyDashboard() {
+    return {
+        commissionData: {{ dashboard.commissionData|json_encode|raw }},
+        customerData: {{ dashboard.customerData|json_encode|raw }},
+        priceModel: '{{ dashboard.priceModel }}',
+
+        init() {
+            if (this.priceModel === 'commission') {
+                this.renderCommissionChart();
+            }
+            this.renderCustomerChart();
+        },
+
+        renderCommissionChart() {
+            const entries = Object.values(this.commissionData);
+            const labels = entries.map(e => e.date);
+            const values = entries.map(e => parseFloat(e.commission) || 0);
+
+            new ApexCharts(document.querySelector('#commission-chart'), {
+                chart: { type: 'bar', height: 300, toolbar: { show: false } },
+                series: [{ name: 'Commission', data: values }],
+                xaxis: { categories: labels, labels: { rotate: -45 } },
+                yaxis: { min: 0 },
+                colors: ['#22b573'],
+                plotOptions: { bar: { borderRadius: 4 } },
+                dataLabels: { enabled: false }
+            }).render();
+        },
+
+        renderCustomerChart() {
+            const entries = Object.values(this.customerData);
+            const labels = entries.map(e => e.date);
+            const values = entries.map(e => parseInt(e.customers) || 0);
+
+            new ApexCharts(document.querySelector('#customer-chart'), {
+                chart: { type: 'bar', height: 300, toolbar: { show: false } },
+                series: [{ name: 'Customers', data: values }],
+                xaxis: { categories: labels, labels: { rotate: -45 } },
+                yaxis: { min: 0 },
+                colors: ['#3273dc'],
+                plotOptions: { bar: { borderRadius: 4 } },
+                dataLabels: { enabled: false }
+            }).render();
+        }
+    };
+}
+</script>
+{% endblock %}
