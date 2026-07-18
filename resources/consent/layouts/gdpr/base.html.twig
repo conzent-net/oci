@@ -1,0 +1,236 @@
+{#
+  GDPR Banner — Base Layout
+  All GDPR banner designs extend this template.
+  Override blocks to create different visual layouts.
+
+  Available variables:
+    banner_type       — 'box-left'|'box-right'|'banner-bottom'|'banner-top'|'popup-center'
+    display_position  — CSS position class
+    preference_type   — 'sidebar-left'|'sidebar-right'|'popup-center'|'pushdown'
+    preference_position — CSS position class for preference center
+    notice            — {buttons, cookie_policy, custom_logo, branding, banner.style}
+    preference_center — {buttons, toggle_switch}
+    colors            — {notice_bg, notice_border, notice_title, notice_description}
+    buttons_html      — pre-rendered button HTML string
+    pref_buttons_html — pre-rendered preference center button HTML
+    revisit_html      — pre-rendered revisit button HTML
+    cookie_categories_html — pre-rendered accordion HTML
+    branding_html     — pre-rendered branding HTML
+    logo_html         — pre-rendered logo/icon HTML
+    close_button_html — pre-rendered close button SVG
+    overlay           — whether to show overlay (bool)
+    iab               — whether IAB TCF support is enabled (bool)
+    translations      — keyed translation placeholders
+#}
+
+{# ── Overlay ─────────────────────────────────────────── #}
+{% block overlay %}
+<div class="conzent-overlay cnz-hide"></div>
+{% endblock %}
+
+{# ── Revisit Button ──────────────────────────────────── #}
+{% block revisit %}
+{{ revisit_html|raw }}
+{% endblock %}
+
+{# ── Cookie Notice Banner ────────────────────────────── #}
+{% block banner %}
+<div id="Conzent" tabindex="0" class="conzent-{{ banner_type }}{{ display_position }}">
+  <div class="conzent-inner-content-box" style="border:1px solid {{ colors.notice_border }};background-color:{{ colors.notice_bg }}">
+    <div class="conzent-notice">
+      {% block banner_header %}
+      <p class="title-wrap" style="color:{{ colors.notice_title }}">{{ logo_html|raw }} [conzent_cookie_notice_banner_title]</p>
+      {% endblock %}
+
+      {% block banner_body %}
+      <div class="content-wrap">
+        <div class="msg-wrap" style="color:{{ colors.notice_description }}">
+          {% if iab|default(false) %}[conzent_iab_notice_description]{% else %}[conzent_cookie_notice_message]{% endif %}
+          {{ privacy_policy_link|raw }}
+        </div>
+        <div class="btn-wrap">
+          {{ buttons_html|raw }}
+        </div>
+      </div>
+      {% endblock %}
+
+      {% block banner_footer %}
+      <div class="notice_button_wrap">{{ banner_cookie_list|raw }}{{ pref_buttons_html|raw }}</div>
+      <div class="conzent-branding" style="display:flex;justify-content:flex-end;padding:6px 0 0;font-size:11px;opacity:0.7;">
+        {{ branding_html|raw }}
+      </div>
+      {% endblock %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{# ── Preference Center Modal ─────────────────────────── #}
+{% block preference_center %}
+<div class="conzent-modal conzent-{{ preference_type }}{{ preference_position }}" tabindex="0">
+  <div class="conzent-preference-center" style="border:1px solid {{ colors.notice_border }};background-color:{{ colors.notice_bg }}">
+    {% block pref_header %}
+    <div class="conzent-preference-header">
+      <span class="conzent-preference-title" style="color:{{ colors.notice_title }}">[conzent_preference_center_preference_title]</span>
+      <span id="preCloseBtn" class="cnz-btn-close">{{ close_button_html|raw }}</span>
+    </div>
+    {% endblock %}
+
+    {% block pref_body %}
+    <div class="conzent-preference-body-wrapper">
+{% if iab|default(false) %}
+      <div class="conzent-iab-detail-wrapper">
+        <div class="conzent-iab-preference-des" style="color:{{ colors.notice_description }}">[conzent_iab_preference_description]</div>
+      </div>
+      <div class="conzent-horizontal-separator"></div>
+      <div class="conzent-iab-nav-wrapper">
+        <ul class="cnz-tab">
+          <li class="cnz-tab-item tab-active" id="cnzIABTabCookie"><span>[conzent_iab_nav_item_cookie_categories]</span></li>
+          <li class="cnz-iab-item" id="cnzIABTabPurpose"><span>[conzent_iab_nav_item_purposes_n_features]</span></li>
+          <li class="cnz-iab-item" id="cnzIABTabVendor"><span>[conzent_iab_nav_item_vendors]</span></li>
+        </ul>
+        <div class="conzent-horizontal-separator"></div>
+      </div>
+      <div class="cnz-iab-detail-sub-wrapper">
+        {# Tab 1: Cookie Categories #}
+        <div class="conzent-preference-content-wrapper cnz-tabcontent" style="color:{{ colors.notice_description }}" id="cnzIABTabCookieSection">
+          <p class="cnz-tab-title">[conzent_iab_nav_item_cookie_categories]</p>
+          <div class="conzent-accordion-wrapper cnz-category-table">
+            <div class="overview_text">[conzent_preference_center_overview]</div>
+            {{ google_privacy_policy|raw }}
+            {{ cookie_categories_html|raw }}
+          </div>
+        </div>
+        {# Tab 2: IAB Purposes & Features #}
+        <div class="conzent-preference-content-wrapper cnz-tabcontent hide-tab" style="color:{{ colors.notice_description }}" id="cnzIABTabPurposeSection">
+          <div class="conzent-accordion-wrapper">
+            <p class="cnz-tab-title">[conzent_iab_nav_item_purposes_n_features]</p>
+            <div class="conzent-accordion" id="cnzIABpurpose_tab">
+              <div class="conzent-accordion-item">
+                <div class="conzent-accordion-arrow"><i class="cnz-arrow-right"></i></div>
+                <div class="conzent-accordion-header-wrapper">
+                  <div class="conzent-accordion-header"><button class="conzent-accordion-btn" data-tab="cnzIABpurpose_tab">[conzent_iab_common_purposes] ([IAB_PURPOSES_COUNT])</button>[IAB_PURPOSES_TOGGLE]</div>
+                  <div class="conzent-accordion-header-des"></div>
+                </div>
+              </div>
+              <div class="conzent-accordion-body">
+                <div class="conzent-tab-content">
+                  <div id="cnzIABpurpose_tab_section">[IAB_PURPOSES]</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="conzent-accordion-wrapper">
+            <div class="conzent-accordion" id="cnzIABspecial_purpose_tab">
+              <div class="conzent-accordion-item">
+                <div class="conzent-accordion-arrow"><i class="cnz-arrow-right"></i></div>
+                <div class="conzent-accordion-header-wrapper">
+                  <div class="conzent-accordion-header"><button class="conzent-accordion-btn" data-tab="cnzIABspecial_purpose_tab">[conzent_iab_common_special_purposes] ([IAB_SPECIAL_PURPOSES_COUNT])</button>[IAB_SPECIAL_PURPOSES_TOGGLE]</div>
+                  <div class="conzent-accordion-header-des"></div>
+                </div>
+              </div>
+              <div class="conzent-accordion-body">
+                <div class="conzent-tab-content">
+                  <div id="cnzIABspecial_purpose_tab_section">[IAB_SPECIAL_PURPOSES]</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="conzent-accordion-wrapper">
+            <div class="conzent-accordion" id="cnzIABfeatures_tab">
+              <div class="conzent-accordion-item">
+                <div class="conzent-accordion-arrow"><i class="cnz-arrow-right"></i></div>
+                <div class="conzent-accordion-header-wrapper">
+                  <div class="conzent-accordion-header"><button class="conzent-accordion-btn" data-tab="cnzIABfeatures_tab">[conzent_iab_common_features] ([IAB_FEATURES_COUNT])</button>[IAB_FEATURES_TOGGLE]</div>
+                  <div class="conzent-accordion-header-des"></div>
+                </div>
+              </div>
+              <div class="conzent-accordion-body">
+                <div class="conzent-tab-content">
+                  <div id="cnzIABfeatures_tab_section">[IAB_FEATURES]</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="conzent-accordion-wrapper">
+            <div class="conzent-accordion" id="cnzIABspecial_features_tab">
+              <div class="conzent-accordion-item">
+                <div class="conzent-accordion-arrow"><i class="cnz-arrow-right"></i></div>
+                <div class="conzent-accordion-header-wrapper">
+                  <div class="conzent-accordion-header"><button class="conzent-accordion-btn" data-tab="cnzIABspecial_features_tab">[conzent_iab_common_special_features] ([IAB_SPECIAL_FEATURES_COUNT])</button>[IAB_SPECIAL_FEATURES_TOGGLE]</div>
+                  <div class="conzent-accordion-header-des"></div>
+                </div>
+              </div>
+              <div class="conzent-accordion-body">
+                <div class="conzent-tab-content">
+                  <div id="cnzIABspecial_features_tab_section">[IAB_SPECIAL_FEATURES]</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        {# Tab 3: IAB Vendors #}
+        <div class="conzent-preference-content-wrapper cnz-tabcontent hide-tab" style="color:{{ colors.notice_description }}" id="cnzIABTabVendorSection">
+          <div class="conzent-accordion-wrapper">
+            <p class="cnz-tab-title">[conzent_iab_nav_item_vendors]</p>
+            <div class="conzent-accordion" id="cnzIABvendors_thirdparty">
+              <div class="conzent-accordion-item">
+                <div class="conzent-accordion-arrow"><i class="cnz-arrow-right"></i></div>
+                <div class="conzent-accordion-header-wrapper">
+                  <div class="conzent-accordion-header"><button class="conzent-accordion-btn" data-tab="cnzIABvendors_thirdparty">[conzent_iab_vendors_third_party_title] ([IAB_VENDORS_THIRDPARTY_COUNT])</button>[IAB_VENDORS_THIRDPARTY_TOGGLE]</div>
+                  <div class="conzent-accordion-header-des"></div>
+                </div>
+              </div>
+              <div class="conzent-accordion-body">
+                <div class="conzent-tab-content">
+                  <div id="cnzIABvendors_thirdparty_section">[IAB_VENDORS_THIRDPARTY]</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="conzent-accordion-wrapper">
+            <div class="conzent-accordion" id="cnzIABvendors_google_ad">
+              <div class="conzent-accordion-item">
+                <div class="conzent-accordion-arrow"><i class="cnz-arrow-right"></i></div>
+                <div class="conzent-accordion-header-wrapper">
+                  <div class="conzent-accordion-header"><button class="conzent-accordion-btn" data-tab="cnzIABvendors_google_ad">[conzent_iab_vendors_google_ad_title] ([IAB_VENDORS_GOOGLE_AD_COUNT])</button>[IAB_VENDORS_GOOGLE_AD_TOGGLE]</div>
+                  <div class="conzent-accordion-header-des"></div>
+                </div>
+              </div>
+              <div class="conzent-accordion-body">
+                <div class="conzent-tab-content">
+                  <div id="cnzIABvendors_google_ad_section">[IAB_VENDORS_GOOGLE_AD]</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+{% else %}
+      <div class="conzent-preference-content-wrapper" style="color:{{ colors.notice_description }}">
+        <div class="overview_text">[conzent_preference_center_overview]</div>
+        {{ google_privacy_policy|raw }}
+      </div>
+      <div class="conzent-horizontal-separator"></div>
+      <div class="conzent-accordion-wrapper cnz-category-table">
+        {{ cookie_categories_html|raw }}
+      </div>
+{% endif %}
+    </div>
+    {% endblock %}
+
+    {% block pref_footer %}
+    <div class="conzent-footer-wrapper">
+      <span class="cnz-footer-shadow"></span>
+      <div class="conzent-prefrence-btn-wrapper">
+        {{ pref_buttons_html|raw }}
+      </div>
+      <div class="conzent-branding">
+        <div style="text-align:left;max-width: calc(100% - 160px);">The choices you make regarding the purposes and entities listed in this notice are saved in a cookie named conzentConsentPrefs for a maximum duration of 12 months.</div>
+        <div style="min-width:140px;display:flex;">{{ branding_html|raw }}</div>
+      </div>
+    </div>
+    {% endblock %}
+  </div>
+</div>
+{% endblock %}
