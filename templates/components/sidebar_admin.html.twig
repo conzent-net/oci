@@ -1,0 +1,23 @@
+{# ── Admin Sidebar Navigation ──────────────────────────────
+   Rendered in place of the consumer sidebar on /admin/* pages
+   (see base.html.twig {% block sidebar %}). Shows admin-only
+   navigation plus a "Back to app" link so admins aren't mixing
+   the consumer menu with the admin area.
+
+   The item list (with the Classification / Billing / News flyout
+   groups) is shared with the consumer sidebar's "Admin" flyout via
+   components/admin_menu.html.twig so the two stay identical. #}
+{% import 'components/admin_menu.html.twig' as admin_menu %}
+
+<nav class="menu oci-admin-menu">
+    {# Return to the consumer application #}
+    <a href="/" class="oci-admin-back">
+        <span class="menu-icon"><i class="fas fa-arrow-left"></i></span>
+        <span>Back to app</span>
+    </a>
+
+    <p class="menu-label">Administration</p>
+    <ul class="menu-list">
+        {{ admin_menu.tree(active_page) }}
+    </ul>
+</nav>

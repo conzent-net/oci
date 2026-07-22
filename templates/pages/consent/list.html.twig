@@ -1,0 +1,244 @@
+{% extends 'layouts/base.html.twig' %}
+{% import 'components/macros.html.twig' as ui %}
+
+{% set active_page = 'consents' %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/apexcharts@3.52.0"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+      integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA=="
+      crossorigin="anonymous" referrerpolicy="no-referrer" />
+{% endblock %}
+
+{% block content %}
+<div x-data="consentLogsPage()" x-init="init()">
+
+    <nav class="breadcrumb mb-3" aria-label="breadcrumbs">
+        <ul>
+            <li><a href="/">Dashboard</a></li>
+            <li class="is-active"><a href="#" aria-current="page">Consent Logs</a></li>
+        </ul>
+    </nav>
+
+    {# -- Header ------------------------------------------------- #}
+    <div class="level mb-4">
+        <div class="level-left">
+            <div class="level-item">
+                <h1 class="title is-4 mb-0">Consent Logs</h1>
+            </div>
+            <div class="level-item">
+                {{ ui.siteSelector(sites, siteId, '/consents') }}
+            </div>
+            <div class="level-item">
+                <span class="tag is-info is-light is-medium">{{ totalCount }} record{{ totalCount != 1 ? 's' : '' }}</span>
+            </div>
+        </div>
+        <div class="level-right">
+            <div class="level-item">
+                <div class="select is-small">
+                    <select x-model="days" @change="loadAnalytics()">
+                        <option value="7">Last 7 days</option>
+                        <option value="30">Last 30 days</option>
+                        <option value="90">Last 90 days</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# -- Analytics Cards ---------------------------------------- #}
+    <div class="columns mb-4">
+        <div class="column is-4">
+            <div class="box has-text-centered">
+                <p class="heading">Accepted</p>
+                <p class="title is-3 has-text-success" x-text="acceptedPct + '%'"></p>
+                <p class="is-size-7" :class="acceptedChange >= 0 ? 'has-text-success' : 'has-text-danger'">
+                    <span x-show="acceptedChange > 0"><i class="fas fa-arrow-up"></i></span>
+                    <span x-show="acceptedChange < 0"><i class="fas fa-arrow-down"></i></span>
+                    <span x-show="acceptedChange === 0"><i class="fas fa-minus"></i></span>
+                    <span x-text="Math.abs(acceptedChange) + '%'"></span>
+                    <span class="has-text-grey-light">vs prev. period</span>
+                </p>
+            </div>
+        </div>
+        <div class="column is-4">
+            <div class="box has-text-centered">
+                <p class="heading">Rejected</p>
+                <p class="title is-3 has-text-danger" x-text="rejectedPct + '%'"></p>
+                <p class="is-size-7" :class="rejectedChange <= 0 ? 'has-text-success' : 'has-text-danger'">
+                    <span x-show="rejectedChange > 0"><i class="fas fa-arrow-up"></i></span>
+                    <span x-show="rejectedChange < 0"><i class="fas fa-arrow-down"></i></span>
+                    <span x-show="rejectedChange === 0"><i class="fas fa-minus"></i></span>
+                    <span x-text="Math.abs(rejectedChange) + '%'"></span>
+                    <span class="has-text-grey-light">vs prev. period</span>
+                </p>
+            </div>
+        </div>
+        <div class="column is-4">
+            <div class="box has-text-centered">
+                <p class="heading">Partial</p>
+                <p class="title is-3 has-text-warning" x-text="partialPct + '%'"></p>
+                <p class="is-size-7" :class="partialChange <= 0 ? 'has-text-success' : 'has-text-danger'">
+                    <span x-show="partialChange > 0"><i class="fas fa-arrow-up"></i></span>
+                    <span x-show="partialChange < 0"><i class="fas fa-arrow-down"></i></span>
+                    <span x-show="partialChange === 0"><i class="fas fa-minus"></i></span>
+                    <span x-text="Math.abs(partialChange) + '%'"></span>
+                    <span class="has-text-grey-light">vs prev. period</span>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    {# -- Trend Chart -------------------------------------------- #}
+    <div class="box mb-5">
+        <h2 class="subtitle is-6 mb-3">Consent Trend</h2>
+        <div id="consent-trend-chart" style="height:260px;"></div>
+    </div>
+
+    {# -- Filters ------------------------------------------------ #}
+    <div class="level mb-3">
+        <div class="level-left">
+            <div class="level-item">
+                <div class="select is-small">
+                    <select onchange="window.location.href=updateUrlParam('status', this.value)">
+                        <option value="">All statuses</option>
+                        <option value="accepted" {{ filters.status == 'accepted' ? 'selected' : '' }}>Accepted</option>
+                        <option value="rejected" {{ filters.status == 'rejected' ? 'selected' : '' }}>Rejected</option>
+                        <option value="partially_accepted" {{ filters.status == 'partially_accepted' ? 'selected' : '' }}>Partial</option>
+                    </select>
+                </div>
+            </div>
+            <div class="level-item">
+                <div class="field has-addons">
+                    <div class="control">
+                        <input class="input is-small" type="date" value="{{ filters.date_from }}"
+                               onchange="window.location.href=updateUrlParam('date_from', this.value)">
+                    </div>
+                    <div class="control">
+                        <span class="button is-small is-static">to</span>
+                    </div>
+                    <div class="control">
+                        <input class="input is-small" type="date" value="{{ filters.date_to }}"
+                               onchange="window.location.href=updateUrlParam('date_to', this.value)">
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="level-right">
+            <div class="level-item">
+                <p class="is-size-7 has-text-grey">
+                    Showing {{ ((page - 1) * perPage) + 1 }}–{{ min(page * perPage, totalCount) }} of {{ totalCount }}
+                </p>
+            </div>
+        </div>
+    </div>
+
+    {# -- Consent Table ------------------------------------------ #}
+    {% include 'pages/consent/_consent_table.html.twig' %}
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function updateUrlParam(key, value) {
+    var url = new URL(window.location.href);
+    if (value) {
+        url.searchParams.set(key, value);
+    } else {
+        url.searchParams.delete(key);
+    }
+    url.searchParams.delete('page');
+    return url.toString();
+}
+
+function consentLogsPage() {
+    var comparison = {{ comparison|json_encode|raw }};
+    var trend = {{ trend|json_encode|raw }};
+    var siteId = {{ siteId }};
+
+    function pct(num, total) {
+        if (total === 0) return 0;
+        return Math.round((num / total) * 1000) / 10;
+    }
+
+    function changePct(current, previous, currentTotal, previousTotal) {
+        var curPct = pct(current, currentTotal);
+        var prevPct = pct(previous, previousTotal);
+        return Math.round((curPct - prevPct) * 10) / 10;
+    }
+
+    var cur = comparison.current;
+    var prev = comparison.previous;
+
+    return {
+        days: '{{ days }}',
+        chart: null,
+
+        acceptedPct: pct(cur.accepted, cur.total),
+        rejectedPct: pct(cur.rejected, cur.total),
+        partialPct: pct(cur.partially_accepted, cur.total),
+        acceptedChange: changePct(cur.accepted, prev.accepted, cur.total, prev.total),
+        rejectedChange: changePct(cur.rejected, prev.rejected, cur.total, prev.total),
+        partialChange: changePct(cur.partially_accepted, prev.partially_accepted, cur.total, prev.total),
+
+        init() {
+            this.renderChart(trend);
+        },
+
+        renderChart(data) {
+            var dates = data.map(function(r) { return r.stat_date; });
+            var accepted = data.map(function(r) { return parseInt(r.accepted); });
+            var rejected = data.map(function(r) { return parseInt(r.rejected); });
+            var partial = data.map(function(r) { return parseInt(r.partially_accepted); });
+
+            if (this.chart) this.chart.destroy();
+
+            this.chart = new ApexCharts(document.querySelector('#consent-trend-chart'), {
+                chart: { type: 'area', height: 240, toolbar: { show: false },
+                         fontFamily: 'inherit', foreColor: '#718096' },
+                series: [
+                    { name: 'Accepted', data: accepted },
+                    { name: 'Rejected', data: rejected },
+                    { name: 'Partial', data: partial }
+                ],
+                colors: ['#22b573', '#ff4444', '#ffdd57'],
+                fill: { type: 'gradient', gradient: { opacityFrom: 0.4, opacityTo: 0.05 } },
+                stroke: { curve: 'smooth', width: 2 },
+                xaxis: { categories: dates, labels: { style: { fontSize: '10px' } } },
+                yaxis: { labels: { style: { fontSize: '10px' } } },
+                tooltip: { shared: true, intersect: false },
+                legend: { position: 'top', fontSize: '11px' },
+                dataLabels: { enabled: false },
+                grid: { borderColor: '#f0f0f0', strokeDashArray: 3 }
+            });
+            this.chart.render();
+        },
+
+        loadAnalytics() {
+            var self = this;
+            fetch('/app/consents/analytics', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                body: JSON.stringify({ site_id: siteId, days: parseInt(self.days) })
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (!data.success) return;
+                var c = data.data.comparison;
+                var cc = c.current, pp = c.previous;
+                self.acceptedPct = pct(cc.accepted, cc.total);
+                self.rejectedPct = pct(cc.rejected, cc.total);
+                self.partialPct = pct(cc.partially_accepted, cc.total);
+                self.acceptedChange = changePct(cc.accepted, pp.accepted, cc.total, pp.total);
+                self.rejectedChange = changePct(cc.rejected, pp.rejected, cc.total, pp.total);
+                self.partialChange = changePct(cc.partially_accepted, pp.partially_accepted, cc.total, pp.total);
+                self.renderChart(data.data.trend);
+            });
+        }
+    };
+}
+</script>
+{% endblock %}

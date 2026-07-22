@@ -1,0 +1,374 @@
+{#
+  Fullscreen Banner Preview Modal
+  ──────────────────────────────────────────────────────
+  Shows the actual site in an iframe with a floating panel
+  for banner layout settings on the left side.
+
+  Checks if the consent script is installed before loading
+  the iframe. If not installed, shows a warning with the
+  install snippet.
+
+  Required variables:
+    - previewDomain : string  (the site domain, e.g. "example.com")
+    - websiteKey    : string  (the site's unique website key)
+    - siteId        : int     (the site ID for script check)
+  Optional:
+    - showLayoutPanel : bool  (show the layout settings panel, default true)
+#}
+
+{# ── Preview Modal Styles ─────────────────────────────── #}
+<style>
+.preview-overlay {
+    position: fixed; inset: 0; z-index: 1000;
+    background: rgba(0,0,0,0.85);
+    display: flex;
+}
+.preview-panel {
+    width: 320px; min-width: 320px;
+    background: var(--oci-bg, #ffffff);
+    border-right: 1px solid var(--oci-border, #e0e0e0);
+    overflow-y: auto;
+    padding: 1.25rem;
+    display: flex; flex-direction: column; gap: 1rem;
+}
+.preview-panel .panel-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--oci-border, #e0e0e0);
+}
+.preview-panel .panel-section {
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--oci-border, #f0f0f0);
+}
+.preview-panel .panel-section:last-child { border-bottom: none; }
+.preview-iframe-wrap {
+    flex: 1; display: flex; flex-direction: column;
+    padding: 12px 12px 12px 0;
+}
+.preview-iframe-toolbar {
+    display: flex; align-items: center; gap: 0.75rem;
+    padding: 0.5rem 1rem;
+    background: #1a1a2e; color: #e0e0e0;
+    border-radius: 8px 8px 0 0;
+    font-size: 0.8125rem;
+}
+.preview-iframe-toolbar .url-bar {
+    flex: 1;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 4px;
+    padding: 0.25rem 0.75rem;
+    color: #a0a0c0;
+    font-size: 0.75rem;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.preview-iframe-toolbar .device-btn {
+    background: none; border: none; color: #808090; cursor: pointer;
+    font-size: 1rem; padding: 0.25rem;
+}
+.preview-iframe-toolbar .device-btn.is-active { color: #60a5fa; }
+.preview-iframe-toolbar .device-btn:hover { color: #93c5fd; }
+.preview-iframe {
+    flex: 1; border: none;
+    border-radius: 0 0 8px 8px;
+    background: #ffffff;
+    transition: max-width 0.3s ease;
+}
+.preview-iframe.device-mobile { max-width: 375px; width: 375px; margin: 0 auto; }
+.preview-iframe.device-tablet { max-width: 768px; width: 768px; margin: 0 auto; }
+.preview-iframe.device-desktop { max-width: 100%; }
+
+/* Script check overlay */
+.preview-script-check {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    padding: 12px 12px 12px 0;
+}
+.preview-script-check-card {
+    background: #ffffff; border-radius: 12px;
+    padding: 2.5rem; max-width: 560px; width: 100%;
+    text-align: center;
+}
+.preview-script-check-card .script-snippet {
+    background: #1a1a2e; color: #e0e0e0; border-radius: 6px;
+    padding: 1rem; text-align: left; font-size: 0.75rem;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    overflow-x: auto; position: relative; margin: 1rem 0;
+}
+.preview-script-check-card .script-snippet .copy-btn {
+    position: absolute; top: 0.5rem; right: 0.5rem;
+    background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+    color: #a0a0c0; border-radius: 4px; padding: 0.25rem 0.5rem;
+    cursor: pointer; font-size: 0.6875rem;
+}
+.preview-script-check-card .script-snippet .copy-btn:hover {
+    background: rgba(255,255,255,0.2); color: #fff;
+}
+.script-check-spinner {
+    display: inline-block; width: 32px; height: 32px;
+    border: 3px solid #e8e8e8; border-top-color: #2e9e5e;
+    border-radius: 50%; animation: sc-spin 0.6s linear infinite;
+}
+@keyframes sc-spin { to { transform: rotate(360deg); } }
+
+/* Mini position cards for the preview panel */
+.mini-position-grid {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem;
+}
+.mini-position-card {
+    border: 2px solid var(--oci-border, #e0e0e0);
+    border-radius: 6px; padding: 0.5rem; text-align: center;
+    cursor: pointer; transition: all 0.15s;
+    font-size: 0.6875rem; color: var(--oci-text-secondary, #666);
+}
+.mini-position-card:hover { border-color: var(--oci-primary, #2e9e5e); }
+.mini-position-card.is-selected {
+    border-color: var(--oci-primary, #2e9e5e);
+    background: var(--oci-primary-light, #eef2ff);
+    color: var(--oci-primary, #2e9e5e);
+    font-weight: 600;
+}
+.mini-position-card .mini-preview {
+    width: 100%; height: 32px;
+    background: #f0f0f0; border-radius: 3px;
+    position: relative; margin-bottom: 0.25rem; overflow: hidden;
+}
+.mini-position-card .mini-preview .mock-el {
+    position: absolute; background: var(--oci-primary, #2e9e5e); opacity: 0.5;
+}
+/* Mini mock elements */
+.mock-bar-t { top: 0; left: 0; right: 0; height: 6px; }
+.mock-bar-b { bottom: 0; left: 0; right: 0; height: 6px; }
+.mock-box-bl { bottom: 2px; left: 2px; width: 16px; height: 12px; border-radius: 2px; }
+.mock-box-br { bottom: 2px; right: 2px; width: 16px; height: 12px; border-radius: 2px; }
+.mock-box-tl { top: 2px; left: 2px; width: 16px; height: 12px; border-radius: 2px; }
+.mock-box-tr { top: 2px; right: 2px; width: 16px; height: 12px; border-radius: 2px; }
+.mock-popup-c { top: 50%; left: 50%; transform: translate(-50%,-50%); width: 24px; height: 14px; border-radius: 2px; }
+</style>
+
+{# ── Preview Modal HTML ──────────────────────────────── #}
+<div class="preview-overlay" x-show="previewModal" x-cloak x-transition.opacity
+     @keydown.escape.window="previewModal = false">
+
+    {# ── Left floating panel: Layout settings ─────── #}
+    {% if showLayoutPanel is not defined or showLayoutPanel %}
+    <div class="preview-panel" x-show="scriptCheckStatus === 'installed' || scriptCheckStatus === 'skipped'">
+        <div class="panel-header">
+            <h3 class="title is-6 mb-0">
+                <span class="icon"><i class="fas fa-th-large"></i></span>
+                Layout Settings
+            </h3>
+            <button class="delete" @click="previewModal = false"></button>
+        </div>
+
+        {# Banner Type #}
+        <div class="panel-section">
+            <label class="label is-small mb-2">Banner Type</label>
+            <div class="buttons are-small">
+                <button class="button" :class="{ 'is-info': settings.layout.banner_type === 'banner' }"
+                        @click="settings.layout.banner_type = 'banner'; reloadPreview()">
+                    <span class="icon"><i class="fas fa-window-maximize"></i></span>
+                    <span>Banner</span>
+                </button>
+                <button class="button" :class="{ 'is-info': settings.layout.banner_type === 'box' }"
+                        @click="settings.layout.banner_type = 'box'; reloadPreview()">
+                    <span class="icon"><i class="fas fa-square"></i></span>
+                    <span>Box</span>
+                </button>
+                <button class="button" :class="{ 'is-info': settings.layout.banner_type === 'popup' }"
+                        @click="settings.layout.banner_type = 'popup'; reloadPreview()">
+                    <span class="icon"><i class="fas fa-clone"></i></span>
+                    <span>Popup</span>
+                </button>
+            </div>
+        </div>
+
+        {# Display Position #}
+        <div class="panel-section">
+            <label class="label is-small mb-2">Display Position</label>
+
+            {# Banner positions #}
+            <div class="mini-position-grid" x-show="settings.layout.banner_type === 'banner'">
+                <div class="mini-position-card" :class="{ 'is-selected': settings.layout.position === 'top' }"
+                     @click="settings.layout.position = 'top'; reloadPreview()">
+                    <div class="mini-preview"><div class="mock-el mock-bar-t"></div></div>
+                    Top
+                </div>
+                <div class="mini-position-card" :class="{ 'is-selected': settings.layout.position === 'bottom' }"
+                     @click="settings.layout.position = 'bottom'; reloadPreview()">
+                    <div class="mini-preview"><div class="mock-el mock-bar-b"></div></div>
+                    Bottom
+                </div>
+            </div>
+
+            {# Box positions #}
+            <div class="mini-position-grid" x-show="settings.layout.banner_type === 'box'">
+                <div class="mini-position-card" :class="{ 'is-selected': settings.layout.position === 'bottom_left' }"
+                     @click="settings.layout.position = 'bottom_left'; reloadPreview()">
+                    <div class="mini-preview"><div class="mock-el mock-box-bl"></div></div>
+                    Bottom Left
+                </div>
+                <div class="mini-position-card" :class="{ 'is-selected': settings.layout.position === 'bottom_right' }"
+                     @click="settings.layout.position = 'bottom_right'; reloadPreview()">
+                    <div class="mini-preview"><div class="mock-el mock-box-br"></div></div>
+                    Bottom Right
+                </div>
+                <div class="mini-position-card" :class="{ 'is-selected': settings.layout.position === 'top_left' }"
+                     @click="settings.layout.position = 'top_left'; reloadPreview()">
+                    <div class="mini-preview"><div class="mock-el mock-box-tl"></div></div>
+                    Top Left
+                </div>
+                <div class="mini-position-card" :class="{ 'is-selected': settings.layout.position === 'top_right' }"
+                     @click="settings.layout.position = 'top_right'; reloadPreview()">
+                    <div class="mini-preview"><div class="mock-el mock-box-tr"></div></div>
+                    Top Right
+                </div>
+            </div>
+
+            {# Popup position #}
+            <div class="mini-position-grid" x-show="settings.layout.banner_type === 'popup'">
+                <div class="mini-position-card" :class="{ 'is-selected': settings.layout.position === 'center' }"
+                     @click="settings.layout.position = 'center'; reloadPreview()" style="grid-column:span 2">
+                    <div class="mini-preview"><div class="mock-el mock-popup-c"></div></div>
+                    Center
+                </div>
+            </div>
+        </div>
+
+        {# Preference Center Display #}
+        <div class="panel-section">
+            <label class="label is-small mb-2">Preference Center</label>
+            <div class="buttons are-small">
+                <button class="button" :class="{ 'is-info': settings.layout.preference_display === 'center' }"
+                        @click="settings.layout.preference_display = 'center'; reloadPreview()">
+                    <span class="icon"><i class="fas fa-clone"></i></span>
+                    <span>Center</span>
+                </button>
+                <button class="button" :class="{ 'is-info': settings.layout.preference_display === 'sidebar' }"
+                        @click="settings.layout.preference_display = 'sidebar'; reloadPreview()">
+                    <span class="icon"><i class="fas fa-columns"></i></span>
+                    <span>Sidebar</span>
+                </button>
+                <button class="button" :class="{ 'is-info': settings.layout.preference_display === 'push_down' }"
+                        @click="settings.layout.preference_display = 'push_down'; reloadPreview()">
+                    <span class="icon"><i class="fas fa-arrow-down"></i></span>
+                    <span>Push Down</span>
+                </button>
+            </div>
+        </div>
+
+        {# Quick toggles #}
+        <div class="panel-section">
+            <label class="label is-small mb-2">Quick Settings</label>
+            <div style="display:flex;flex-direction:column;gap:0.5rem">
+                <label class="oci-toggle" style="margin:0">
+                    <input type="checkbox" x-model="settings.layout.category_on_first_layer" @change="reloadPreview()">
+                    <span class="toggle-track" style="width:32px;height:18px"></span>
+                    <span class="toggle-label is-size-7">Categories on banner</span>
+                </label>
+                <label class="oci-toggle" style="margin:0">
+                    <input type="checkbox" x-model="settings.content.floating_button" @change="reloadPreview()">
+                    <span class="toggle-track" style="width:32px;height:18px"></span>
+                    <span class="toggle-label is-size-7">Floating revisit button</span>
+                </label>
+            </div>
+        </div>
+
+        {# Save & Apply #}
+        <div style="margin-top:auto;padding-top:0.75rem;border-top:1px solid var(--oci-border, #e0e0e0)">
+            <button class="button is-info is-fullwidth is-small" @click="saveAndPreview()"
+                    :class="{ 'is-loading': saving }">
+                <span class="icon"><i class="fas fa-save"></i></span>
+                <span>Save & Refresh Preview</span>
+            </button>
+        </div>
+    </div>
+    {% endif %}
+
+    {# ── Script check overlay (checking / not installed) ── #}
+    <div class="preview-script-check"
+         x-show="scriptCheckStatus === 'checking' || scriptCheckStatus === 'not_installed'"
+         x-cloak>
+        <div class="preview-script-check-card">
+            {# Checking state #}
+            <div x-show="scriptCheckStatus === 'checking'">
+                <div class="script-check-spinner mb-4"></div>
+                <p class="title is-5">Checking script installation...</p>
+                <p class="has-text-grey">Verifying that the consent script is installed on your website.</p>
+            </div>
+
+            {# Not installed state #}
+            <div x-show="scriptCheckStatus === 'not_installed'" x-cloak>
+                <span class="icon is-large has-text-warning" style="font-size:3rem">
+                    <i class="fas fa-triangle-exclamation"></i>
+                </span>
+                <p class="title is-5 mt-3">Consent Script Not Detected</p>
+                <p class="has-text-grey mb-4" x-text="scriptCheckReason"></p>
+
+                <p class="has-text-weight-semibold has-text-left mb-2">Add this script to your website's <code>&lt;head&gt;</code> section:</p>
+                <div class="script-snippet">
+                    <button class="copy-btn" @click="copySnippet($event)">
+                        <i class="fas fa-copy"></i> Copy
+                    </button>
+                    <code>&lt;script async src="{{ base_url }}/c/consent.js"<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;data-key="{{ websiteKey }}"&gt;&lt;/script&gt;</code>
+                </div>
+
+                <div class="buttons is-centered mt-4">
+                    <button class="button is-warning" @click="scriptCheckStatus = 'skipped'">
+                        <span class="icon"><i class="fas fa-forward"></i></span>
+                        <span>Preview Anyway</span>
+                    </button>
+                    <button class="button is-info" @click="runScriptCheck()">
+                        <span class="icon"><i class="fas fa-rotate"></i></span>
+                        <span>Re-check</span>
+                    </button>
+                    <button class="button" @click="previewModal = false">
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ── Right: iframe (only when script is confirmed or skipped) ── #}
+    <div class="preview-iframe-wrap"
+         x-show="scriptCheckStatus === 'installed' || scriptCheckStatus === 'skipped'">
+        {# Warning bar when skipped #}
+        <div x-show="scriptCheckStatus === 'skipped'" x-cloak
+             style="background:#ffeeba;color:#856404;padding:0.375rem 1rem;border-radius:8px 8px 0 0;font-size:0.75rem;display:flex;align-items:center;gap:0.5rem">
+            <i class="fas fa-triangle-exclamation"></i>
+            <span>Consent script not detected — the banner may not appear in this preview.</span>
+            <button style="margin-left:auto;background:none;border:none;color:#856404;cursor:pointer;font-size:0.75rem;text-decoration:underline"
+                    @click="runScriptCheck()">Re-check</button>
+        </div>
+        <div class="preview-iframe-toolbar"
+             :style="scriptCheckStatus === 'skipped' ? 'border-radius:0' : ''">
+            <button class="device-btn" :class="{ 'is-active': previewDevice === 'desktop' }"
+                    @click="previewDevice = 'desktop'" title="Desktop">
+                <i class="fas fa-desktop"></i>
+            </button>
+            <button class="device-btn" :class="{ 'is-active': previewDevice === 'tablet' }"
+                    @click="previewDevice = 'tablet'" title="Tablet">
+                <i class="fas fa-tablet-screen-button"></i>
+            </button>
+            <button class="device-btn" :class="{ 'is-active': previewDevice === 'mobile' }"
+                    @click="previewDevice = 'mobile'" title="Mobile">
+                <i class="fas fa-mobile-screen-button"></i>
+            </button>
+            <div class="url-bar" x-text="previewUrl"></div>
+            <button class="device-btn" @click="reloadPreview()" title="Reload">
+                <i class="fas fa-rotate-right"></i>
+            </button>
+            <button class="device-btn" @click="previewModal = false" title="Close" style="color:#ff6b6b">
+                <i class="fas fa-xmark"></i>
+            </button>
+        </div>
+        <iframe class="preview-iframe"
+                :class="'device-' + previewDevice"
+                :src="(previewModal && (scriptCheckStatus === 'installed' || scriptCheckStatus === 'skipped')) ? previewUrl : ''"
+                x-ref="previewFrame"
+                :style="scriptCheckStatus === 'skipped' ? 'border-radius:0 0 8px 8px' : ''"
+                sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+                loading="lazy"></iframe>
+    </div>
+</div>

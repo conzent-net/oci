@@ -1,0 +1,73 @@
+{# ── Admin menu structure ──────────────────────────────────
+   Curated grouping of the admin tools, shared by the consumer
+   sidebar's "Admin" flyout and the dedicated /admin sidebar so
+   the two stay identical.
+
+   Groups (Classification, Billing, News) render as hover flyout
+   submenus: the group header links to its first child (so a click
+   still works without JS) and hovering reveals the children in a
+   panel that flies out to the right. Sub-flyouts are pure-CSS
+   (nested <li> children → no hover-gap issues).
+
+   `tree(active_page)` renders the <li> items; the caller supplies
+   the surrounding <ul class="menu-list">. #}
+
+{% macro tree(active_page) %}
+    {% set items = [
+        { label: 'Dashboard',        icon: 'fas fa-gauge-high',    route: '/admin',        active: 'admin_dashboard' },
+        { label: 'Users',            icon: 'fas fa-users-gear',    route: '/admin/users',  active: 'admin_users' },
+        { label: 'Scan Servers',     icon: 'fas fa-server',        route: '/admin/servers', active: 'admin_servers' },
+        { label: 'Classification',   icon: 'fas fa-layer-group',   children: [
+            { label: 'Unclassified Cookies', icon: 'fas fa-robot',          route: '/admin/unclassified-cookies', active: 'admin_unclassified_cookies' },
+            { label: 'Cookie Requests',      icon: 'fas fa-inbox',          route: '/admin/cookie-requests',      active: 'admin_cookie_requests' },
+            { label: 'Unclassified Beacons', icon: 'fas fa-robot',          route: '/admin/unclassified-beacons', active: 'admin_unclassified_beacons' },
+            { label: 'Beacon Requests',      icon: 'fas fa-satellite-dish', route: '/admin/beacon-requests',      active: 'admin_beacon_requests' },
+        ] },
+        { label: 'Billing',          icon: 'fas fa-credit-card',   children: [
+            { label: 'Billing', icon: 'fas fa-file-invoice-dollar', route: '/admin/billing', active: 'admin_billing' },
+            { label: 'Plans',   icon: 'fas fa-tags',                route: '/admin/plans',   active: 'admin_plans' },
+        ] },
+        { label: 'News',             icon: 'fas fa-newspaper',     children: [
+            { label: 'News',         icon: 'fas fa-newspaper', route: '/app/news',         active: 'news' },
+            { label: 'News Sources', icon: 'fas fa-rss',       route: '/app/news/sources', active: 'news_sources' },
+        ] },
+        { label: 'Knowledge Base',   icon: 'fas fa-book',          route: '/admin/kb',          active: 'admin_kb' },
+        { label: 'Chat Transcripts', icon: 'fas fa-comments',      route: '/admin/transcripts', active: 'admin_transcripts' },
+        { label: 'Audit Log',        icon: 'fas fa-shield-halved', route: '/admin/audit-log',   active: 'admin_audit_log' },
+    ] %}
+
+    {% for item in items %}
+        {% if item.children is defined %}
+            {% set group_active = false %}
+            {% for c in item.children %}
+                {% if active_page is defined and active_page == c.active %}{% set group_active = true %}{% endif %}
+            {% endfor %}
+            {% set first_child = item.children|first %}
+            <li class="oci-has-subflyout">
+                <a href="{{ first_child.route }}" class="{{ group_active ? 'is-active' : '' }}">
+                    <span class="menu-icon"><i class="{{ item.icon }}"></i></span>
+                    <span>{{ item.label }}</span>
+                    <span class="oci-flyout-caret"><i class="fas fa-angle-right"></i></span>
+                </a>
+                <ul class="oci-subflyout menu-list">
+                    <li><p class="oci-flyout-label">{{ item.label }}</p></li>
+                    {% for c in item.children %}
+                    <li>
+                        <a href="{{ c.route }}" class="{{ active_page is defined and active_page == c.active ? 'is-active' : '' }}">
+                            <span class="menu-icon"><i class="{{ c.icon }}"></i></span>
+                            <span>{{ c.label }}</span>
+                        </a>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </li>
+        {% else %}
+            <li>
+                <a href="{{ item.route }}" class="{{ active_page is defined and active_page == item.active ? 'is-active' : '' }}">
+                    <span class="menu-icon"><i class="{{ item.icon }}"></i></span>
+                    <span>{{ item.label }}</span>
+                </a>
+            </li>
+        {% endif %}
+    {% endfor %}
+{% endmacro %}

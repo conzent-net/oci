@@ -1,0 +1,55 @@
+# ── Standalone Scanner Deployment ────────────────────────
+#
+# Deploy this on any server to add scanning capacity.
+# The scanner communicates with the main OCI app via HTTP.
+#
+# Usage:
+#   docker compose -f docker-compose.scanner.yml up -d
+#
+# Scaling:
+#   docker compose -f docker-compose.scanner.yml up -d --scale scanner=3
+#
+# Environment:
+#   SCANNER_API_KEY    — Shared secret with the main OCI app
+#   SCANNER_PORT       — Host port to publish (default: 8300)
+#   MAX_CONCURRENT     — Max parallel browser sessions per container
+#   SCAN_TIMEOUT       — Per-page timeout in milliseconds
+#
+# Registration:
+#   After starting, register it on your Conzent server:
+#   docker compose exec app php bin/oci scanner:register \
+#     --url=http://<this-server>:8300 --key=<your SCANNER_API_KEY>
+# ─────────────────────────────────────────────────────────
+
+services:
+  scanner:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      # An explicit -f means Compose does NOT merge docker-compose.override.yml,
+      # so the host port is a variable rather than something you override.
+      - "${SCANNER_PORT:-8300}:8300"
+    environment:
+      - PORT=8300
+      - SCANNER_API_KEY=${SCANNER_API_KEY:?Set SCANNER_API_KEY}
+      - MAX_CONCURRENT=${MAX_CONCURRENT:-5}
+      - SCAN_TIMEOUT=${SCAN_TIMEOUT:-60000}
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 512M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8300/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
