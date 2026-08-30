@@ -1,0 +1,233 @@
+{# ── Sidebar Navigation ──────────────────────────────── #}
+{% import 'components/admin_menu.html.twig' as admin_menu %}
+
+{# Macro to render module menu items for a given section.
+   Used to inject dynamic module items into hardcoded sections. #}
+{% macro module_items(section_name, modules, active_page, current_user, edition) %}
+    {% if modules is defined %}
+        {% for item in modules.getMenuItemsBySection()[section_name] ?? [] %}
+            {% set show = true %}
+            {% if item.role is defined and (current_user is not defined or (item.role is iterable ? (current_user.role not in item.role) : (current_user.role != item.role))) %}
+                {% set show = false %}
+            {% endif %}
+            {% if show and item.edition is defined and edition is defined and not attribute(edition, item.edition) %}
+                {% set show = false %}
+            {% endif %}
+            {% if show %}
+            <li>
+                <a href="{{ item.route }}" class="{% if active_page is defined and active_page starts with item.active_page %}is-active{% endif %}">
+                    <span class="menu-icon"><i class="{{ item.icon }}"></i></span>
+                    {{ item.label }}
+                </a>
+            </li>
+            {% endif %}
+        {% endfor %}
+    {% endif %}
+{% endmacro %}
+
+<nav class="menu">
+    <p class="menu-label">General</p>
+    <ul class="menu-list">
+        <li>
+            <a href="/" class="{% if active_page is defined and active_page == 'dashboard' %}is-active{% endif %}">
+                <span class="menu-icon"><i class="fas fa-chart-pie"></i></span>
+                Dashboard
+            </a>
+        </li>
+        <li>
+            <a href="/sites" class="{% if active_page is defined and active_page == 'sites' %}is-active{% endif %}">
+                <span class="menu-icon"><i class="fas fa-globe"></i></span>
+                Sites
+            </a>
+        </li>
+        <li>
+            <a href="/consents" class="{% if active_page is defined and active_page == 'consents' %}is-active{% endif %}">
+                <span class="menu-icon"><i class="fas fa-clipboard-list"></i></span>
+                Consent Logs
+            </a>
+        </li>
+        {{ _self.module_items('General', modules, active_page, current_user, edition) }}
+    </ul>
+
+    <p class="menu-label">Configuration</p>
+    <ul class="menu-list">
+        <li>
+            <a href="/banners" class="{% if active_page is defined and active_page == 'banners' %}is-active{% endif %}">
+                <span class="menu-icon"><i class="fas fa-window-maximize"></i></span>
+                Banners
+            </a>
+        </li>
+        <li>
+            <a href="/layouts" class="{% if active_page is defined and active_page == 'layouts' %}is-active{% endif %}">
+                <span class="menu-icon"><i class="fas fa-palette"></i></span>
+                Layouts
+            </a>
+        </li>
+        <li>
+            <a href="/languages" class="{% if active_page is defined and active_page == 'languages' %}is-active{% endif %}">
+                <span class="menu-icon"><i class="fas fa-language"></i></span>
+                Languages
+            </a>
+        </li>
+        <li>
+            <a href="/sites/associated" class="{% if active_page is defined and active_page == 'associated-domains' %}is-active{% endif %}">
+                <span class="menu-icon"><i class="fas fa-globe"></i></span>
+                Associated Domains
+            </a>
+        </li>
+        <li>
+            <a href="/gtm/wizard" class="{% if active_page is defined and active_page == 'gtm-wizard' %}is-active{% endif %}">
+                <span class="menu-icon"><i class="fas fa-wand-magic-sparkles"></i></span>
+                GTM Wizard
+            </a>
+        </li>
+        <li>
+            <a href="/matomo/wizard" class="{% if active_page is defined and active_page == 'matomo-wizard' %}is-active{% endif %}">
+                <span class="menu-icon"><i class="fas fa-wand-magic-sparkles"></i></span>
+                Matomo TM Wizard
+            </a>
+        </li>
+        <li>
+            <a href="/compliance" class="{% if active_page is defined and active_page == 'compliance-checklist' %}is-active{% endif %}">
+                <span class="menu-icon"><i class="fas fa-list-check"></i></span>
+                Compliance Checklist
+            </a>
+        </li>
+        {{ _self.module_items('Configuration', modules, active_page, current_user, edition) }}
+    </ul>
+
+    <p class="menu-label">Compliance</p>
+    <ul class="menu-list">
+        <li>
+            <a href="/sites/frameworks" class="{% if active_page is defined and active_page == 'frameworks' %}is-active{% endif %}">
+                <span class="menu-icon"><i class="fas fa-scale-balanced"></i></span>
+                Privacy Frameworks
+            </a>
+        </li>
+        <li>
+            <a href="/scans" class="{% if active_page is defined and active_page == 'scans' %}is-active{% endif %}">
+                <span class="menu-icon"><i class="fas fa-magnifying-glass-chart"></i></span>
+                Scans
+            </a>
+        </li>
+        <li>
+            <a href="/cookies" class="{% if active_page is defined and active_page == 'cookies' %}is-active{% endif %}">
+                <span class="menu-icon"><i class="fas fa-cookie-bite"></i></span>
+                Cookies
+            </a>
+        </li>
+        <li>
+            <a href="/policies" class="{% if active_page is defined and active_page == 'policies' %}is-active{% endif %}">
+                <span class="menu-icon"><i class="fas fa-file-shield"></i></span>
+                Policies
+            </a>
+        </li>
+        <li>
+            <a href="/reports" class="{% if active_page is defined and active_page == 'reports' %}is-active{% endif %}">
+                <span class="menu-icon"><i class="fas fa-chart-bar"></i></span>
+                Reports
+            </a>
+        </li>
+        {{ _self.module_items('Compliance', modules, active_page, current_user, edition) }}
+    </ul>
+
+    <p class="menu-label">Account</p>
+    <ul class="menu-list">
+        <li>
+            <a href="/account" class="{% if active_page is defined and active_page == 'account' %}is-active{% endif %}">
+                <span class="menu-icon"><i class="fas fa-user"></i></span>
+                Profile
+            </a>
+        </li>
+        <li>
+            <a href="/account/activity" class="{% if active_page is defined and active_page == 'account-activity' %}is-active{% endif %}">
+                <span class="menu-icon"><i class="fas fa-clipboard-list"></i></span>
+                Activity
+            </a>
+        </li>
+        {% if edition is defined and edition.isBillingEnabled() %}
+        <li>
+            <a href="/billing" class="{% if active_page is defined and active_page == 'billing' %}is-active{% endif %}">
+                <span class="menu-icon"><i class="fas fa-credit-card"></i></span>
+                Billing
+            </a>
+        </li>
+        {% endif %}
+        {{ _self.module_items('Account', modules, active_page, current_user, edition) }}
+    </ul>
+
+    {# ── Module menu sections ── rendered dynamically from module.php 'menu' declarations.
+       Sections that match a hardcoded section above are already merged via the macro.
+       Only NEW sections (e.g. 'Admin', 'Agency') are rendered here. #}
+    {% set hardcoded_sections = ['General', 'Configuration', 'Compliance', 'Account', 'Admin'] %}
+    {% if modules is defined %}
+        {% for section, items in modules.getMenuItemsBySection() %}
+            {% if section not in hardcoded_sections %}
+                {% set section_visible = false %}
+                {% for item in items %}
+                    {% set show = true %}
+                    {% if item.role is defined and (current_user is not defined or (item.role is iterable ? (current_user.role not in item.role) : (current_user.role != item.role))) %}
+                        {% set show = false %}
+                    {% endif %}
+                    {% if show and item.edition is defined and edition is defined and not attribute(edition, item.edition) %}
+                        {% set show = false %}
+                    {% endif %}
+                    {% if show %}{% set section_visible = true %}{% endif %}
+                {% endfor %}
+
+                {% if section_visible %}
+                <p class="menu-label">{{ section }}</p>
+                <ul class="menu-list">
+                    {% for item in items %}
+                        {% set show = true %}
+                        {% if item.role is defined and (current_user is not defined or (item.role is iterable ? (current_user.role not in item.role) : (current_user.role != item.role))) %}
+                            {% set show = false %}
+                        {% endif %}
+                        {% if show and item.edition is defined and edition is defined and not attribute(edition, item.edition) %}
+                            {% set show = false %}
+                        {% endif %}
+                        {% if show %}
+                        <li>
+                            <a href="{{ item.route }}" class="{% if active_page is defined and active_page starts with item.active_page %}is-active{% endif %}">
+                                <span class="menu-icon"><i class="{{ item.icon }}"></i></span>
+                                {{ item.label }}
+                            </a>
+                        </li>
+                        {% endif %}
+                    {% endfor %}
+                </ul>
+                {% endif %}
+            {% endif %}
+        {% endfor %}
+    {% endif %}
+
+    {# ── Admin ── single entry, pinned to the bottom (below Agency) for admins.
+       Clicking goes to /admin (which swaps in the full admin menu). Hovering
+       reveals the admin tools in a flyout — teleported to <body> so the
+       sidebar's overflow can't clip it, positioned against the trigger. #}
+    {% if current_user is defined and current_user.role is defined and current_user.role == 'admin' %}
+    <ul class="menu-list oci-admin-entry">
+        <li class="oci-has-flyout"
+            x-data="{ open: false, fx: 0, fb: 0 }"
+            @mouseenter="const r = $refs.adminTrigger.getBoundingClientRect(); fx = r.right; fb = window.innerHeight - r.bottom; open = true"
+            @mouseleave="open = false">
+            <a href="/admin" x-ref="adminTrigger"
+               class="{% if active_page is defined and active_page starts with 'admin_' %}is-active{% endif %}">
+                <span class="menu-icon"><i class="fas fa-screwdriver-wrench"></i></span>
+                <span>Admin</span>
+                <span class="oci-flyout-caret"><i class="fas fa-angle-right"></i></span>
+            </a>
+            <template x-teleport="body">
+                <div class="oci-flyout" x-show="open" x-cloak x-transition.opacity
+                     :style="`bottom:${fb}px; left:${fx}px`"
+                     @mouseenter="open = true" @mouseleave="open = false">
+                    <p class="oci-flyout-label">Administration</p>
+                    <ul class="menu-list">
+                        {{ admin_menu.tree(active_page) }}
+                    </ul>
+                </div>
+            </template>
+        </li>
+    </ul>
+    {% endif %}
+</nav>

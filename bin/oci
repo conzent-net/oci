@@ -1,0 +1,1878 @@
+#!/usr/bin/env php
+<?php
+
+/**
+ * OCI CLI — Command-line entry point.
+ *
+ * Replaces all legacy cron scripts with named, logged commands.
+ *
+ * Usage:
+ *   php bin/oci <command> [options]
+ *
+ * Commands:
+ *   setup                           First-run setup: create admin account
+ *   health                         Check application health
+ *   migrations:migrate             Run database migrations
+ *   legacy:migrate <domain|all>    Migrate legacy data to oci_* tables
+ *   cache:clear                    Clear application cache
+ *   queue:work                     Process queued jobs (long-running)
+ *   ingest:flush                   Flush beacon buffer to DB (long-running)
+ *   schedule:run                   Run scheduled tasks (long-running)
+ *   scanner:register               Register/upsert a scan server (defaults to in-compose scanner)
+ *   scanner:health                 Ping registered scan servers; email alert on down/recovery
+ *   scripts:regenerate             Regenerate consent scripts for all active sites
+ *   consents:anonymize             Pseudonymize raw IPs in the consent log (one-time backfill, destructive)
+ *   account:export                 Export everything stored for one account as a zip of JSONL files
+ *   account:import                 Import an account export zip into this installation (atomic)
+ *   iab:update-vendor-list         Refresh the IAB Global Vendor List (TCF)
+ *   cleanup:non-admin-users        Delete all non-admin users and cascaded data
+ *   blog:generate [--max=N]        Generate blog articles from RSS feeds via AI
+ *   www:translate [--lang=XX]      Auto-translate website content via AI
+ *   publish <version>              Publish core code to public GitHub repo
+ *   billing:demo <seed|clear>      Seed or remove demo billing data for the admin dashboard
+ *   cookies:sync [--dry-run]       Sync Open Cookie Database into oci_cookies_global
+ *   cookies:translate               Translate cookie descriptions into all languages
+ *   users:verify-emails            Run a single email-verification batch (Endpointr)
+ *   test:endpointr-vault [--name=]  Fetch a vault entry from Endpointr (default: amazon_ses)
+ *   test:email --to=ADDR           Send a diagnostic SMTP email with debug transcript
+ *
+ * Legacy Migration Options:
+ *   --dry-run              Preview without writing data
+ *   --batch-size=N         Rows per batch (default: 1000)
+ *
+ * Domains: users, sites, languages, categories, cookies, banners,
+ *          consents, plans, scans, policies, agencies, all
+ *
+ * Environment:
+ *   LEGACY_EXCLUDE_USER_IDS=1,5,99  Comma-separated user IDs to skip
+ *
+ * More commands will be added as domains are built.
+ */
+
+declare(strict_types=1);
+
+use OCI\Http\Kernel\Application;
+use OCI\Infrastructure\Database\LegacyMigrationRunner;
+
+require_once dirname(__DIR__) . '/vendor/autoload.php';
+
+$app = Application::boot(dirname(__DIR__));
+$container = $app->getContainer();
+
+// Simple CLI router (will be expanded into a proper CommandRunner)
+$command = $argv[1] ?? 'help';
+
+// ── Module-contributed commands & scheduled tasks ────────────────────
+// Modules (Cloud Edition) register CLI commands and periodic tasks via their
+// module.php 'commands'/'scheduled' keys. Collecting them here keeps this core
+// entrypoint free of any reference to module classes — the open-source core
+// ships without them and simply won't have those commands.
+//
+// Command shape:   ['cmd:name' => ['description' => string, 'run' => callable(ContainerInterface, array $argv)]]
+// Scheduled shape: ['task:name' => callable(ContainerInterface)]
+$moduleCommands = [];
+$moduleScheduledTasks = [];
+foreach ($app->getModuleRegistry()->all() as $module) {
+    if ($module->commandsFile !== null) {
+        $defs = require $module->commandsFile;
+        if (\is_array($defs)) {
+            $moduleCommands += $defs;
+        }
+    }
+    if ($module->scheduledFile !== null) {
+        $tasks = require $module->scheduledFile;
+        if (\is_array($tasks)) {
+            $moduleScheduledTasks += $tasks;
+        }
+    }
+}
+
+// Dispatch a module-provided command before the core match(), so core never
+// references module classes. Handlers may exit() themselves or return an int.
+if (isset($moduleCommands[$command])) {
+    $def = $moduleCommands[$command];
+    $run = \is_array($def) ? ($def['run'] ?? null) : $def;
+    if (\is_callable($run)) {
+        $result = $run($container, $argv);
+        exit(\is_int($result) ? $result : 0);
+    }
+}
+
+match ($command) {
+    'setup' => (function () use ($container, $argv) {
+        echo "╔══════════════════════════════════════════╗\n";
+        echo "║   Conzent OCI — First-Run Setup          ║\n";
+        echo "╚══════════════════════════════════════════╝\n\n";
+
+        $db = $container->get(\Doctrine\DBAL\Connection::class);
+
+        // Check if users table exists (migrations must run first)
+        $tableExists = (bool) $db->fetchOne(
+            "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'oci_users'",
+        );
+        if (!$tableExists) {
+            echo "ERROR: Database tables not found. Run migrations first:\n";
+            echo "  php bin/oci migrations:migrate\n\n";
+            exit(1);
+        }
+
+        // Check if any users already exist
+        $userCount = (int) $db->fetchOne('SELECT COUNT(*) FROM oci_users');
+        if ($userCount > 0) {
+            echo "Setup already completed ({$userCount} user(s) exist).\n";
+            echo "Log in at: " . ($_ENV['APP_URL'] ?? 'http://localhost:8100') . "\n";
+            exit(0);
+        }
+
+        // Parse CLI arguments: --email=x --password=x
+        $email = null;
+        $password = null;
+        foreach ($argv as $arg) {
+            if (str_starts_with($arg, '--email=')) {
+                $email = substr($arg, 8);
+            }
+            if (str_starts_with($arg, '--password=')) {
+                $password = substr($arg, 11);
+            }
+        }
+
+        // Interactive mode if arguments not provided
+        if ($email === null) {
+            if (!defined('STDIN') || !posix_isatty(STDIN)) {
+                echo "ERROR: No --email provided and no interactive terminal available.\n";
+                echo "Usage: php bin/oci setup --email=admin@example.com --password=yourpassword\n\n";
+                exit(1);
+            }
+            echo "Admin email: ";
+            $email = trim(fgets(STDIN));
+        }
+
+        if ($password === null) {
+            if (!defined('STDIN') || !posix_isatty(STDIN)) {
+                echo "ERROR: No --password provided and no interactive terminal available.\n";
+                echo "Usage: php bin/oci setup --email=admin@example.com --password=yourpassword\n\n";
+                exit(1);
+            }
+            echo "Admin password (min 8 chars): ";
+            // Attempt to hide input on Unix
+            if (function_exists('readline')) {
+                system('stty -echo 2>/dev/null');
+                $password = trim(fgets(STDIN));
+                system('stty echo 2>/dev/null');
+                echo "\n";
+            } else {
+                $password = trim(fgets(STDIN));
+            }
+        }
+
+        // Validate
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            echo "ERROR: Invalid email address: {$email}\n";
+            exit(1);
+        }
+        if (\strlen($password) < 8) {
+            echo "ERROR: Password must be at least 8 characters.\n";
+            exit(1);
+        }
+
+        // Create admin user via UserService
+        $userService = $container->get(\OCI\Identity\Service\UserService::class);
+        $result = $userService->createUser([
+            'email' => $email,
+            'username' => $email,
+            'first_name' => 'Admin',
+            'last_name' => '',
+            'password' => $password,
+            'role' => 'admin',
+            'is_active' => 1,
+        ]);
+
+        if (!$result['success']) {
+            echo "ERROR: Failed to create admin user.\n";
+            foreach ($result['errors'] ?? [] as $field => $msg) {
+                echo "  {$field}: {$msg}\n";
+            }
+            exit(1);
+        }
+
+        $appUrl = $_ENV['APP_URL'] ?? 'http://localhost:8100';
+
+        echo "\n";
+        echo "✓ Admin account created successfully!\n\n";
+        echo "  Email:    {$email}\n";
+        echo "  Role:     admin\n\n";
+        echo "  Log in at: {$appUrl}\n\n";
+    })(),
+
+    // Reset any user's password from the host. `setup` deliberately refuses to
+    // run once an account exists, and password-reset emails need SMTP — so on a
+    // self-hosted install with no mail server this is the only recovery path.
+    'user:password' => (function () use ($container, $argv) {
+        $userRepo = $container->get(\OCI\Identity\Repository\UserRepositoryInterface::class);
+
+        $email = null;
+        $password = null;
+        foreach ($argv as $arg) {
+            if (str_starts_with($arg, '--email=')) {
+                $email = trim(substr($arg, 8));
+            }
+            if (str_starts_with($arg, '--password=')) {
+                $password = substr($arg, 11);
+            }
+        }
+
+        if ($email === null || $email === '') {
+            echo "ERROR: --email is required.\n";
+            echo "Usage: php bin/oci user:password --email=admin@example.com [--password=newpassword]\n\n";
+            exit(1);
+        }
+
+        $user = $userRepo->findByEmail($email);
+        if ($user === null) {
+            echo "ERROR: No user found with email: {$email}\n";
+            exit(1);
+        }
+
+        // Generate a strong password when none is supplied — the common case
+        // for "I locked myself out and there is no mail server".
+        $generated = false;
+        if ($password === null || $password === '') {
+            $password = substr(bin2hex(random_bytes(12)), 0, 20);
+            $generated = true;
+        }
+
+        if (\strlen($password) < 8) {
+            echo "ERROR: Password must be at least 8 characters.\n";
+            exit(1);
+        }
+
+        // UserRepository::update() bcrypt-hashes any value that isn't already a hash.
+        $userRepo->update((int) $user['id'], ['password' => $password]);
+
+        // Invalidate every existing session so the old password grants nothing.
+        $userRepo->destroyUserSessions((int) $user['id']);
+
+        // Clear any lockout from failed login attempts.
+        $userRepo->resetLoginAttempts((int) $user['id']);
+
+        $appUrl = $_ENV['APP_URL'] ?? 'http://localhost:8100';
+
+        echo "\n";
+        echo "✓ Password updated for {$email}\n\n";
+        if ($generated) {
+            echo "  New password: {$password}\n";
+            echo "  (store it in a password manager — it is not saved anywhere)\n\n";
+        }
+        echo "  All existing sessions were signed out.\n";
+        echo "  Log in at: {$appUrl}\n\n";
+    })(),
+
+    'health' => (function () use ($container, $app) {
+        try {
+            $db = $container->get(\Doctrine\DBAL\Connection::class);
+            $db->fetchOne('SELECT 1');
+            echo "Database: OK\n";
+        } catch (\Throwable $e) {
+            echo "Database: FAILED — {$e->getMessage()}\n";
+        }
+
+        try {
+            $redis = $container->get(\Predis\Client::class);
+            $redis->ping();
+            echo "Redis: OK\n";
+        } catch (\Throwable $e) {
+            echo "Redis: FAILED — {$e->getMessage()}\n";
+        }
+
+        echo "Environment: {$app->getEnvironment()}\n";
+        echo "Debug: " . ($app->isDebug() ? 'true' : 'false') . "\n";
+    })(),
+
+    'cache:clear' => (function () use ($container) {
+        $cachePath = $container->get('config.base_path') . '/var/cache';
+        if (is_dir($cachePath)) {
+            $files = new RecursiveIteratorIterator(
+                new RecursiveDirectoryIterator($cachePath, FilesystemIterator::SKIP_DOTS),
+                RecursiveIteratorIterator::CHILD_FIRST,
+            );
+            foreach ($files as $file) {
+                $file->isDir() ? rmdir($file->getRealPath()) : unlink($file->getRealPath());
+            }
+        }
+        echo "Cache cleared.\n";
+    })(),
+
+    'queue:work' => (function () use ($container) {
+        $scanService = $container->get(\OCI\Scanning\Service\ScanService::class);
+        $exportJobs = $container->get(\OCI\Identity\Service\AccountExportJobService::class);
+        $logger = $container->get(\Psr\Log\LoggerInterface::class);
+
+        echo "Queue worker started. Waiting for jobs...\n";
+        $logger->info('Queue worker started');
+
+        $idleCount = 0;
+
+        while (true) {
+            try {
+                $processed = $scanService->processNextScan();
+
+                // Self-serve account exports ride the same worker; the scan
+                // pop above blocks up to 5s, so exports start within seconds.
+                if ($exportJobs->processNext()) {
+                    $processed = true;
+                }
+
+                if ($processed) {
+                    $idleCount = 0;
+                } else {
+                    $idleCount++;
+                    // Check for stale scans every 60 idle cycles (~5 min with 5s blocking pop)
+                    if ($idleCount % 60 === 0) {
+                        $scanService->processStaleScans();
+                    }
+                }
+            } catch (\Throwable $e) {
+                $logger->error('Queue worker error: ' . $e->getMessage());
+                echo "Error: {$e->getMessage()}\n";
+                sleep(5);
+            }
+        }
+    })(),
+
+    'ingest:flush' => (function () use ($container) {
+        $flushService = $container->get(\OCI\Scanning\Service\BeaconFlushService::class);
+        $logger = $container->get(\Psr\Log\LoggerInterface::class);
+
+        echo "Beacon flush worker started. Processing buffer...\n";
+        $logger->info('Beacon flush worker started');
+
+        while (true) {
+            try {
+                $count = $flushService->flush(200);
+
+                if ($count === 0) {
+                    usleep(500_000); // 500ms idle sleep
+                }
+            } catch (\Throwable $e) {
+                $logger->error('Beacon flush error: ' . $e->getMessage());
+                echo "Error: {$e->getMessage()}\n";
+                sleep(5);
+            }
+        }
+    })(),
+
+    'schedule:run' => (function () use ($container, $moduleScheduledTasks) {
+        $scanService = $container->get(\OCI\Scanning\Service\ScanService::class);
+        $reportService = $container->get(\OCI\Report\Service\ReportService::class);
+        $emailVerifier = $container->get(\OCI\Identity\Service\EmailVerificationService::class);
+        $db = $container->get(\Doctrine\DBAL\Connection::class);
+        $logger = $container->get(\Psr\Log\LoggerInterface::class);
+
+        echo "Scheduler started. Checking every 5 minutes...\n";
+        $logger->info('Scheduler started');
+
+        while (true) {
+            try {
+                $scanService->processDueScheduledScans();
+            } catch (\Throwable $e) {
+                $logger->error('Scheduler error (scans): ' . $e->getMessage());
+                echo "Error: {$e->getMessage()}\n";
+            }
+
+            try {
+                $reportService->processDueSchedules();
+            } catch (\Throwable $e) {
+                $logger->error('Scheduler error (reports): ' . $e->getMessage());
+                echo "Error: {$e->getMessage()}\n";
+            }
+
+            // Scan server health poll — pings each active scanner's /health,
+            // records heartbeats, and emails an alert on down/recovery (deduped
+            // so an outage sends one "down" mail and one "recovered" mail).
+            try {
+                $health = $container->get(\OCI\Scanning\Service\ServerHealthService::class)->checkAll();
+                foreach ($health as $hr) {
+                    if ($hr['alerted'] === 'down') {
+                        echo "Scan server '{$hr['name']}' is DOWN — alert emailed.\n";
+                    } elseif ($hr['alerted'] === 'recovered') {
+                        echo "Scan server '{$hr['name']}' recovered — notice emailed.\n";
+                    }
+                }
+            } catch (\Throwable $e) {
+                $logger->error('Scheduler error (scan server health): ' . $e->getMessage());
+                echo "Error: {$e->getMessage()}\n";
+            }
+
+            // Public status feed — written every cycle right after the health
+            // poll so the getconzent.com status page reflects scanner state.
+            // The feed's own freshness doubles as the scheduler heartbeat.
+            try {
+                $container->get(\OCI\Admin\Service\StatusReportService::class)->write();
+            } catch (\Throwable $e) {
+                $logger->error('Scheduler error (status feed): ' . $e->getMessage());
+                echo "Error: {$e->getMessage()}\n";
+            }
+
+            // Backup heartbeat — arms itself on the first stamp the host's
+            // backup script writes; from then on, a stale stamp alerts.
+            try {
+                $container->get(\OCI\Admin\Service\BackupFreshnessService::class)->check();
+            } catch (\Throwable $e) {
+                $logger->error('Scheduler error (backup monitor): ' . $e->getMessage());
+                echo "Error: {$e->getMessage()}\n";
+            }
+
+            // Daily email verification sweep — runs at most once per 23 hours,
+            // only between 04:00 and 06:00 (cheap API quota window).
+            try {
+                $now  = new \DateTimeImmutable();
+                $hour = (int) $now->format('G');
+                if ($hour >= 4 && $hour < 6) {
+                    $last = $db->fetchOne(
+                        "SELECT config_value FROM oci_configuration WHERE scope = 'global' AND scope_id IS NULL AND config_key = ?",
+                        ['email_verification_last_run'],
+                    );
+                    $threshold = $now->modify('-23 hours')->format('Y-m-d H:i:s');
+                    if (!$last || (string) $last < $threshold) {
+                        $logger->info('Running daily email verification sweep');
+                        $emailVerifier->runBatch(
+                            (int) ($_ENV['EMAIL_VERIFICATION_BATCH_SIZE'] ?? 500),
+                            (int) ($_ENV['EMAIL_VERIFICATION_DELAY_MS'] ?? 200),
+                        );
+                        $db->executeStatement(
+                            "INSERT INTO oci_configuration (scope, scope_id, config_key, config_value)
+                             VALUES ('global', NULL, ?, ?)
+                             ON DUPLICATE KEY UPDATE config_value = VALUES(config_value)",
+                            ['email_verification_last_run', $now->format('Y-m-d H:i:s')],
+                        );
+                    }
+                }
+            } catch (\Throwable $e) {
+                $logger->error('Scheduler error (email verification): ' . $e->getMessage());
+                echo "Error: {$e->getMessage()}\n";
+            }
+
+            // Daily IAB Global Vendor List refresh — runs at most once per 23
+            // hours, between 06:00 and 08:00. TCF requires the GVL be kept
+            // current; the v2.4 disclosures (standardTexts, Feature
+            // illustrations, the renamed Special Feature 2) arrive purely as
+            // GVL data and need no script regeneration to take effect.
+            try {
+                $gvl = $container->get(\OCI\Compliance\Service\GvlUpdateService::class);
+                if ($gvl->isEnabled()) {
+                    $now  = new \DateTimeImmutable();
+                    $hour = (int) $now->format('G');
+                    if ($hour >= 6 && $hour < 8) {
+                        $last = $db->fetchOne(
+                            "SELECT config_value FROM oci_configuration WHERE scope = 'global' AND scope_id IS NULL AND config_key = ?",
+                            ['gvl_last_run'],
+                        );
+                        $threshold = $now->modify('-23 hours')->format('Y-m-d H:i:s');
+                        if (!$last || (string) $last < $threshold) {
+                            $logger->info('Running daily GVL refresh');
+                            $result = $gvl->update();
+                            if ($result->updated) {
+                                echo "GVL updated: v{$result->previousVersion} → v{$result->newVersion}\n";
+                                $gvl->updateTranslations();
+                            }
+                            foreach ($result->warnings as $warning) {
+                                $logger->warning('GVL: ' . $warning);
+                            }
+                            // Stamp on every attempt, including "already current",
+                            // so a healthy no-op doesn't retry every 5 minutes.
+                            $db->executeStatement(
+                                "INSERT INTO oci_configuration (scope, scope_id, config_key, config_value)
+                                 VALUES ('global', NULL, ?, ?)
+                                 ON DUPLICATE KEY UPDATE config_value = VALUES(config_value)",
+                                ['gvl_last_run', $now->format('Y-m-d H:i:s')],
+                            );
+                        }
+                    }
+                }
+            } catch (\Throwable $e) {
+                // Validation failures leave the previous list serving untouched.
+                $logger->error('Scheduler error (GVL refresh): ' . $e->getMessage());
+                echo "Error: {$e->getMessage()}\n";
+            }
+
+            // Consent-log retention — deletes records older than
+            // CONSENT_LOG_RETENTION_DAYS (0 disables). At most once per 23
+            // hours, between 02:00 and 04:00; satellites cascade via FK.
+            try {
+                $retentionDays = (int) ($_ENV['CONSENT_LOG_RETENTION_DAYS'] ?? 1095);
+                if ($retentionDays > 0) {
+                    $now  = new \DateTimeImmutable();
+                    $hour = (int) $now->format('G');
+                    if ($hour >= 2 && $hour < 4) {
+                        $last = $db->fetchOne(
+                            "SELECT config_value FROM oci_configuration WHERE scope = 'global' AND scope_id IS NULL AND config_key = ?",
+                            ['consent_purge_last_run'],
+                        );
+                        $threshold = $now->modify('-23 hours')->format('Y-m-d H:i:s');
+                        if (!$last || (string) $last < $threshold) {
+                            $purged = $container->get(\OCI\Consent\Repository\ConsentRepositoryInterface::class)
+                                ->purgeOlderThan($retentionDays);
+                            if ($purged > 0) {
+                                $logger->info("Consent retention: purged {$purged} record(s) older than {$retentionDays} days");
+                                echo "Consent retention: purged {$purged} record(s).\n";
+                            }
+                            // Client-event dedupe ledger only needs to outlive
+                            // the banner's 30-day offline queue TTL.
+                            $ledgerPurged = $container->get(\OCI\Infrastructure\Ingest\ClientEventLedgerInterface::class)
+                                ->purgeOlderThan(45);
+                            if ($ledgerPurged > 0) {
+                                $logger->info("Client event ledger: purged {$ledgerPurged} row(s) older than 45 days");
+                            }
+                            $db->executeStatement(
+                                "INSERT INTO oci_configuration (scope, scope_id, config_key, config_value)
+                                 VALUES ('global', NULL, ?, ?)
+                                 ON DUPLICATE KEY UPDATE config_value = VALUES(config_value)",
+                                ['consent_purge_last_run', $now->format('Y-m-d H:i:s')],
+                            );
+                        }
+                    }
+                }
+            } catch (\Throwable $e) {
+                $logger->error('Scheduler error (consent retention): ' . $e->getMessage());
+                echo "Error: {$e->getMessage()}\n";
+            }
+
+            // Module-contributed periodic tasks (Cloud Edition) — e.g. AutoSEO
+            // article translations. Registered via each module's config/scheduled.php
+            // so this core scheduler references no module class. Each runs every
+            // cycle (tasks are expected to be cheap no-ops when there's nothing to do).
+            foreach ($moduleScheduledTasks as $taskName => $task) {
+                try {
+                    if (\is_callable($task)) {
+                        $task($container);
+                    }
+                } catch (\Throwable $e) {
+                    $logger->error("Scheduler error ({$taskName}): " . $e->getMessage());
+                    echo "Error: {$e->getMessage()}\n";
+                }
+            }
+
+            sleep(300); // Check every 5 minutes
+        }
+    })(),
+
+    'scanner:register' => (function () use ($container, $argv) {
+        $scanRepo = $container->get(\OCI\Scanning\Repository\ScanRepositoryInterface::class);
+
+        // Defaults target the in-compose scanner. The internal Docker DNS name
+        // is always reachable from the app/worker/scheduler containers.
+        $url    = trim((string) ($_ENV['SCANNER_URL'] ?? 'http://scanner:8300'));
+        $key    = (string) ($_ENV['SCANNER_API_KEY'] ?? '');
+        $name   = 'Default Scanner';
+        $region = null;
+        $max    = (int) ($_ENV['SCANNER_MAX_CONCURRENT'] ?? 5);
+
+        foreach ($argv as $arg) {
+            if (str_starts_with($arg, '--url='))    { $url = substr($arg, 6); }
+            if (str_starts_with($arg, '--key='))    { $key = substr($arg, 6); }
+            if (str_starts_with($arg, '--name='))   { $name = substr($arg, 7); }
+            if (str_starts_with($arg, '--region=')) { $region = substr($arg, 9); }
+            if (str_starts_with($arg, '--max='))    { $max = (int) substr($arg, 6); }
+        }
+
+        $url = rtrim($url, '/');
+        if ($url === '') {
+            echo "ERROR: --url is required (or set SCANNER_URL).\n";
+            exit(1);
+        }
+
+        // Idempotent upsert keyed by URL.
+        $existing = null;
+        foreach ($scanRepo->getAllScanServers() as $s) {
+            if (rtrim((string) $s['server_url'], '/') === $url) {
+                $existing = $s;
+                break;
+            }
+        }
+
+        if ($existing !== null) {
+            $scanRepo->updateScanServer((int) $existing['id'], [
+                'server_name'    => $name,
+                'api_key'        => $key !== '' ? $key : ($existing['api_key'] ?? null),
+                'region'         => $region,
+                'max_concurrent' => $max,
+                'is_active'      => 1,
+            ]);
+            echo "Updated scan server #{$existing['id']}: {$name} -> {$url}\n";
+        } else {
+            $newId = $scanRepo->createScanServer([
+                'server_name'    => $name,
+                'server_url'     => $url,
+                'api_key'        => $key !== '' ? $key : null,
+                'region'         => $region,
+                'is_active'      => 1,
+                'max_concurrent' => $max,
+                'current_load'   => 0,
+            ]);
+            echo "Registered scan server #{$newId}: {$name} -> {$url}\n";
+        }
+
+        if ($key === '') {
+            echo "  NOTE: no API key set (SCANNER_API_KEY empty). Health checks still\n";
+            echo "        work, but scan dispatch fails if the scanner requires a key.\n";
+        }
+        echo "Run 'php bin/oci scanner:health' to verify.\n";
+    })(),
+
+    'scanner:health' => (function () use ($container) {
+        $svc = $container->get(\OCI\Scanning\Service\ServerHealthService::class);
+        $results = $svc->checkAll();
+
+        if ($results === []) {
+            echo "No active scan servers registered.\n";
+            echo "Register the in-compose scanner with: php bin/oci scanner:register\n";
+            return;
+        }
+
+        printf("%-4s %-22s %-30s %-9s %s\n", 'ID', 'NAME', 'URL', 'STATUS', 'NOTE');
+        echo str_repeat('-', 92) . "\n";
+        foreach ($results as $r) {
+            $status = $r['healthy'] ? 'healthy' : 'OFFLINE';
+            $note   = $r['healthy'] ? '' : ('http=' . $r['http_code'] . ' ' . $r['error']);
+            if ($r['alerted'] === 'down')      { $note .= '  [DOWN alert emailed]'; }
+            if ($r['alerted'] === 'recovered') { $note  = '[recovery email sent]'; }
+            printf(
+                "%-4d %-22s %-30s %-9s %s\n",
+                $r['id'],
+                substr($r['name'], 0, 22),
+                substr($r['url'], 0, 30),
+                $status,
+                $note,
+            );
+        }
+    })(),
+
+    'migrations:migrate' => (function () use ($container) {
+        echo "Running OCI migrations...\n";
+
+        $db = $container->get(\Doctrine\DBAL\Connection::class);
+
+        // Ensure tracking table exists
+        $db->executeStatement('
+            CREATE TABLE IF NOT EXISTS oci_migration_versions (
+                version VARCHAR(255) NOT NULL PRIMARY KEY,
+                executed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ');
+
+        // Discover migration files
+        $migrationsDir = dirname(__DIR__) . '/migrations/versions';
+        $files = glob($migrationsDir . '/Version*.php');
+        sort($files);
+
+        if (empty($files)) {
+            echo "No migration files found in {$migrationsDir}\n";
+            return;
+        }
+
+        // Already executed
+        $executed = $db->fetchFirstColumn('SELECT version FROM oci_migration_versions ORDER BY version');
+        $executedMap = array_flip($executed);
+
+        $pending = [];
+        foreach ($files as $file) {
+            $className = 'OCI\\Database\\Migrations\\' . pathinfo($file, PATHINFO_FILENAME);
+            if (!isset($executedMap[$className])) {
+                $pending[$className] = $file;
+            }
+        }
+
+        if (empty($pending)) {
+            echo "No new migrations to run. (" . \count($executed) . " already executed)\n";
+            return;
+        }
+
+        echo \count($pending) . " new migration(s) to execute.\n\n";
+
+        foreach ($pending as $className => $file) {
+            require_once $file;
+
+            if (!class_exists($className)) {
+                echo "  SKIP: Class {$className} not found in {$file}\n";
+                continue;
+            }
+
+            $shortName = pathinfo($file, PATHINFO_FILENAME);
+            echo "  ▸ {$shortName}...";
+
+            try {
+                $migration = new $className($db);
+                $migration->up();
+
+                $db->insert('oci_migration_versions', [
+                    'version' => $className,
+                    'executed_at' => date('Y-m-d H:i:s'),
+                ]);
+
+                echo " ✓\n";
+            } catch (\Throwable $e) {
+                echo " ✗ {$e->getMessage()}\n";
+                exit(1);
+            }
+        }
+
+        echo "\nMigrations completed successfully.\n";
+    })(),
+
+    'scripts:regenerate' => (function () use ($container) {
+        $db = $container->get(\Doctrine\DBAL\Connection::class);
+        $gen = $container->get(\OCI\Banner\Service\ScriptGenerationService::class);
+
+        $sites = $db->fetchAllAssociative("SELECT id, domain FROM oci_sites WHERE status = 'active'");
+
+        if (empty($sites)) {
+            echo "No active sites found.\n";
+            return;
+        }
+
+        echo "Regenerating consent scripts for " . \count($sites) . " site(s)...\n";
+
+        foreach ($sites as $site) {
+            echo "  ▸ {$site['domain']} (ID {$site['id']})...";
+            try {
+                $gen->generate((int) $site['id']);
+                echo " ✓\n";
+            } catch (\Throwable $e) {
+                echo " ✗ {$e->getMessage()}\n";
+            }
+        }
+
+        // Also purge the shared loader from edge cache
+        $cachePurge = $container->get(\OCI\Banner\Service\CachePurgeService::class);
+        $cachePurge->purgeLoader();
+        echo "Loader cache purged.\n";
+
+        echo "Done.\n";
+    })(),
+
+    'account:export' => (function () use ($container, $argv) {
+        $db = $container->get(\Doctrine\DBAL\Connection::class);
+        $userArg = null;
+        $outDir = getcwd() . '/var/exports';
+
+        foreach ($argv as $arg) {
+            if (str_starts_with($arg, '--user=')) { $userArg = substr($arg, 7); }
+            if (str_starts_with($arg, '--out='))  { $outDir = substr($arg, 6); }
+        }
+
+        if ($userArg === null || $userArg === '') {
+            echo "Usage: php bin/oci account:export --user=<id or email> [--out=DIR]\n";
+            echo "Exports everything stored for one account as a zip of JSONL files\n";
+            echo "(the public OCI schema — restores 1:1 into a self-hosted install).\n";
+            exit(1);
+        }
+
+        $userId = ctype_digit($userArg)
+            ? (int) $userArg
+            : (int) $db->fetchOne('SELECT id FROM oci_users WHERE email = :e', ['e' => $userArg]);
+
+        if ($userId <= 0) {
+            echo "ERROR: no user found for '{$userArg}'.\n";
+            exit(1);
+        }
+
+        $service = $container->get(\OCI\Identity\Service\AccountExportService::class);
+
+        echo "Exporting account {$userId}...\n";
+        $result = $service->export($userId, $outDir);
+
+        // The export itself is an auditable data-access event.
+        $container->get(\OCI\Admin\Service\AuditLogService::class)->log(
+            userId: $userId,
+            action: 'export',
+            entityType: 'Account',
+            entityId: $userId,
+            newValues: ['sites' => $result['sites'], 'tables' => \count($result['tables'])],
+        );
+
+        echo "  Sites: {$result['sites']}\n";
+        foreach ($result['tables'] as $table => $rows) {
+            echo "  {$table}: {$rows}\n";
+        }
+        echo "\nWritten: {$result['path']}\n";
+    })(),
+
+    'account:import' => (function () use ($container, $argv) {
+        $file = null;
+        $newEmail = null;
+
+        foreach ($argv as $arg) {
+            if (str_starts_with($arg, '--file=')) { $file = substr($arg, 7); }
+            if (str_starts_with($arg, '--new-email=')) { $newEmail = substr($arg, 12); }
+        }
+
+        if ($file === null || !is_file($file)) {
+            echo "Usage: php bin/oci account:import --file=<export.zip> [--new-email=<address>]\n";
+            echo "Imports a conzent-account-export/2 zip into this installation with full\n";
+            echo "reference remapping. Fails atomically: any error rolls the import back.\n";
+            exit(1);
+        }
+
+        $service = $container->get(\OCI\Identity\Service\AccountImportService::class);
+
+        echo "Importing {$file}...\n";
+        $result = $service->import($file, $newEmail !== '' ? $newEmail : null);
+
+        // The import is an auditable data event on the new account.
+        $container->get(\OCI\Admin\Service\AuditLogService::class)->log(
+            userId: $result['user_id'],
+            action: 'import',
+            entityType: 'Account',
+            entityId: $result['user_id'],
+            newValues: ['sites' => \count($result['sites']), 'source' => basename($file)],
+        );
+
+        echo "\nImported account: {$result['email']} (user id {$result['user_id']})\n";
+        foreach ($result['counts'] as $table => $rows) {
+            echo "  {$table}: {$rows}\n";
+        }
+
+        // Bake the imported configuration into live consent scripts.
+        $gen = $container->get(\OCI\Banner\Service\ScriptGenerationService::class);
+        foreach ($result['sites'] as $oldId => $newId) {
+            try {
+                $gen->generate((int) $newId);
+                echo "  script regenerated for site {$newId}\n";
+            } catch (\Throwable $e) {
+                echo "  WARNING: script regeneration failed for site {$newId}: {$e->getMessage()}\n";
+            }
+        }
+
+        if ($result['notes'] !== []) {
+            echo "\nNotes:\n";
+            foreach ($result['notes'] as $note) {
+                echo "  - {$note}\n";
+            }
+        }
+
+        echo "\nDone.\n";
+    })(),
+
+    'consents:anonymize' => (function () use ($container) {
+        $db = $container->get(\Doctrine\DBAL\Connection::class);
+        $pseudonymizer = $container->get(\OCI\Consent\Service\IpPseudonymizer::class);
+
+        if (trim((string) ($_ENV['CONSENT_IP_KEY'] ?? '')) === '') {
+            echo "NOTE: CONSENT_IP_KEY is not set — IPs will be truncated (v4 /24, v6 /48) instead of HMAC-hashed.\n";
+        }
+
+        echo "Anonymizing raw IPs in oci_consents (destructive, batched)...\n";
+
+        $lastId = 0;
+        $updated = 0;
+        $batch = 5000;
+
+        while (true) {
+            // Keyset pagination: already-hashed rows are skipped by the REGEXP,
+            // and id > :lastId guarantees termination even when the fallback
+            // truncation rewrites a value to itself.
+            $rows = $db->fetchAllAssociative(
+                "SELECT id, ip_address FROM oci_consents
+                 WHERE id > :lastId AND ip_address != '' AND ip_address NOT REGEXP '^[0-9a-f]{64}$'
+                 ORDER BY id ASC
+                 LIMIT " . $batch,
+                ['lastId' => $lastId],
+                ['lastId' => \Doctrine\DBAL\ParameterType::INTEGER],
+            );
+
+            if ($rows === []) {
+                break;
+            }
+
+            foreach ($rows as $row) {
+                $lastId = (int) $row['id'];
+                $pseudonym = $pseudonymizer->pseudonymize((string) $row['ip_address']);
+                if ($pseudonym !== (string) $row['ip_address']) {
+                    $db->update('oci_consents', ['ip_address' => $pseudonym], ['id' => $lastId]);
+                    $updated++;
+                }
+            }
+
+            echo "  ...processed up to id {$lastId} ({$updated} updated)\n";
+        }
+
+        echo "Done. {$updated} consent record(s) anonymized. Raw IPs are unrecoverable.\n";
+    })(),
+
+    'iab:update-vendor-list' => (function () use ($container, $argv) {
+        $gvl    = $container->get(\OCI\Compliance\Service\GvlUpdateService::class);
+        $force  = \in_array('--force', $argv, true);
+        $dryRun = \in_array('--dry-run', $argv, true);
+        $noTx   = \in_array('--no-translations', $argv, true);
+
+        if (\in_array('--no-atp', $argv, true)) {
+            $_ENV['GVL_UPDATE_ATP'] = 'false';
+        }
+
+        $current = $gvl->currentVersion();
+        echo "IAB Global Vendor List\n";
+        echo '  Source:  ' . $gvl->sourceUrl() . "\n";
+        echo '  Current: ' . ($current === null
+            ? 'none on disk'
+            : "v{$current['version']} ({$current['lastUpdated']})") . "\n";
+
+        if (!$gvl->isEnabled()) {
+            echo "  GVL_AUTO_UPDATE is false — the bundled list is pinned. Nothing to do.\n";
+            return;
+        }
+
+        try {
+            $result = $gvl->update($force, $dryRun);
+        } catch (\OCI\Compliance\Exception\GvlUpdateException $e) {
+            // Nothing was written — the previous list is still serving.
+            fwrite(STDERR, "  ✗ {$e->getMessage()}\n");
+            exit(1);
+        }
+
+        if ($result->skipped) {
+            echo "  ▸ {$result->reason}\n";
+        } else {
+            echo "  ✓ Updated v{$result->previousVersion} → v{$result->newVersion} ({$result->lastUpdated})\n";
+        }
+
+        if ($result->vendorCount > 0) {
+            echo "    Vendors:       {$result->vendorCount}\n";
+            echo "    Google ATP:    {$result->googleVendorCount}\n";
+            echo '    standardTexts: ' . ($result->hasStandardTexts ? 'yes (TCF 2.4 ready)' : 'NO — v2.4 Feature disclosure will not render') . "\n";
+        }
+
+        foreach ($result->warnings as $warning) {
+            echo "    ! {$warning}\n";
+        }
+
+        if (!$noTx && !$dryRun) {
+            echo "  Fetching translations...\n";
+            $tx     = $gvl->updateTranslations();
+            $okList = array_keys(array_filter($tx));
+            $failed = array_keys(array_filter($tx, static fn (bool $v): bool => !$v));
+
+            echo '    Updated (' . \count($okList) . '): ' . (implode(', ', $okList) ?: '—') . "\n";
+            if ($failed !== []) {
+                echo '    Skipped (' . \count($failed) . '): ' . implode(', ', $failed) . "\n";
+            }
+        }
+
+        echo "Done.\n";
+    })(),
+
+    'cookies:sync' => (function () use ($container, $argv) {
+        $dryRun = \in_array('--dry-run', $argv, true);
+        $sync = $container->get(\OCI\Cookie\Service\OpenCookieDatabaseSync::class);
+
+        echo "Syncing Open Cookie Database" . ($dryRun ? ' (dry run)' : '') . "...\n";
+
+        $stats = $sync->sync($dryRun);
+
+        echo "Done. Inserted: {$stats['inserted']}, Updated: {$stats['updated']}, "
+            . "Skipped: {$stats['skipped']}, Errors: {$stats['errors']}\n";
+    })(),
+
+    'cookies:translate' => (function () use ($container, $argv) {
+        $generate = \in_array('--generate', $argv, true);
+        $insert = \in_array('--insert', $argv, true);
+        $dryRun = \in_array('--dry-run', $argv, true);
+        $force = \in_array('--force', $argv, true);
+        $lang = null;
+        $delay = 2;
+
+        foreach ($argv as $arg) {
+            if (str_starts_with($arg, '--lang=')) {
+                $lang = substr($arg, 7);
+            }
+            if (str_starts_with($arg, '--delay=')) {
+                $delay = (int) substr($arg, 8);
+            }
+        }
+
+        if (!$generate && !$insert) {
+            echo "Usage: php bin/oci cookies:translate [options]\n\n";
+            echo "Translates cookie descriptions from oci_cookies_global into all languages.\n\n";
+            echo "Options:\n";
+            echo "  --generate          Translate via AI and write to cache file\n";
+            echo "  --insert            Read cache file and upsert into database\n";
+            echo "  --lang=XX           Process only one language code (e.g., --lang=da)\n";
+            echo "  --delay=N           Seconds between API calls (default: 2)\n";
+            echo "  --force             Re-translate even if cached\n";
+            echo "  --dry-run           Show what would happen without writing\n";
+            return;
+        }
+
+        $db = $container->get(\Doctrine\DBAL\Connection::class);
+        $ai = $container->get(\OCI\Infrastructure\Ai\AiClientInterface::class);
+        $logger = $container->get(\Psr\Log\LoggerInterface::class);
+        $basePath = $container->get('config.base_path');
+
+        $seeder = new \OCI\Cookie\Service\CookieTranslationSeeder($db, $ai, $logger, $basePath);
+
+        echo "╔══════════════════════════════════════════╗\n";
+        echo "║   Cookie Description Translator           ║\n";
+        echo "╚══════════════════════════════════════════╝\n\n";
+
+        if ($dryRun) {
+            echo "  DRY RUN — no changes will be written.\n\n";
+        }
+
+        // --- Phase 1: Generate translations via AI ---
+        if ($generate) {
+            $cookies = $seeder->getTranslatableCookies();
+            echo "Translatable cookies: " . \count($cookies) . "\n\n";
+
+            if (empty($cookies)) {
+                echo "No cookies with descriptions found. Run 'cookies:sync' first.\n";
+                return;
+            }
+
+            $seeder->generateTranslations(
+                singleLang: $lang,
+                force: $force,
+                delaySeconds: $dryRun ? 0 : $delay,
+                onProgress: \Closure::fromCallable(function (string $code, string $name, string $status) {
+                    echo "  {$name} ({$code}) — {$status}\n";
+                }),
+            );
+
+            echo "\nCache file written: resources/data/cookie-global-translations.php\n\n";
+        }
+
+        // --- Phase 2: Insert into database ---
+        if ($insert) {
+            $cached = $seeder->loadCachedTranslations();
+
+            if (empty($cached)) {
+                echo "ERROR: No cached translations found. Run with --generate first.\n";
+                exit(1);
+            }
+
+            // The translations key on oci_cookies_global ids — a fresh install
+            // has none until the reference database is pulled.
+            $globalCount = (int) $container->get(\Doctrine\DBAL\Connection::class)
+                ->fetchOne('SELECT COUNT(*) FROM oci_cookies_global');
+            if ($globalCount === 0) {
+                echo "ERROR: oci_cookies_global is empty. Run 'php bin/oci cookies:sync' first.\n";
+                exit(1);
+            }
+
+            if ($lang !== null) {
+                $cached = array_filter($cached, fn($code) => $code === $lang, ARRAY_FILTER_USE_KEY);
+            }
+
+            $totalEntries = 0;
+            foreach ($cached as $cookies) {
+                $totalEntries += \count($cookies);
+            }
+
+            echo "Inserting {$totalEntries} translations (" . \count($cached) . " languages) into oci_cookies_global_translations...\n";
+
+            $stats = $seeder->insertIntoDatabase($cached, $dryRun);
+
+            echo "  Inserted: {$stats['inserted']}\n";
+            echo "  Updated:  {$stats['updated']}\n";
+            echo "  Skipped:  {$stats['skipped']}\n\n";
+        }
+
+        echo "Done.\n";
+    })(),
+
+    'users:verify-emails' => (function () use ($container, $argv) {
+        $verbose = \in_array('--verbose', $argv, true);
+        $batch   = (int) ($_ENV['EMAIL_VERIFICATION_BATCH_SIZE'] ?? 500);
+        $delayMs = (int) ($_ENV['EMAIL_VERIFICATION_DELAY_MS'] ?? 200);
+
+        foreach ($argv as $arg) {
+            if (str_starts_with($arg, '--batch-size=')) {
+                $batch = (int) substr($arg, 13);
+            }
+            if (str_starts_with($arg, '--delay-ms=')) {
+                $delayMs = (int) substr($arg, 11);
+            }
+        }
+
+        set_time_limit(1800); // 30 minutes
+
+        echo "Running email verification batch (size: {$batch}, delay: {$delayMs}ms)...\n";
+
+        $svc = $container->get(\OCI\Identity\Service\EmailVerificationService::class);
+        $started = microtime(true);
+        $stats = $svc->runBatch($batch, $delayMs, $verbose);
+        $elapsed = round(microtime(true) - $started, 2);
+
+        echo "\n";
+        echo "═══════════════════════════════════════════\n";
+        echo " Processed: {$stats['processed']}\n";
+        echo " Valid:     {$stats['valid']}\n";
+        echo " Invalid:   {$stats['invalid']} (accounts disabled)\n";
+        echo " Pending:   {$stats['pending']} (inconclusive)\n";
+        echo " Errors:    {$stats['errors']}\n";
+        echo " Time:      {$elapsed}s\n";
+        echo "═══════════════════════════════════════════\n";
+    })(),
+
+    'test:endpointr-vault' => (function () use ($container, $argv) {
+        $name = 'amazon_ses';
+        foreach ($argv as $arg) {
+            if (str_starts_with($arg, '--name=')) {
+                $name = substr($arg, 7);
+            }
+        }
+
+        $keyLen = \strlen($_ENV['ENDPOINTR_API_KEY'] ?? '');
+        echo "─ Endpointr vault diagnostic ─\n";
+        echo "  ENDPOINTR_API_KEY: " . ($keyLen > 0 ? "set ({$keyLen} chars)" : "MISSING") . "\n";
+        echo "  Fetching vault entry: {$name}\n\n";
+
+        if ($keyLen === 0) {
+            echo "✗ ENDPOINTR_API_KEY is not set in the container environment.\n";
+            exit(1);
+        }
+
+        $client = $container->get(\OCI\Identity\Service\EndpointrClient::class);
+
+        try {
+            $secrets = $client->getVaultEntry($name);
+        } catch (\Throwable $e) {
+            echo "✗ Vault fetch FAILED: {$e->getMessage()}\n";
+            exit(1);
+        }
+
+        echo "✓ Vault fetch succeeded. Keys returned:\n";
+        $sensitive = ['smtp_pass', 'password', 'secret', 'api_key', 'token', 'aws_secret_access_key'];
+        foreach ($secrets as $k => $v) {
+            $display = $v;
+            if (\is_string($v) && \in_array(strtolower((string) $k), $sensitive, true)) {
+                $len = \strlen($v);
+                $display = $len > 0 ? substr($v, 0, 3) . str_repeat('*', max(0, $len - 6)) . substr($v, -3) . " (len={$len})" : '(empty)';
+            } elseif (!\is_scalar($v)) {
+                $display = json_encode($v);
+            }
+            printf("  %-20s = %s\n", (string) $k, (string) $display);
+        }
+
+        $required = ['smtp_host', 'smtp_port', 'smtp_user', 'smtp_pass'];
+        $missing = array_diff($required, array_keys($secrets));
+        if ($missing !== []) {
+            echo "\n⚠  Missing expected SMTP keys: " . implode(', ', $missing) . "\n";
+            exit(2);
+        }
+
+        echo "\n✓ All expected SMTP keys present. MailerService will use these on next send\n";
+        echo "  (override vault entry name with ENDPOINTR_SMTP_VAULT_NAME; defaults to 'amazon_ses').\n";
+    })(),
+
+    'test:email' => (function () use ($container, $argv) {
+        $to = null;
+        foreach ($argv as $arg) {
+            if (str_starts_with($arg, '--to=')) {
+                $to = substr($arg, 5);
+            }
+        }
+
+        if ($to === null || !filter_var($to, FILTER_VALIDATE_EMAIL)) {
+            echo "Usage: php bin/oci test:email --to=address@example.com\n";
+            exit(1);
+        }
+
+        $mailer = $container->get(\OCI\Identity\Service\MailerService::class);
+        $cfg = $mailer->getConfig();
+
+        echo "─ SMTP configuration ─\n";
+        echo "  Source:           {$cfg['source']}\n";
+        echo "  Host:             {$cfg['host']}\n";
+        echo "  Port:             {$cfg['port']}\n";
+        echo "  Username:         " . ($cfg['username'] !== '' ? $cfg['username'] : '(empty)') . "\n";
+        echo "  Password:         " . ($cfg['password'] !== '' ? '*** (len=' . \strlen($cfg['password']) . ')' : '(empty)') . "\n";
+        echo "  Encryption:       " . ($cfg['encryption'] !== '' ? $cfg['encryption'] : '(none)') . "\n";
+        echo "  MAIL_FROM_ADDRESS=" . ($_ENV['MAIL_FROM_ADDRESS'] ?? 'support@getconzent.com') . "\n";
+        echo "  MAIL_FROM_NAME=" . ($_ENV['MAIL_FROM_NAME'] ?? 'Conzent') . "\n";
+        echo "─ Sending to {$to} ─\n\n";
+
+        $mailer->setDebug(true);
+
+        $body = "<h1>OCI test email</h1><p>If you can read this, SMTP is working. Sent at " . date('c') . "</p>";
+        $sent = $mailer->send($to, 'OCI test email — ' . date('H:i:s'), $body);
+
+        echo "\n";
+        echo $sent ? "✓ Email sent successfully.\n" : "✗ Email send FAILED — check logs above.\n";
+        exit($sent ? 0 : 1);
+    })(),
+
+    'cache:purge-loader' => (function () use ($container) {
+        $cachePurge = $container->get(\OCI\Banner\Service\CachePurgeService::class);
+        $cachePurge->purgeLoader();
+        echo "Loader cache purged from Cloudflare edge.\n";
+    })(),
+
+    'legacy:migrate' => (function () use ($container, $argv) {
+        $domain = $argv[2] ?? null;
+        $dryRun = \in_array('--dry-run', $argv, true);
+        $batchSize = 1000;
+
+        // Parse --batch-size=N
+        foreach ($argv as $arg) {
+            if (str_starts_with($arg, '--batch-size=')) {
+                $batchSize = (int) substr($arg, 13);
+            }
+        }
+
+        $runner = new LegacyMigrationRunner(
+            $container->get(\Doctrine\DBAL\Connection::class),
+            $container->get(\Psr\Log\LoggerInterface::class),
+        );
+
+        $runner->setBatchSize($batchSize);
+        $runner->setDryRun($dryRun);
+
+        if ($domain === null) {
+            echo "Usage: php bin/oci legacy:migrate <domain|all> [--dry-run] [--batch-size=N]\n\n";
+            echo "Available domains:\n";
+            foreach ($runner->getAvailableDomains() as $d) {
+                echo "  {$d}\n";
+            }
+            echo "  all\n\n";
+            echo "Environment:\n";
+            $excludeIds = $_ENV['LEGACY_EXCLUDE_USER_IDS'] ?? '(not set)';
+            echo "  LEGACY_EXCLUDE_USER_IDS={$excludeIds}\n";
+            return;
+        }
+
+        echo "╔══════════════════════════════════════════╗\n";
+        echo "║   OCI Legacy Data Migration              ║\n";
+        echo "╚══════════════════════════════════════════╝\n\n";
+
+        echo "Domain:     {$domain}\n";
+        echo "Batch size: {$batchSize}\n";
+        echo "Dry run:    " . ($dryRun ? 'YES (no data will be written)' : 'NO') . "\n";
+        $excludeIds = $_ENV['LEGACY_EXCLUDE_USER_IDS'] ?? '';
+        echo "Excluding:  " . ($excludeIds !== '' ? "user IDs [{$excludeIds}]" : 'none') . "\n";
+        echo "\n";
+
+        $started = microtime(true);
+
+        try {
+            $result = $runner->run($domain);
+        } catch (\InvalidArgumentException $e) {
+            echo "ERROR: {$e->getMessage()}\n";
+            exit(1);
+        }
+
+        $elapsed = round(microtime(true) - $started, 2);
+
+        echo "\n";
+        echo "═══════════════════════════════════════════\n";
+        echo " Migrated: {$result['migrated']}\n";
+        echo " Skipped:  {$result['skipped']}\n";
+        echo " Errors:   {$result['errors']}\n";
+        echo " Time:     {$elapsed}s\n";
+        echo "═══════════════════════════════════════════\n";
+
+        exit($result['errors'] > 0 ? 1 : 0);
+    })(),
+
+    'cleanup:non-admin-users' => (function () use ($container, $argv) {
+        $db = $container->get(\Doctrine\DBAL\Connection::class);
+        $dryRun = \in_array('--dry-run', $argv, true);
+
+        $userCount = (int) $db->fetchOne("SELECT COUNT(*) FROM oci_users WHERE role != 'admin'");
+        $siteCount = (int) $db->fetchOne('SELECT COUNT(*) FROM oci_sites');
+        $orphanSiteCount = (int) $db->fetchOne("SELECT COUNT(*) FROM oci_sites WHERE user_id NOT IN (SELECT id FROM oci_users WHERE role = 'admin')");
+
+        echo "Found {$userCount} non-admin user(s), {$siteCount} total site(s) ({$orphanSiteCount} to remove).\n";
+
+        if ($userCount === 0 && $orphanSiteCount === 0) {
+            echo "Nothing to clean up.\n";
+            return;
+        }
+
+        if ($dryRun) {
+            echo "Dry run — no changes made.\n";
+            $users = $db->fetchAllAssociative("SELECT id, email, role FROM oci_users WHERE role != 'admin' ORDER BY id");
+            foreach ($users as $u) {
+                echo "  Would delete user: #{$u['id']} {$u['email']} ({$u['role']})\n";
+            }
+            $sites = $db->fetchAllAssociative("SELECT id, domain, user_id FROM oci_sites ORDER BY id");
+            foreach ($sites as $s) {
+                echo "  Would delete site: #{$s['id']} {$s['domain']} (user #{$s['user_id']})\n";
+            }
+            return;
+        }
+
+        // Delete all sites first (including any orphans not tied to an admin)
+        $deletedSites = $db->executeStatement("DELETE FROM oci_sites WHERE user_id NOT IN (SELECT id FROM oci_users WHERE role = 'admin')");
+        echo "Deleted {$deletedSites} site(s) and all cascaded data (banners, consents, etc.).\n";
+
+        // Then delete non-admin users
+        $deletedUsers = $db->executeStatement("DELETE FROM oci_users WHERE role != 'admin'");
+        echo "Deleted {$deletedUsers} user(s) and all cascaded data.\n";
+
+        // Also reset legacy_migrated_at so admin can re-test
+        $db->executeStatement("UPDATE oci_users SET legacy_migrated_at = NULL WHERE role = 'admin'");
+        echo "Reset legacy_migrated_at on admin user(s).\n";
+    })(),
+
+    'publish' => (function () use ($argv) {
+        // Standalone script — no app bootstrap needed, runs with any PHP >= 8.0
+        $script = dirname(__DIR__) . '/scripts/publish.php';
+        $args = implode(' ', array_map('escapeshellarg', \array_slice($argv, 2)));
+        $exitCode = 0;
+        passthru("php \"{$script}\" {$args}", $exitCode);
+        exit($exitCode);
+    })(),
+
+    'banners:seed-translations' => (function () use ($container, $argv) {
+        $generate = \in_array('--generate', $argv, true);
+        $insert = \in_array('--insert', $argv, true);
+        $backfillSites = \in_array('--backfill-sites', $argv, true);
+        $categories = \in_array('--categories', $argv, true);
+        $dryRun = \in_array('--dry-run', $argv, true);
+        $force = \in_array('--force', $argv, true);
+        $lang = null;
+        $delay = 2;
+
+        foreach ($argv as $arg) {
+            if (str_starts_with($arg, '--lang=')) {
+                $lang = substr($arg, 7);
+            }
+            if (str_starts_with($arg, '--delay=')) {
+                $delay = (int) substr($arg, 8);
+            }
+        }
+
+        if (!$generate && !$insert && !$categories) {
+            echo "Usage: php bin/oci banners:seed-translations [options]\n\n";
+            echo "Options:\n";
+            echo "  --generate          Translate via AI and write to cache file\n";
+            echo "  --insert            Read cache file and upsert into database\n";
+            echo "  --backfill-sites    Also update existing site banners (untouched only)\n";
+            echo "  --lang=XX           Process only one language code (e.g., --lang=da)\n";
+            echo "  --delay=N           Seconds between API calls (default: 2)\n";
+            echo "  --categories        Translate cookie categories for missing languages\n";
+            echo "  --force             Re-translate even if cached (use after English changes)\n";
+            echo "  --dry-run           Show what would happen without writing\n";
+            return;
+        }
+
+        $db = $container->get(\Doctrine\DBAL\Connection::class);
+        $ai = $container->get(\OCI\Infrastructure\Ai\AiClientInterface::class);
+        $logger = $container->get(\Psr\Log\LoggerInterface::class);
+        $basePath = $container->get('config.base_path');
+
+        $seeder = new \OCI\Banner\Service\BannerTranslationSeeder($db, $ai, $logger, $basePath);
+
+        echo "╔══════════════════════════════════════════╗\n";
+        echo "║   Banner Translation Seeder               ║\n";
+        echo "╚══════════════════════════════════════════╝\n\n";
+
+        if ($dryRun) {
+            echo "  DRY RUN — no changes will be written.\n\n";
+        }
+        if ($force) {
+            echo "  FORCE — re-translating all languages (ignoring cache).\n\n";
+        }
+
+        // --- Phase 1: Generate translations via AI ---
+        if ($generate) {
+            $cached = $seeder->loadCachedTranslations();
+            $targetLanguages = $seeder->getTargetLanguages();
+
+            if ($lang !== null) {
+                if (!isset($targetLanguages[$lang])) {
+                    echo "ERROR: Language '{$lang}' not found in database.\n";
+                    exit(1);
+                }
+                $targetLanguages = [$lang => $targetLanguages[$lang]];
+            }
+
+            $templates = ['gdpr', 'ccpa'];
+            $totalLangs = \count($targetLanguages);
+            $current = 0;
+            $errors = 0;
+
+            foreach ($templates as $template) {
+                $fields = $seeder->getTranslatableFields($template);
+                echo "Template: {$template} (" . \count($fields) . " fields)\n";
+
+                if (!isset($cached[$template])) {
+                    $cached[$template] = [];
+                }
+
+                $current = 0;
+                foreach ($targetLanguages as $code => $name) {
+                    $current++;
+                    $pct = round($current / $totalLangs * 100);
+
+                    // Skip if already cached (unless --force)
+                    if (!$force && isset($cached[$template][$code]) && !empty($cached[$template][$code])) {
+                        echo "  [{$pct}%] {$name} ({$code}) — cached, skipping\n";
+                        continue;
+                    }
+
+                    echo "  [{$pct}%] {$name} ({$code}) — translating...";
+
+                    if ($dryRun) {
+                        echo " (dry run)\n";
+                        continue;
+                    }
+
+                    $result = $seeder->translateForLanguage($code, $name, $fields);
+
+                    if ($result === null) {
+                        echo " FAILED\n";
+                        $errors++;
+                        continue;
+                    }
+
+                    // Count non-empty translations
+                    $filled = \count(array_filter($result, fn($v) => $v !== ''));
+                    echo " ✓ ({$filled}/" . \count($fields) . " fields)\n";
+
+                    $cached[$template][$code] = $result;
+
+                    // Save incrementally after each successful language
+                    $seeder->saveCachedTranslations($cached);
+
+                    // Rate limit
+                    if ($delay > 0 && $current < $totalLangs) {
+                        sleep($delay);
+                    }
+                }
+
+                echo "\n";
+            }
+
+            if ($errors > 0) {
+                echo "WARNING: {$errors} translation(s) failed. Re-run to retry.\n\n";
+            }
+
+            echo "Cache file written: resources/data/banner-field-translations.php\n\n";
+        }
+
+        // --- Phase 2: Insert into database ---
+        if ($insert) {
+            $cached = $seeder->loadCachedTranslations();
+
+            if (empty($cached)) {
+                echo "ERROR: No cached translations found. Run with --generate first.\n";
+                exit(1);
+            }
+
+            // Count total entries
+            $totalEntries = 0;
+            foreach ($cached as $langs) {
+                foreach ($langs as $fields) {
+                    $totalEntries += \count($fields);
+                }
+            }
+
+            echo "Inserting {$totalEntries} translations into oci_banner_field_translations...\n";
+
+            $stats = $seeder->insertIntoDatabase($cached, $dryRun);
+
+            echo "  Inserted: {$stats['inserted']}\n";
+            echo "  Updated:  {$stats['updated']}\n";
+            echo "  Skipped:  {$stats['skipped']}\n\n";
+
+            // --- Phase 3: Backfill site banners ---
+            if ($backfillSites) {
+                echo "Backfilling existing site banners (untouched translations only)...\n";
+
+                $bfStats = $seeder->backfillSiteBanners($cached, $dryRun);
+
+                echo "  Updated: {$bfStats['updated']}\n";
+                echo "  Skipped: {$bfStats['skipped']}\n\n";
+            }
+
+            if (!$dryRun) {
+                echo "Done. Run 'php bin/oci scripts:regenerate' to update consent scripts.\n";
+            }
+        }
+
+        // --- Phase 4: Cookie category translations ---
+        if ($categories) {
+            $cats = $seeder->getCookieCategories();
+            $missingLangs = $seeder->getLanguagesMissingCategoryTranslations();
+
+            if ($lang !== null) {
+                $missingLangs = array_intersect_key($missingLangs, [$lang => true]);
+            }
+
+            if (empty($missingLangs)) {
+                echo "All languages already have cookie category translations.\n";
+            } else {
+                echo "Translating cookie categories for " . \count($missingLangs) . " language(s)...\n";
+
+                // Cache-first: the shipped static cache covers a fresh install
+                // with no AI key; the API is only hit for uncached languages.
+                $catCache = $seeder->loadCachedCategoryTranslations();
+
+                $catErrors = 0;
+                foreach ($missingLangs as $code => $name) {
+                    $fromCache = !$force && isset($catCache[$code]) && $catCache[$code] !== [];
+
+                    echo "  {$name} ({$code}) — " . ($fromCache ? 'cached...' : 'translating...');
+
+                    if ($dryRun) {
+                        echo " (dry run)\n";
+                        continue;
+                    }
+
+                    if ($fromCache) {
+                        $catResult = $catCache[$code];
+                    } else {
+                        $catResult = $seeder->translateCategoriesForLanguage($code, $name, $cats);
+
+                        if ($catResult !== null) {
+                            $catCache[$code] = $catResult;
+                            $seeder->saveCachedCategoryTranslations($catCache);
+                            if ($delay > 0) {
+                                sleep($delay);
+                            }
+                        }
+                    }
+
+                    if ($catResult === null) {
+                        echo " FAILED\n";
+                        $catErrors++;
+                        continue;
+                    }
+
+                    $count = $seeder->insertCategoryTranslations($code, $catResult);
+                    echo " ✓ ({$count} inserted)\n";
+
+                    if ($delay > 0) {
+                        sleep($delay);
+                    }
+                }
+
+                if ($catErrors > 0) {
+                    echo "\nWARNING: {$catErrors} category translation(s) failed. Re-run to retry.\n";
+                }
+
+                echo "\n";
+            }
+        }
+    })(),
+
+    'billing:demo' => (function () use ($container, $argv) {
+        $action = $argv[2] ?? '';
+        $db = $container->get(\Doctrine\DBAL\Connection::class);
+        $tag = 'seed_demo';
+
+        // Demo rows are tagged so 'clear' can never touch real data:
+        //   oci_users.account_id                 = 'seed_demo'
+        //   oci_subscriptions.stripe_customer_id = 'seed_demo'
+        //   oci_transactions.external_reference  = 'seed_demo'
+        if ($action === 'clear') {
+            $tx = $db->executeStatement('DELETE FROM oci_transactions WHERE external_reference = ?', [$tag]);
+            $subs = $db->executeStatement('DELETE FROM oci_subscriptions WHERE stripe_customer_id = ?', [$tag]);
+            $users = $db->executeStatement('DELETE FROM oci_users WHERE account_id = ?', [$tag]);
+            echo "Removed demo billing data: {$users} customer(s), {$subs} subscription(s), {$tx} transaction(s).\n";
+            return;
+        }
+
+        if ($action !== 'seed') {
+            echo "Usage: php bin/oci billing:demo <seed|clear>\n\n";
+            echo "  seed   Create sample demo customers with subscriptions and revenue\n";
+            echo "         (MRR/churn/LTV/paying-vs-trial) so the admin dashboard and\n";
+            echo "         /admin/billing are populated. All rows are tagged '{$tag}'.\n";
+            echo "  clear  Remove every demo customer and their billing data.\n\n";
+            echo "Demo rows are tagged, so 'clear' never touches real users or Stripe data.\n";
+            return;
+        }
+
+        // Idempotent: remove any prior demo data before re-seeding.
+        $db->executeStatement('DELETE FROM oci_transactions WHERE external_reference = ?', [$tag]);
+        $db->executeStatement('DELETE FROM oci_subscriptions WHERE stripe_customer_id = ?', [$tag]);
+        $db->executeStatement('DELETE FROM oci_users WHERE account_id = ?', [$tag]);
+
+        $pricing = $container->get(\OCI\Monetization\Service\PricingService::class);
+        $now = new \DateTimeImmutable('now');
+        $fmt = static fn (\DateTimeImmutable $d): string => $d->format('Y-m-d H:i:s');
+        // Each demo subscription belongs to its own demo customer, so per-user
+        // aggregation (the dashboard dedupes to one sub per user) stays realistic.
+        $demoPassword = password_hash('demo-' . bin2hex(random_bytes(8)), \PASSWORD_BCRYPT);
+        $demoUserIds = [];
+        $makeUser = static function (int $i) use ($db, $tag, $fmt, $now, $demoPassword): int {
+            $db->insert('oci_users', [
+                'username' => "demo-billing-{$i}",
+                'email' => "demo-billing-{$i}@seed.local",
+                'first_name' => 'Demo',
+                'last_name' => "Customer {$i}",
+                'password' => $demoPassword,
+                'role' => 'customer',
+                'is_active' => 1,
+                'account_id' => $tag,
+                'created_at' => $fmt($now),
+                'updated_at' => $fmt($now),
+            ]);
+            return (int) $db->lastInsertId();
+        };
+
+        // [userIndex, plan, cycle, qty, status, lifetime, monthsAgo, cancelMonthsAgo|null]
+        $rows = [
+            // active personal monthly (spread over 12 months)
+            [0, 'personal', 'monthly', 1, 'active', 0, 11, null],
+            [1, 'personal', 'monthly', 2, 'active', 0, 10, null],
+            [0, 'personal', 'monthly', 3, 'active', 0, 9, null],
+            [1, 'personal', 'monthly', 1, 'active', 0, 8, null],
+            [0, 'personal', 'monthly', 5, 'active', 0, 7, null],
+            [1, 'personal', 'monthly', 8, 'active', 0, 6, null],
+            [0, 'personal', 'monthly', 1, 'active', 0, 5, null],
+            [1, 'personal', 'monthly', 2, 'active', 0, 4, null],
+            [0, 'personal', 'monthly', 4, 'active', 0, 3, null],
+            [1, 'personal', 'monthly', 1, 'active', 0, 2, null],
+            [0, 'personal', 'monthly', 6, 'active', 0, 1, null],
+            [1, 'personal', 'monthly', 1, 'active', 0, 0, null],
+            // active personal yearly
+            [0, 'personal', 'yearly', 2, 'active', 0, 10, null],
+            [1, 'personal', 'yearly', 5, 'active', 0, 7, null],
+            [0, 'personal', 'yearly', 1, 'active', 0, 5, null],
+            [1, 'personal', 'yearly', 3, 'active', 0, 2, null],
+            // active business monthly
+            [0, 'business', 'monthly', 1, 'active', 0, 9, null],
+            [1, 'business', 'monthly', 3, 'active', 0, 6, null],
+            [0, 'business', 'monthly', 10, 'active', 0, 4, null],
+            [1, 'business', 'monthly', 2, 'active', 0, 1, null],
+            [0, 'business', 'monthly', 1, 'active', 0, 0, null],
+            // active business yearly
+            [1, 'business', 'yearly', 5, 'active', 0, 8, null],
+            [0, 'business', 'yearly', 1, 'active', 0, 3, null],
+            // lifetime (one-time paid, active)
+            [0, 'business', 'lifetime', 2, 'active', 1, 6, null],
+            [1, 'personal', 'lifetime', 1, 'active', 1, 2, null],
+            // trialing (started this month)
+            [0, 'personal', 'monthly', 1, 'trialing', 0, 0, null],
+            [1, 'personal', 'monthly', 2, 'trialing', 0, 0, null],
+            [0, 'business', 'monthly', 1, 'trialing', 0, 0, null],
+            [1, 'personal', 'yearly', 1, 'trialing', 0, 0, null],
+            [0, 'business', 'monthly', 3, 'trialing', 0, 0, null],
+            [1, 'personal', 'monthly', 1, 'trialing', 0, 0, null],
+            [0, 'personal', 'monthly', 5, 'trialing', 0, 0, null],
+            // past due
+            [1, 'personal', 'monthly', 2, 'past_due', 0, 3, null],
+            [0, 'business', 'monthly', 1, 'past_due', 0, 2, null],
+            [1, 'personal', 'monthly', 1, 'past_due', 0, 1, null],
+            // cancelled (one churned this month, others older)
+            [0, 'personal', 'monthly', 1, 'cancelled', 0, 5, 0],
+            [1, 'personal', 'monthly', 3, 'cancelled', 0, 6, 2],
+            [0, 'business', 'monthly', 1, 'cancelled', 0, 8, 4],
+            [1, 'personal', 'yearly', 2, 'cancelled', 0, 9, 7],
+            [0, 'personal', 'monthly', 1, 'cancelled', 0, 4, 3],
+            // expired
+            [1, 'personal', 'monthly', 1, 'expired', 0, 10, null],
+            [0, 'business', 'monthly', 2, 'expired', 0, 7, null],
+        ];
+
+        $subCount = 0;
+        $linkedPayments = 0;
+        foreach ($rows as [$ui, $plan, $cycle, $qty, $status, $life, $m, $cancel]) {
+            $uid = $makeUser($subCount + 1);
+            $demoUserIds[] = $uid;
+            $created = $now->modify("-{$m} months");
+            $trialStart = null;
+            $trialEnd = null;
+            if ($status === 'trialing') {
+                $created = $now->modify('-3 days');
+                $trialStart = $fmt($created);
+                $trialEnd = $fmt($now->modify('+11 days'));
+            } elseif ($life !== 1) {
+                $trialStart = $fmt($created);
+                $trialEnd = $fmt($created->modify('+14 days'));
+            }
+
+            $cancelledAt = null;
+            $updated = $fmt($created);
+            if ($cancel !== null) {
+                $c = $now->modify("-{$cancel} months");
+                $cancelledAt = $fmt($c);
+                $updated = $fmt($c);
+            }
+            if ($status === 'expired') {
+                $updated = $fmt($created); // keep old so it doesn't count as churn this month
+            }
+
+            $db->insert('oci_subscriptions', [
+                'user_id' => $uid,
+                'plan_key' => $plan,
+                'billing_cycle' => $cycle,
+                'quantity' => $qty,
+                'status' => $status,
+                'is_lifetime' => $life,
+                'stripe_customer_id' => $tag,
+                'trial_start' => $trialStart,
+                'trial_end' => $trialEnd,
+                'current_period_start' => $fmt($created),
+                'current_period_end' => $fmt($now->modify('+20 days')),
+                'cancelled_at' => $cancelledAt,
+                'created_at' => $fmt($created),
+                'updated_at' => $updated,
+            ]);
+            $subId = (int) $db->lastInsertId();
+            $subCount++;
+
+            // Linked payment for active recurring subs so the dashboard MRR
+            // (which reads actual charges, not list price) is meaningful. The
+            // yearly cycle invoices the full year. Every 4th sub gets a 50%
+            // "voucher" to demonstrate plan-price vs actual-money divergence.
+            if ($status === 'active' && $life === 0) {
+                $perMonth = $pricing->calculatePrice($plan, $cycle, $qty);
+                $invoice = $cycle === 'yearly' ? $perMonth * 12 : $perMonth;
+                if ($subCount % 4 === 0) {
+                    $invoice = round($invoice * 0.5, 2);
+                }
+                if ($invoice > 0) {
+                    $db->insert('oci_transactions', [
+                        'user_id' => $uid,
+                        'subscription_id' => $subId,
+                        'type' => 'payment',
+                        'amount' => $invoice,
+                        'currency' => 'EUR',
+                        'description' => 'Demo recurring payment',
+                        'external_reference' => $tag,
+                        'created_at' => $fmt($now->modify('-10 days')),
+                    ]);
+                    $linkedPayments++;
+                }
+            }
+        }
+
+        // Transactions: an upward 12-month revenue trend + a couple of refunds.
+        $pickDemo = static fn (int $i): int => $demoUserIds[$i % \count($demoUserIds)];
+        $txCount = 0;
+        for ($m = 11; $m >= 0; $m--) {
+            $base = (12 - $m) * 40;
+            for ($k = 1; $k <= 3; $k++) {
+                $db->insert('oci_transactions', [
+                    'user_id' => $pickDemo($m + $k),
+                    'subscription_id' => null,
+                    'type' => 'payment',
+                    'amount' => $base + $k * 17 + ($m % 3) * 11,
+                    'currency' => 'EUR',
+                    'description' => 'Demo payment',
+                    'external_reference' => $tag,
+                    'created_at' => $fmt($now->modify("-{$m} months")),
+                ]);
+                $txCount++;
+            }
+        }
+        foreach ([[0, 30, 2], [1, 45, 5]] as [$ui, $amt, $m]) {
+            $db->insert('oci_transactions', [
+                'user_id' => $pickDemo($ui),
+                'subscription_id' => null,
+                'type' => 'refund',
+                'amount' => $amt,
+                'currency' => 'EUR',
+                'description' => 'Demo refund',
+                'external_reference' => $tag,
+                'created_at' => $fmt($now->modify("-{$m} months")),
+            ]);
+            $txCount++;
+        }
+
+        $appUrl = $_ENV['APP_URL'] ?? 'http://localhost:8100';
+        $totalTx = $txCount + $linkedPayments;
+        echo "Seeded demo billing data: {$subCount} customer(s) each with 1 subscription, "
+            . "{$totalTx} transaction(s) ({$linkedPayments} linked to active subs for MRR).\n";
+        echo "View it on the admin dashboard: {$appUrl}/admin\n";
+        echo "Remove it later with: php bin/oci billing:demo clear\n";
+    })(),
+
+    'email:verify' => (function () use ($container, $argv) {
+        // End-to-end probe of the signup email gates. Run this ON THE SERVER
+        // whenever a bogus address gets through: it shows exactly which layer
+        // passed it, including the deep endpointr→Reoon call that the signup
+        // flow fails OPEN on (a broken credential silently disables the gate).
+        $address = trim((string) ($argv[2] ?? ''));
+        if ($address === '') {
+            echo "Usage: php bin/oci email:verify <address>\n";
+            exit(1);
+        }
+
+        echo "Probing signup gates for: {$address}\n\n";
+
+        echo "[1/2] Free checks (syntax, disposable list, MX/A DNS)\n";
+        $validator = new \OCI\Identity\Service\EmailValidator();
+        $error = $validator->validate($address);
+        echo $error === null ? "      PASS\n" : "      REJECT — {$error}\n";
+
+        echo "[2/2] Deep check (endpointr → Reoon)\n";
+        if (trim((string) ($_ENV['ENDPOINTR_API_KEY'] ?? '')) === '') {
+            echo "      FAIL — ENDPOINTR_API_KEY is not set in the environment.\n";
+            echo "      The signup gate FAILS OPEN without it: every deep check is skipped.\n";
+            exit(1);
+        }
+
+        try {
+            $client = $container->get(\OCI\Identity\Service\EndpointrClient::class);
+            $verdict = $client->verifyEmail($address);
+            $raw = \is_array($verdict['raw'] ?? null) ? $verdict['raw'] : [];
+            echo '      status: ' . (string) ($verdict['status'] ?? '?')
+                . ', is_safe_to_send: ' . var_export($raw['is_safe_to_send'] ?? null, true)
+                . ', is_role_account: ' . var_export($raw['is_role_account'] ?? null, true)
+                . ', is_catch_all: ' . var_export($raw['is_catch_all'] ?? null, true) . "\n";
+
+            // Mirror the exact signup gate decision from
+            // EmailVerificationService::startSignup.
+            $status = strtolower((string) ($verdict['status'] ?? ''));
+            $invalid = \in_array($status, ['invalid', 'disposable', 'spamtrap', 'disabled'], true);
+            $unsafe = ($raw['is_safe_to_send'] ?? null) === false
+                && ($raw['is_role_account'] ?? false) !== true
+                && ($raw['is_catch_all'] ?? false) !== true;
+            echo ($invalid || $unsafe)
+                ? "      REJECT — the signup gate blocks this address\n"
+                : "      PASS — the signup gate allows this address\n";
+        } catch (\Throwable $e) {
+            echo '      FAIL — ' . $e::class . ': ' . $e->getMessage() . "\n";
+            echo "      The signup gate FAILS OPEN on this error — fix the endpointr\n";
+            echo "      credential (ENDPOINTR_API_KEY) or the customer's verification\n";
+            echo "      priority (reoon) in the endpointr admin.\n";
+            exit(1);
+        }
+    })(),
+
+    default => (function () use ($command, $moduleCommands) {
+        echo "OCI — Open Consent Infrastructure CLI\n\n";
+        if ($command !== 'help') {
+            echo "Unknown command: {$command}\n\n";
+        }
+        echo "Available commands:\n";
+        echo "  setup                          First-run setup: create admin account\n";
+        echo "  user:password --email=ADDR     Reset a user's password (generates one if omitted)\n";
+        echo "  health                         Check application health\n";
+        echo "  migrations:migrate             Run Doctrine schema migrations\n";
+        echo "  legacy:migrate <domain|all>    Migrate legacy data to oci_* tables\n";
+        echo "  cache:clear                    Clear application cache\n";
+        echo "  queue:work                     Process queued jobs\n";
+        echo "  ingest:flush                   Flush beacon buffer to database\n";
+        echo "  schedule:run                   Run scheduled tasks\n";
+        echo "  scanner:register [--url= --key=] Register/upsert a scan server (defaults to in-compose scanner)\n";
+        echo "  scanner:health                 Ping scan servers; email alert on down/recovery\n";
+        echo "  scripts:regenerate             Regenerate all consent scripts\n";
+        echo "  consents:anonymize             Pseudonymize raw IPs in the consent log (destructive backfill)\n";
+        echo "  account:export --user=<id|email> Export one account's data (zip of JSONL, public OCI schema)\n";
+        echo "  account:import --file=<zip>    Import an account export into this installation (atomic)\n";
+        echo "  cache:purge-loader             Purge CMP loader from Cloudflare edge\n";
+        echo "  cleanup:non-admin-users        Delete all non-admin users and cascaded data\n";
+        echo "  publish <version>              Publish core code to public GitHub repo\n";
+        echo "  cookies:sync [--dry-run]        Sync Open Cookie Database into oci_cookies_global\n";
+        echo "  cookies:translate               Translate cookie descriptions into all languages\n";
+        echo "  banners:seed-translations      Pre-translate banner content for all languages\n";
+        echo "  billing:demo <seed|clear>       Seed/remove demo billing data for the admin dashboard\n";
+        echo "  users:verify-emails [--verbose] Verify PENDING email addresses (Endpointr API)\n";
+        echo "  test:endpointr-vault [--name=]  Fetch a vault entry from Endpointr (default: amazon_ses)\n";
+        echo "  test:email --to=ADDR            Send a diagnostic SMTP email with debug transcript\n";
+
+        // Module-contributed commands (present only in the installed edition).
+        if ($moduleCommands !== []) {
+            echo "\nModule commands:\n";
+            foreach ($moduleCommands as $name => $def) {
+                $desc = \is_array($def) ? ($def['description'] ?? '') : '';
+                echo '  ' . str_pad($name, 31) . $desc . "\n";
+            }
+        }
+        echo "\n";
+    })(),
+};

@@ -1,0 +1,12 @@
+{
+  "name": "oci-scanner",
+  "version": "1.0.0",
+  "description": "OCI Cookie Scanner — Headless Chromium cookie detection server",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "puppeteer-core": "^22.0.0"
+  }
+}

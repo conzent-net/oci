@@ -1,0 +1,98 @@
+{# Shared app modals — window.ocMessage() and window.ocConfirm().
+
+   Browser alert()/confirm()/prompt() are banned app-wide: they block the
+   event loop, look nothing like the product, and cannot be styled. Every
+   page extending layouts/base.html.twig gets these instead:
+
+     ocMessage('Something happened', 'Optional title');
+     if (!(await ocConfirm('Delete this?', 'Optional title'))) return;
+
+   ocConfirm returns a Promise<boolean> — resolve true on confirm, false on
+   cancel/close/background click. Messages render with pre-line whitespace,
+   so \n in the string produces a line break. #}
+
+<div class="modal" id="oc-message-modal">
+    <div class="modal-background" data-oc-msg-close></div>
+    <div class="modal-card" style="max-width:440px">
+        <header class="modal-card-head">
+            <p class="modal-card-title" style="font-size:1.1rem" data-oc-msg-title>Notice</p>
+            <button class="delete" aria-label="close" data-oc-msg-close type="button"></button>
+        </header>
+        <section class="modal-card-body">
+            <p data-oc-msg-text style="font-size:0.9rem;color:#475569;white-space:pre-line"></p>
+        </section>
+        <footer class="modal-card-foot" style="justify-content:flex-end">
+            <button type="button" class="button is-primary" data-oc-msg-close>OK</button>
+        </footer>
+    </div>
+</div>
+
+<div class="modal" id="oc-confirm-modal">
+    <div class="modal-background" data-oc-confirm-cancel></div>
+    <div class="modal-card" style="max-width:440px">
+        <header class="modal-card-head">
+            <p class="modal-card-title" style="font-size:1.1rem" data-oc-confirm-title>Please confirm</p>
+            <button class="delete" aria-label="close" data-oc-confirm-cancel type="button"></button>
+        </header>
+        <section class="modal-card-body">
+            <p data-oc-confirm-text style="font-size:0.9rem;color:#475569;white-space:pre-line"></p>
+        </section>
+        <footer class="modal-card-foot" style="justify-content:flex-end;gap:0.5rem">
+            <button type="button" class="button" data-oc-confirm-cancel>Cancel</button>
+            <button type="button" class="button is-primary" data-oc-confirm-ok>Confirm</button>
+        </footer>
+    </div>
+</div>
+
+<script>
+(function () {
+    var msgModal = document.getElementById('oc-message-modal');
+    var msgTitle = msgModal.querySelector('[data-oc-msg-title]');
+    var msgText = msgModal.querySelector('[data-oc-msg-text]');
+
+    msgModal.querySelectorAll('[data-oc-msg-close]').forEach(function (el) {
+        el.addEventListener('click', function () { msgModal.classList.remove('is-active'); });
+    });
+
+    window.ocMessage = function (message, title) {
+        msgTitle.textContent = title || 'Notice';
+        msgText.textContent = message || '';
+        msgModal.classList.add('is-active');
+    };
+
+    var confirmModal = document.getElementById('oc-confirm-modal');
+    var confirmTitle = confirmModal.querySelector('[data-oc-confirm-title]');
+    var confirmText = confirmModal.querySelector('[data-oc-confirm-text]');
+    var confirmResolve = null;
+
+    function settleConfirm(answer) {
+        confirmModal.classList.remove('is-active');
+        if (confirmResolve) {
+            var resolve = confirmResolve;
+            confirmResolve = null;
+            resolve(answer);
+        }
+    }
+
+    confirmModal.querySelectorAll('[data-oc-confirm-cancel]').forEach(function (el) {
+        el.addEventListener('click', function () { settleConfirm(false); });
+    });
+    confirmModal.querySelector('[data-oc-confirm-ok]').addEventListener('click', function () {
+        settleConfirm(true);
+    });
+
+    window.ocConfirm = function (message, title) {
+        return new Promise(function (resolve) {
+            // A second dialog while one is open answers the first with false
+            // rather than stranding its promise forever.
+            if (confirmResolve) {
+                confirmResolve(false);
+            }
+            confirmResolve = resolve;
+            confirmTitle.textContent = title || 'Please confirm';
+            confirmText.textContent = message || '';
+            confirmModal.classList.add('is-active');
+        });
+    };
+})();
+</script>

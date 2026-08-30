@@ -1,0 +1,199 @@
+{% extends 'layouts/base.html.twig' %}
+{% import 'components/macros.html.twig' as ui %}
+
+{% set active_page = 'cookies' %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div x-data="changesPage()">
+
+    <nav class="breadcrumb mb-3" aria-label="breadcrumbs">
+        <ul>
+            <li><a href="/">Dashboard</a></li>
+            <li><a href="/cookies?site_id={{ siteId }}">Cookies</a></li>
+            <li class="is-active"><a href="#" aria-current="page">Changes</a></li>
+        </ul>
+    </nav>
+
+    {# -- Header ------------------------------------------------- #}
+    <div class="level mb-4">
+        <div class="level-left">
+            <div class="level-item">
+                <h1 class="title is-4 mb-0">Register changes</h1>
+            </div>
+            <div class="level-item">
+                {{ ui.siteSelector(sites, siteId, '/cookies/changes') }}
+            </div>
+            <div class="level-item">
+                <span class="tag is-info is-light is-medium">{{ total }} change{{ total != 1 ? 's' : '' }}</span>
+            </div>
+        </div>
+        <div class="level-right">
+            <div class="level-item">
+                <label class="checkbox" title="Send an email when a scan changes the register">
+                    <input type="checkbox" x-model="alertsOn" @change="toggleAlerts()">
+                    Email me on changes
+                </label>
+            </div>
+        </div>
+    </div>
+
+    {# -- Entry-type filter -------------------------------------- #}
+    <div class="tabs is-small mb-4">
+        <ul>
+            <li class="{{ entryType is null ? 'is-active' : '' }}">
+                <a href="/cookies/changes?site_id={{ siteId }}">All</a>
+            </li>
+            <li class="{{ entryType == 'cookie' ? 'is-active' : '' }}">
+                <a href="/cookies/changes?site_id={{ siteId }}&type=cookie">Cookies</a>
+            </li>
+            <li class="{{ entryType == 'beacon' ? 'is-active' : '' }}">
+                <a href="/cookies/changes?site_id={{ siteId }}&type=beacon">Beacons</a>
+            </li>
+        </ul>
+    </div>
+
+    {# -- Timeline ----------------------------------------------- #}
+    {% if changesByDay is empty %}
+    <div class="box has-text-centered py-6">
+        <span class="icon is-large has-text-grey-light mb-3"><i class="fas fa-clock-rotate-left fa-2x"></i></span>
+        <p class="title is-5 has-text-grey">No register changes yet</p>
+        <p class="subtitle is-6 has-text-grey">
+            Every completed scan compares your cookie and beacon register with the previous one.
+            The first scan sets the baseline; changes show up here from the second scan on.
+        </p>
+        <a href="/scans?site_id={{ siteId }}" class="button is-primary is-small">
+            <span class="icon"><i class="fas fa-rotate"></i></span>
+            <span>Run a scan</span>
+        </a>
+    </div>
+    {% else %}
+    {% for day, changes in changesByDay %}
+    <div class="box mb-4">
+        <h2 class="title is-6 mb-3">
+            <span class="icon-text">
+                <span class="icon has-text-grey"><i class="far fa-calendar"></i></span>
+                <span>{{ day }}</span>
+                <span class="tag is-light ml-2">{{ changes|length }}</span>
+            </span>
+        </h2>
+        <div class="table-container">
+            <table class="table is-fullwidth is-hoverable is-narrow">
+                <thead>
+                    <tr>
+                        <th style="width:130px">Change</th>
+                        <th style="width:90px">Type</th>
+                        <th>Name</th>
+                        <th>Category</th>
+                        <th style="width:150px">Attributes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for change in changes %}
+                    <tr>
+                        <td>
+                            {% if change.change_type == 'added' %}
+                                <span class="tag is-success is-light">Added</span>
+                            {% elseif change.change_type == 'removed' %}
+                                <span class="tag is-danger is-light">Removed</span>
+                            {% elseif change.change_type == 'category_changed' %}
+                                <span class="tag is-warning is-light">Recategorized</span>
+                            {% else %}
+                                <span class="tag is-light">Attributes</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="icon-text">
+                                <span class="icon is-small has-text-grey">
+                                    <i class="fas {{ change.entry_type == 'beacon' ? 'fa-satellite-dish' : 'fa-cookie-bite' }}"></i>
+                                </span>
+                                <span class="is-size-7">{{ change.entry_type }}</span>
+                            </span>
+                        </td>
+                        <td>
+                            <code class="is-size-7">{{ change.name }}</code>
+                            {% if change.domain and change.domain != change.name %}
+                                <br><span class="is-size-7 has-text-grey">{{ change.domain }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if change.change_type == 'category_changed' %}
+                                <span class="tag is-light">{{ change.old_value.category ?? '-' }}</span>
+                                <span class="icon is-small"><i class="fas fa-arrow-right"></i></span>
+                                <span class="tag is-warning is-light">{{ change.new_value.category ?? '-' }}</span>
+                            {% else %}
+                                <span class="tag is-light">{{ change.new_value.category ?? change.old_value.category ?? '-' }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="is-size-7 has-text-grey">
+                            {% if change.change_type == 'attribute_changed' and change.old_value.attrs is defined and change.new_value.attrs is defined %}
+                                {% for attr, newVal in change.new_value.attrs %}
+                                    {% set oldVal = change.old_value.attrs[attr] ?? null %}
+                                    {% if oldVal is not null and newVal is not null and oldVal != newVal %}
+                                        {{ attr }}: {{ oldVal }} &rarr; {{ newVal }}<br>
+                                    {% endif %}
+                                {% endfor %}
+                            {% else %}
+                                &mdash;
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endfor %}
+
+    {# -- Pagination --------------------------------------------- #}
+    {% if totalPages > 1 %}
+    <nav class="pagination is-small" role="navigation" aria-label="pagination">
+        {% if page > 1 %}
+        <a class="pagination-previous" href="/cookies/changes?site_id={{ siteId }}&page={{ page - 1 }}{{ entryType ? '&type=' ~ entryType : '' }}">Previous</a>
+        {% endif %}
+        {% if page < totalPages %}
+        <a class="pagination-next" href="/cookies/changes?site_id={{ siteId }}&page={{ page + 1 }}{{ entryType ? '&type=' ~ entryType : '' }}">Next</a>
+        {% endif %}
+        <ul class="pagination-list">
+            <li><span class="pagination-link is-current">Page {{ page }} of {{ totalPages }}</span></li>
+        </ul>
+    </nav>
+    {% endif %}
+    {% endif %}
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function changesPage() {
+    return {
+        alertsOn: {{ alertsEnabled ? 'true' : 'false' }},
+        toggling: false,
+
+        async toggleAlerts() {
+            if (this.toggling) return;
+            this.toggling = true;
+            try {
+                const res = await fetch('/app/cookies/changes-alerts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ site_id: {{ siteId }}, enabled: this.alertsOn ? 1 : 0 })
+                });
+                const data = await res.json();
+                if (!res.ok || !data.success) {
+                    this.alertsOn = !this.alertsOn;
+                    ocMessage('Could not save the alert setting. Try again.');
+                }
+            } catch (e) {
+                this.alertsOn = !this.alertsOn;
+                ocMessage('Could not save the alert setting. Try again.');
+            } finally {
+                this.toggling = false;
+            }
+        }
+    };
+}
+</script>
+{% endblock %}

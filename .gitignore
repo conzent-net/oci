@@ -1,0 +1,12 @@
+/vendor/
+.env
+.env.local
+.env.*.local
+.env.before-restore-*
+.conzent-credentials
+docker-compose.override.yml
+/var/
+node_modules/
+.phpunit.cache/
+public/sites_data/
+/backups/

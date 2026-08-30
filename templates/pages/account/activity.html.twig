@@ -1,0 +1,89 @@
+{% extends 'layouts/base.html.twig' %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div>
+    <nav class="breadcrumb mb-3" aria-label="breadcrumbs">
+        <ul>
+            <li><a href="/">Dashboard</a></li>
+            <li><a href="/account">Account</a></li>
+            <li class="is-active"><a href="#" aria-current="page">Activity</a></li>
+        </ul>
+    </nav>
+
+    <div class="level mb-4">
+        <div class="level-left">
+            <div class="level-item">
+                <h1 class="title is-4 mb-0">Account Activity</h1>
+            </div>
+            <div class="level-item">
+                <span class="tag is-info is-light is-medium">{{ total }} entr{{ total == 1 ? 'y' : 'ies' }}</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="notification is-info is-light">
+        Every state-changing action on your account is recorded here: configuration
+        changes, cookie and banner edits, and every write request with its source IP.
+        This log is append-only and cannot be edited from the dashboard.
+    </div>
+
+    {% if entries is empty %}
+        <div class="box has-text-centered py-6">
+            <span class="icon is-large has-text-grey-light">
+                <i class="fas fa-clipboard-list fa-3x"></i>
+            </span>
+            <p class="title is-5 mt-4">No activity recorded yet</p>
+            <p class="subtitle is-6 has-text-grey">Actions you take from now on will appear here.</p>
+        </div>
+    {% else %}
+    <div class="table-container">
+        <table class="table is-fullwidth is-hoverable is-striped">
+            <thead>
+                <tr>
+                    <th>When</th>
+                    <th>Action</th>
+                    <th>What</th>
+                    <th>Details</th>
+                    <th>From IP</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in entries %}
+                <tr>
+                    <td class="is-size-7" style="white-space:nowrap">{{ entry.created_at }}</td>
+                    <td><span class="tag is-light">{{ entry.action }}</span></td>
+                    <td class="is-size-7">
+                        {{ entry.entity_type }}{% if entry.entity_id %} #{{ entry.entity_id }}{% endif %}
+                    </td>
+                    <td class="is-size-7 has-text-grey">
+                        {% if entry.detail %}
+                            <code>{{ entry.detail }}</code>
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+                    <td class="is-size-7"><code>{{ entry.ip_address ?: '—' }}</code></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if totalPages > 1 %}
+    <nav class="pagination is-small mt-4" role="navigation" aria-label="pagination">
+        {% if page > 1 %}
+            <a class="pagination-previous" href="?page={{ page - 1 }}">Previous</a>
+        {% endif %}
+        {% if page < totalPages %}
+            <a class="pagination-next" href="?page={{ page + 1 }}">Next</a>
+        {% endif %}
+        <ul class="pagination-list">
+            <li><span class="pagination-link is-current">Page {{ page }} of {{ totalPages }}</span></li>
+        </ul>
+    </nav>
+    {% endif %}
+    {% endif %}
+</div>
+{% endblock %}
