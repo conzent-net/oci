@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Cookie register changed on {{ domain }}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f5f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#374151;-webkit-text-size-adjust:100%;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f4f5f7;">
+        <tr>
+            <td align="center" style="padding:40px 20px;">
+                <table role="presentation" width="640" cellpadding="0" cellspacing="0" border="0" style="max-width:640px;width:100%;">
+
+                    {# ── Header ────────────────────────────────────────── #}
+                    <tr>
+                        <td style="background:#ffffff;border-radius:8px;padding:32px;">
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td align="center" style="padding-bottom:8px;">
+                                        <span style="font-size:24px;font-weight:700;color:#2e9e5e;">Conzent</span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td align="center" style="font-size:20px;color:#111827;font-weight:700;padding-bottom:4px;">
+                                        Cookie register changed
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td align="center" style="font-size:13px;color:#6b7280;">
+                                        {{ domain }} &middot; {{ total }} change{{ total != 1 ? 's' : '' }} detected by the latest scan
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    <tr><td style="height:24px;"></td></tr>
+
+                    {# ── Summary counts ────────────────────────────────── #}
+                    <tr>
+                        <td style="background:#ffffff;border-radius:8px;padding:24px 32px;">
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td width="25%" align="center" style="padding:8px;">
+                                        <div style="font-size:24px;font-weight:700;color:#166534;">{{ counts.added }}</div>
+                                        <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;">Added</div>
+                                    </td>
+                                    <td width="25%" align="center" style="padding:8px;">
+                                        <div style="font-size:24px;font-weight:700;color:#991b1b;">{{ counts.removed }}</div>
+                                        <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;">Removed</div>
+                                    </td>
+                                    <td width="25%" align="center" style="padding:8px;">
+                                        <div style="font-size:24px;font-weight:700;color:#92400e;">{{ counts.category_changed }}</div>
+                                        <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;">Recategorized</div>
+                                    </td>
+                                    <td width="25%" align="center" style="padding:8px;">
+                                        <div style="font-size:24px;font-weight:700;color:#374151;">{{ counts.attribute_changed }}</div>
+                                        <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;">Attributes</div>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    <tr><td style="height:24px;"></td></tr>
+
+                    {# ── Change list ───────────────────────────────────── #}
+                    <tr>
+                        <td style="background:#ffffff;border-radius:8px;padding:24px 32px;">
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;font-size:13px;">
+                                <tr>
+                                    <th style="background:#f9fafb;color:#374151;font-weight:600;text-align:left;padding:8px 12px;border-bottom:2px solid #e5e7eb;">Change</th>
+                                    <th style="background:#f9fafb;color:#374151;font-weight:600;text-align:left;padding:8px 12px;border-bottom:2px solid #e5e7eb;">Type</th>
+                                    <th style="background:#f9fafb;color:#374151;font-weight:600;text-align:left;padding:8px 12px;border-bottom:2px solid #e5e7eb;">Name</th>
+                                    <th style="background:#f9fafb;color:#374151;font-weight:600;text-align:left;padding:8px 12px;border-bottom:2px solid #e5e7eb;">Category</th>
+                                </tr>
+                                {% for change in changes|slice(0, 50) %}
+                                {% set badge = {
+                                    'added':             { bg: '#f0fdf4', color: '#166534', label: 'Added' },
+                                    'removed':           { bg: '#fef2f2', color: '#991b1b', label: 'Removed' },
+                                    'category_changed':  { bg: '#fffbeb', color: '#92400e', label: 'Recategorized' },
+                                    'attribute_changed': { bg: '#f3f4f6', color: '#374151', label: 'Attributes' }
+                                }[change.change_type] %}
+                                <tr>
+                                    <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;">
+                                        <span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:{{ badge.bg }};color:{{ badge.color }};">{{ badge.label }}</span>
+                                    </td>
+                                    <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;color:#6b7280;">{{ change.entry_type }}</td>
+                                    <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;color:#4b5563;word-break:break-all;">
+                                        {{ change.name }}
+                                        {% if change.domain %}<br><span style="font-size:11px;color:#9ca3af;">{{ change.domain }}</span>{% endif %}
+                                    </td>
+                                    <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;color:#4b5563;">
+                                        {% if change.change_type == 'category_changed' %}
+                                            {{ change.old_value.category ?? '-' }} &rarr; <strong>{{ change.new_value.category ?? '-' }}</strong>
+                                        {% else %}
+                                            {{ change.new_value.category ?? change.old_value.category ?? '-' }}
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </table>
+                            {% if total > 50 %}
+                            <p style="margin:12px 0 0;font-size:12px;color:#6b7280;">Showing the first 50 of {{ total }} changes — the full list is on your changes page.</p>
+                            {% endif %}
+                            <p style="margin:16px 0 0;font-size:13px;line-height:1.6;color:#4b5563;">
+                                A changed register can affect your cookie policy and your banner's cookie list.
+                                Review the changes, reclassify anything that landed in the wrong category, and
+                                regenerate your cookie policy if it embeds the cookie table.
+                            </p>
+                            <p style="margin:16px 0 0;font-size:13px;">
+                                <a href="{{ base_url }}/cookies/changes" style="display:inline-block;background:#2e9e5e;color:#ffffff;text-decoration:none;padding:10px 20px;border-radius:6px;font-weight:600;">Review changes</a>
+                            </p>
+                        </td>
+                    </tr>
+
+                    {# ── Footer ────────────────────────────────────────── #}
+                    <tr>
+                        <td align="center" style="padding:24px 0 8px;font-size:12px;color:#9ca3af;">
+                            <p style="margin:0 0 4px;">Generated by Conzent on {{ generated_at }}</p>
+                            <p style="margin:0;">You get this mail because register change alerts are on for {{ domain }}. Turn them off on the <a href="{{ base_url }}/cookies/changes" style="color:#2e9e5e;text-decoration:none;">changes page</a>.</p>
+                        </td>
+                    </tr>
+
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

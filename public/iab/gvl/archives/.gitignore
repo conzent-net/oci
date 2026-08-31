@@ -1,0 +1,3 @@
+# Historical Global Vendor List versions, written by `bin/oci iab:update-vendor-list`.
+# Regenerable and unbounded — never commit them. Retention is GVL_ARCHIVE_KEEP.
+*.json
