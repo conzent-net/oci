@@ -1,0 +1,86 @@
+{
+  "description": "Normalise Conzent KB documents on write: defaults for legacy fields, timestamps, lowercase facets.",
+  "processors": [
+    {
+      "set": {
+        "field": "source",
+        "value": "document",
+        "override": false
+      }
+    },
+    {
+      "set": {
+        "field": "reviewed",
+        "value": true,
+        "override": false
+      }
+    },
+    {
+      "set": {
+        "field": "edition",
+        "value": ["cloud", "self-hosted"],
+        "override": false
+      }
+    },
+    {
+      "set": {
+        "field": "audience",
+        "value": ["customer"],
+        "override": false
+      }
+    },
+    {
+      "set": {
+        "field": "plan",
+        "value": "any",
+        "override": false
+      }
+    },
+    {
+      "set": {
+        "field": "area",
+        "value": "General",
+        "override": false
+      }
+    },
+    {
+      "set": {
+        "field": "createdAt",
+        "value": "{{{_ingest.timestamp}}}",
+        "override": false
+      }
+    },
+    {
+      "set": {
+        "field": "updatedAt",
+        "value": "{{{_ingest.timestamp}}}",
+        "override": true
+      }
+    },
+    {
+      "script": {
+        "description": "Legacy audience:'both' means every end-user role, not an edition.",
+        "lang": "painless",
+        "source": "if (ctx.audience instanceof String && ctx.audience == 'both') { ctx.audience = ['customer','agency','admin']; }"
+      }
+    },
+    {
+      "script": {
+        "description": "Derive summary from the body when the importer did not supply one.",
+        "lang": "painless",
+        "source": "if (ctx.summary == null && ctx.body != null) { int n = (int)Math.min(400, ctx.body.length()); ctx.summary = ctx.body.substring(0, n); }"
+      }
+    },
+    {
+      "trim": { "field": "title", "ignore_missing": true }
+    }
+  ],
+  "on_failure": [
+    {
+      "set": {
+        "field": "_ingest_error",
+        "value": "{{{_ingest.on_failure_message}}}"
+      }
+    }
+  ]
+}

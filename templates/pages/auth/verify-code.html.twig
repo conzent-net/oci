@@ -1,0 +1,93 @@
+{% extends 'layouts/auth.html.twig' %}
+
+{% block title %}Verify Your Email{% endblock %}
+
+{% block content %}
+<div class="auth-card">
+    <h2 class="title is-4 has-text-centered mb-3">Check your email</h2>
+    <p class="has-text-centered mb-4" style="color:#64748b;font-size:0.9rem">
+        We sent a 6-digit code to <strong>{{ email }}</strong>. Enter it below to finish signing up.
+    </p>
+
+    {% if error %}
+        <div class="notification is-danger is-light" style="border-radius:10px">
+            {{ error }}
+        </div>
+    {% endif %}
+
+    <form method="post" action="/register/verify-code" id="verify-form">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+
+        {% include 'partials/_verification_modal.html.twig' with { email: email } %}
+
+        <div class="field mt-5">
+            <button class="button is-primary is-fullwidth" type="submit">Verify code</button>
+        </div>
+    </form>
+
+    <form method="post" action="/register/resend-code" style="margin-top:0.75rem">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+        <button class="button is-text is-small is-fullwidth" type="submit">Resend code</button>
+    </form>
+
+    <p class="has-text-centered mt-4" style="font-size:0.85rem">
+        <a href="/register" style="color:#64748b">← Use a different email</a>
+    </p>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    var inputs = document.querySelectorAll('[data-otp-input]');
+    var hidden = document.createElement('input');
+    hidden.type = 'hidden';
+    hidden.name = 'code';
+    document.getElementById('verify-form').appendChild(hidden);
+
+    function collect() {
+        var s = '';
+        inputs.forEach(function (el) { s += el.value || ''; });
+        hidden.value = s;
+        return s;
+    }
+
+    inputs.forEach(function (input, idx) {
+        input.addEventListener('input', function () {
+            input.value = input.value.replace(/\D/g, '').slice(0, 1);
+            if (input.value && idx < inputs.length - 1) {
+                inputs[idx + 1].focus();
+            }
+            collect();
+            if (collect().length === 6) {
+                document.getElementById('verify-form').submit();
+            }
+        });
+        input.addEventListener('keydown', function (e) {
+            if (e.key === 'Backspace' && !input.value && idx > 0) {
+                inputs[idx - 1].focus();
+            }
+        });
+        input.addEventListener('paste', function (e) {
+            e.preventDefault();
+            var data = (e.clipboardData || window.clipboardData).getData('text');
+            var digits = (data || '').replace(/\D/g, '').slice(0, 6);
+            for (var i = 0; i < digits.length && i < inputs.length; i++) {
+                inputs[i].value = digits.charAt(i);
+            }
+            if (digits.length === 6) {
+                collect();
+                document.getElementById('verify-form').submit();
+            } else {
+                inputs[Math.min(digits.length, inputs.length - 1)].focus();
+                collect();
+            }
+        });
+    });
+
+    if (inputs.length > 0) {
+        inputs[0].focus();
+    }
+})();
+</script>
+{% endblock %}

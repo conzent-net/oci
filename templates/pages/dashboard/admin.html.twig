@@ -1,0 +1,73 @@
+{% extends 'layouts/base.html.twig' %}
+
+{% block title %}Admin Dashboard{% endblock %}
+
+{% block content %}
+<div class="mb-5">
+    <h1 class="title is-3 mb-1">Admin Dashboard</h1>
+    <p class="subtitle is-6 has-text-grey">System overview</p>
+</div>
+
+<div class="columns is-multiline">
+    {# ── Stats (populated once admin stats endpoints are ported) ── #}
+    <div class="column is-3">
+        <div class="box has-text-centered">
+            <p class="heading">Total Users</p>
+            <p class="title is-4" id="stat-users">—</p>
+        </div>
+    </div>
+    <div class="column is-3">
+        <div class="box has-text-centered">
+            <p class="heading">Active Sites</p>
+            <p class="title is-4" id="stat-sites">—</p>
+        </div>
+    </div>
+    <div class="column is-3">
+        <div class="box has-text-centered">
+            <p class="heading">Consents Today</p>
+            <p class="title is-4" id="stat-consents">—</p>
+        </div>
+    </div>
+    <div class="column is-3">
+        <div class="box has-text-centered">
+            <p class="heading">Active Subscriptions</p>
+            <p class="title is-4" id="stat-subs">—</p>
+        </div>
+    </div>
+
+    {# ── Quick Actions ─────────────────────────────────── #}
+    <div class="column is-12">
+        <div class="box">
+            <h2 class="title is-5 mb-4">Quick Actions</h2>
+            <div class="buttons">
+                <a class="button is-link" href="/admin/users">Manage Users</a>
+                <a class="button is-info is-outlined" href="/admin/plans">Manage Plans</a>
+                <a class="button is-warning is-outlined" href="/admin/agencies">Manage Agencies</a>
+            </div>
+        </div>
+    </div>
+
+    {# ── System Health ──────────────────────────────────── #}
+    <div class="column is-6">
+        <div class="box">
+            <h2 class="title is-5 mb-3">System Health</h2>
+            <div class="content">
+                <p class="has-text-grey is-size-7">
+                    Admin statistics and charts will be populated when the admin domain is fully ported.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="column is-6">
+        <div class="box">
+            <h2 class="title is-5 mb-3">Recent Activity</h2>
+            <div class="content">
+                <p class="has-text-grey is-size-7">
+                    Activity log will be displayed here once the admin audit features are ported.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

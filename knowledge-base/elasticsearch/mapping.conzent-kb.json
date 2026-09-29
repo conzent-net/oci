@@ -1,0 +1,160 @@
+{
+  "_comment": [
+    "Index mapping for the Conzent support knowledge base.",
+    "Create as conzent-kb-v2 and alias conzent-kb to it, so the existing",
+    "KnowledgeBaseService (src/Admin/Service/KnowledgeBaseService.php) keeps working",
+    "unchanged while gaining vector search:",
+    "  PUT  /conzent-kb-v2      (this body)",
+    "  POST /_aliases           {\"actions\":[{\"add\":{\"index\":\"conzent-kb-v2\",\"alias\":\"conzent-kb\"}}]}",
+    "Legacy fields kept for compatibility: title, body, tags, audience, source, reviewed, createdAt.",
+    "Set body_vector dims to match your embedding model (768 = e5-base / gte-base, 1024 = e5-large,",
+    "1536 = OpenAI text-embedding-3-small). Change BOTH vector fields together."
+  ],
+
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 0,
+    "refresh_interval": "5s",
+    "analysis": {
+      "filter": {
+        "conzent_synonyms": {
+          "type": "synonym_graph",
+          "lenient": true,
+          "synonyms": [
+            "cmp, consent management platform",
+            "banner, cookie banner, cookie notice, consent banner, popup",
+            "preference center, preference centre, settings panel, second layer",
+            "gcm, google consent mode, consent mode",
+            "tcf, iab tcf, transparency and consent framework",
+            "gpc, global privacy control",
+            "dns, do not sell, do not sell or share",
+            "site, website, domain, property",
+            "website key, site key, api key, data-key",
+            "script, snippet, tag, embed code, install code",
+            "scan, crawl, cookie scan",
+            "consent log, consent record, audit trail, consent proof",
+            "framework, regulation, law, privacy law",
+            "self-hosted, oci, on-premise, on premise, community edition",
+            "cloud, saas, hosted, app.getconzent.com",
+            "plan, subscription, tier, package",
+            "revisit button, floating button, reopen banner"
+          ]
+        },
+        "conzent_stem": { "type": "stemmer", "language": "english" }
+      },
+      "analyzer": {
+        "conzent_text": {
+          "type": "custom",
+          "tokenizer": "standard",
+          "filter": ["lowercase", "conzent_stem"]
+        },
+        "conzent_search": {
+          "_comment": "search-time only: expands the query, not the index",
+          "type": "custom",
+          "tokenizer": "standard",
+          "filter": ["lowercase", "conzent_synonyms", "conzent_stem"]
+        }
+      },
+      "normalizer": {
+        "lc": { "type": "custom", "filter": ["lowercase"] }
+      }
+    }
+  },
+
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "id": {
+        "_comment": "stable slug, e.g. banner.general — mirrored into _id",
+        "type": "keyword"
+      },
+      "title": {
+        "type": "text",
+        "analyzer": "conzent_text",
+        "search_analyzer": "conzent_search",
+        "fields": { "raw": { "type": "keyword", "normalizer": "lc" } }
+      },
+      "body": {
+        "_comment": "full Markdown body of the article (frontmatter stripped)",
+        "type": "text",
+        "analyzer": "conzent_text",
+        "search_analyzer": "conzent_search"
+      },
+      "summary": {
+        "_comment": "first paragraph of 'What it does' — safe for the agent to quote verbatim",
+        "type": "text",
+        "analyzer": "conzent_text",
+        "search_analyzer": "conzent_search"
+      },
+      "questions": {
+        "_comment": "anticipated user phrasings — boost this field hard, it is the highest-signal match",
+        "type": "text",
+        "analyzer": "conzent_text",
+        "search_analyzer": "conzent_search"
+      },
+      "fields_covered": {
+        "_comment": "flat list of every UI control name in the article — lets 'what is X toggle' resolve",
+        "type": "text",
+        "analyzer": "conzent_text",
+        "search_analyzer": "conzent_search",
+        "fields": { "raw": { "type": "keyword", "normalizer": "lc" } }
+      },
+
+      "area": { "type": "keyword" },
+      "knowledgebase": {
+        "_comment": "Which knowledge base this document ships in — one per articles/ folder. Filter on this to scope retrieval to a single KB.",
+        "type": "keyword"
+      },
+      "url": { "type": "keyword" },
+      "menu_path": {
+        "type": "text",
+        "analyzer": "conzent_text",
+        "fields": { "raw": { "type": "keyword" } }
+      },
+      "edition": {
+        "_comment": "cloud | self-hosted — filter before answering, pages differ per edition",
+        "type": "keyword"
+      },
+      "audience": {
+        "_comment": "customer | agency | admin | both (legacy value written by KnowledgeBaseService)",
+        "type": "keyword"
+      },
+      "plan": {
+        "_comment": "any | paid | business — Cloud plan gate for the feature",
+        "type": "keyword"
+      },
+      "tags": { "type": "keyword", "normalizer": "lc" },
+      "related": { "type": "keyword" },
+      "source_files": { "type": "keyword" },
+
+      "source": {
+        "_comment": "document | transcript | manual — legacy field, filtered on by the admin KB list",
+        "type": "keyword"
+      },
+      "reviewed": { "type": "boolean" },
+      "createdAt": { "type": "date" },
+      "updatedAt": { "type": "date" },
+      "content_hash": {
+        "_comment": "sha256 of the body — importer skips re-embedding unchanged articles",
+        "type": "keyword",
+        "index": false
+      },
+
+      "body_vector": {
+        "type": "dense_vector",
+        "dims": 768,
+        "index": true,
+        "similarity": "cosine",
+        "index_options": { "type": "int8_hnsw", "m": 16, "ef_construction": 100 }
+      },
+      "questions_vector": {
+        "_comment": "embedding of the joined questions list — matches conversational phrasing better than the body",
+        "type": "dense_vector",
+        "dims": 768,
+        "index": true,
+        "similarity": "cosine",
+        "index_options": { "type": "int8_hnsw", "m": 16, "ef_construction": 100 }
+      }
+    }
+  }
+}

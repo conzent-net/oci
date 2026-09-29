@@ -1,0 +1,67 @@
+<div class="table-container">
+    <table class="table is-fullwidth is-hoverable is-striped">
+        <thead>
+            <tr>
+                <th>Template Name</th>
+                <th>Type</th>
+                <th>Applied To</th>
+                <th>Created</th>
+                <th style="width:160px"></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for template in templates %}
+            <tr>
+                <td>{{ template.template_name }}</td>
+                <td>
+                    {% if template.type == 'cookie' %}
+                        <span class="tag is-info is-light is-small">Cookie</span>
+                    {% else %}
+                        <span class="tag is-primary is-light is-small">Privacy</span>
+                    {% endif %}
+                    {% if template.is_default %}
+                        <span class="tag is-light is-small">System</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% set appliedSites = templateSites[template.id] ?? [] %}
+                    {% if appliedSites|length > 0 %}
+                        <div class="tags are-small mb-0">
+                            {% for site in appliedSites|slice(0, 4) %}
+                                <span class="tag is-success is-light">{{ site.domain }}</span>
+                            {% endfor %}
+                            {% if appliedSites|length > 4 %}
+                                <span class="tag is-light" title="{{ appliedSites|slice(4)|map(s => s.domain)|join(', ') }}">+{{ appliedSites|length - 4 }} more</span>
+                            {% endif %}
+                        </div>
+                    {% else %}
+                        <span class="is-size-7 has-text-grey">None</span>
+                    {% endif %}
+                </td>
+                <td class="is-size-7">{{ template.created_at|date('Y-m-d') }}</td>
+                <td>
+                    <div class="buttons are-small">
+                        <button class="button is-small is-info is-outlined" @click="openApply({{ template.id }}, '{{ template.type }}')" title="Apply to sites">
+                            <span class="icon"><i class="fas fa-copy"></i></span>
+                        </button>
+                        {% if not template.is_default %}
+                        <button class="button is-small is-outlined" @click="openRename({{ template.id }}, '{{ template.type }}', '{{ template.template_name|e('js') }}')" title="Rename">
+                            <span class="icon"><i class="fas fa-pen-to-square"></i></span>
+                        </button>
+                        <button class="button is-small is-danger is-outlined" @click="deleteTemplate({{ template.id }}, '{{ template.type }}')" title="Delete">
+                            <span class="icon"><i class="fas fa-trash"></i></span>
+                        </button>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="5" class="has-text-centered py-5">
+                    <p class="has-text-grey is-size-7">No templates yet. Use the "Promote to Template" button on a configured policy to create one.</p>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
