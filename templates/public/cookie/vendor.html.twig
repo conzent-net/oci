@@ -1,0 +1,25 @@
+{# Every cookie a vendor sets. Body only: the site shell wraps it. #}
+<section class="hero">
+  <div class="hero__content">
+    <p style="margin:0 0 .5rem 0;font-size:.85rem;opacity:.75"><a href="/cookie/">Cookie database</a></p>
+    <h1 class="hero__title">{{ vendor.name }} cookies</h1>
+    <p class="hero__subtitle">{{ vendor.cookies|length }} cookie{{ vendor.cookies|length == 1 ? '' : 's' }} set by {{ vendor.name }}{% if vendor.controller and vendor.controller != vendor.name %} ({{ vendor.controller }}){% endif %}, each with its purpose and consent category.</p>
+  </div>
+</section>
+<section class="section">
+  <div class="container">
+    <article class="prose">
+      {% if vendor.privacy_url %}<p>Privacy policy: <a href="{{ vendor.privacy_url }}" rel="nofollow noopener" target="_blank">{{ vendor.privacy_url }}</a></p>{% endif %}
+      <table style="border-collapse:collapse;margin-bottom:1.5rem;font-size:.95em">
+        <thead><tr><th style="text-align:left;padding:.5rem .75rem .5rem 0;vertical-align:top">Cookie</th><th style="text-align:left;padding:.5rem .75rem .5rem 0;vertical-align:top">Category</th><th style="text-align:left;padding:.5rem .75rem .5rem 0;vertical-align:top">Purpose</th></tr></thead>
+        <tbody>
+          {% for c in vendor.cookies %}
+          <tr><td style="padding:.5rem .75rem .5rem 0;vertical-align:top"><a href="{{ c.path }}"><code>{{ c.name }}</code></a></td><td style="padding:.5rem .75rem .5rem 0;vertical-align:top">{{ c.category_label }}</td><td style="padding:.5rem .75rem .5rem 0;vertical-align:top">{{ c.description }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <p>Running {{ vendor.name }} on your site? A <a href="https://app.getconzent.com/register">free Conzent scan</a> shows which of these cookies are set before consent, and the banner blocks them until the visitor agrees.</p>
+      <p style="font-size:.85rem;opacity:.7">Last updated {{ generated }}.</p>
+    </article>
+  </div>
+</section>

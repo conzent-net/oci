@@ -1,0 +1,49 @@
+{#
+  One color setting on the banner page: a swatch that opens a popover with
+  the browser's color input, an opacity slider, a text field for pasted
+  values and a Transparent button. The browser's input alone cannot hold
+  opacity, so a color could never be made see-through or reset to
+  transparent.
+
+  element, field and label are JavaScript expressions evaluated in the
+  bannerSettings() scope: quoted strings, or the x-for loop variable.
+#}
+{% macro colorField(element, field, label) %}
+<div class="oci-color-field" x-data="{ open: false, textError: false }"
+     @click.outside="open = false" @keydown.escape.window="open = false">
+    <button type="button" class="oci-color-swatch"
+            @click="open = !open; textError = false"
+            :aria-expanded="open.toString()"
+            :aria-label="'Choose color: ' + ({{ label|raw }})"
+            :title="getColor({{ element|raw }}, {{ field|raw }})">
+        <span class="oci-color-swatch-fill" :style="swatchStyle(getColor({{ element|raw }}, {{ field|raw }}))"></span>
+    </button>
+    <span class="color-label" x-text="{{ label|raw }}"></span>
+    <div class="oci-color-popover" x-show="open" x-cloak x-transition.opacity
+         role="dialog" :aria-label="'Color: ' + ({{ label|raw }})">
+        <div class="oci-color-popover-row">
+            <input type="color" class="oci-color-native"
+                   :value="colorHex(getColor({{ element|raw }}, {{ field|raw }}))"
+                   :data-color-element="{{ element|raw }}" :data-color-field="{{ field|raw }}"
+                   @input="setColorRgb({{ element|raw }}, {{ field|raw }}, $event.target.value); textError = false"
+                   aria-label="Color">
+            <input type="text" class="input is-small oci-color-text" spellcheck="false" autocomplete="off" placeholder="Not set"
+                   :class="textError ? 'is-danger' : ''"
+                   :value="getColor({{ element|raw }}, {{ field|raw }})"
+                   @change="textError = !setColorText({{ element|raw }}, {{ field|raw }}, $event.target.value)"
+                   @keydown.enter.prevent="textError = !setColorText({{ element|raw }}, {{ field|raw }}, $event.target.value)"
+                   aria-label="Color value">
+        </div>
+        <p class="help is-danger mt-1" x-show="textError" x-cloak>Enter a hex, rgb or hsl color</p>
+        <label class="oci-color-opacity">
+            <span class="is-size-7">Opacity</span>
+            <input type="range" min="0" max="100" step="1"
+                   :value="colorAlpha(getColor({{ element|raw }}, {{ field|raw }}))"
+                   @input="setColorAlpha({{ element|raw }}, {{ field|raw }}, $event.target.value); textError = false">
+            <span class="is-size-7 oci-color-opacity-value" x-text="colorAlpha(getColor({{ element|raw }}, {{ field|raw }})) + '%'"></span>
+        </label>
+        <button type="button" class="button is-small is-fullwidth mt-2"
+                @click="setColorTransparent({{ element|raw }}, {{ field|raw }}); textError = false">Transparent</button>
+    </div>
+</div>
+{% endmacro %}

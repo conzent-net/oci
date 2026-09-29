@@ -1,0 +1,288 @@
+{% extends 'layouts/base.html.twig' %}
+
+{% set active_page = 'compliance-checklist' %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+      integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA=="
+      crossorigin="anonymous" referrerpolicy="no-referrer" />
+<style>
+    .checklist-item { transition: background-color 0.2s; border-radius: 4px; }
+    .checklist-item:hover { background-color: var(--oci-primary-light, hsl(141, 71%, 96%)); }
+    .checklist-item.is-checked { opacity: 0.7; }
+    .checklist-item + .checklist-item { border-top: 1px solid var(--oci-border, hsl(0, 0%, 93%)); }
+
+    .reg-list-item { cursor: pointer; padding: 0.6rem 0.75rem; border-radius: 6px; transition: background-color 0.15s; }
+    .reg-list-item:hover { background-color: var(--oci-primary-light, hsl(141, 71%, 96%)); }
+    .reg-list-item.is-active { background-color: var(--oci-primary, #2e9e5e); color: #fff; }
+    .reg-list-item.is-active .has-text-grey { color: rgba(255,255,255,0.7) !important; }
+    .reg-list-item.is-active .tag { background-color: rgba(255,255,255,0.2); color: #fff; }
+    .reg-list-item + .reg-list-item { margin-top: 2px; }
+
+    .reg-sidebar { max-height: calc(100vh - 200px); overflow-y: auto; }
+
+    /* Progress bar: animate width once on load, then static */
+    .progress.is-animated::-webkit-progress-value {
+        animation: progress-fill 0.8s ease-out forwards;
+    }
+    .progress.is-animated::-moz-progress-bar {
+        animation: progress-fill 0.8s ease-out forwards;
+    }
+    @keyframes progress-fill { from { width: 0; } }
+    .progress:indeterminate { animation: none !important; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div x-data="complianceChecklist()">
+
+    <nav class="breadcrumb mb-3" aria-label="breadcrumbs">
+        <ul>
+            <li><a href="/">Dashboard</a></li>
+            <li class="is-active"><a href="#" aria-current="page">Compliance Checklist</a></li>
+        </ul>
+    </nav>
+
+    <div class="level mb-4">
+        <div class="level-left">
+            <div class="level-item">
+                <h1 class="title is-4 mb-0">Compliance Checklist</h1>
+            </div>
+        </div>
+    </div>
+
+    {# ── Category Tabs ── #}
+    <div class="tabs is-boxed mb-4">
+        <ul>
+            {% for category in overview %}
+            <li :class="{ 'is-active': activeCategory === '{{ category.id }}' }">
+                <a @click.prevent="setCategory('{{ category.id }}')">
+                    <span>{{ category.name }}</span>
+                </a>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    {# ── Two-column layout: Checklist (left) + Regulation list (right) ── #}
+    <div class="columns">
+
+        {# ── Left: Selected regulation checklist ── #}
+        <div class="column is-8-desktop is-7-tablet">
+            {% if checklist is not null %}
+            <div class="box">
+                <div class="level mb-3">
+                    <div class="level-left">
+                        <div class="level-item">
+                            <h2 class="title is-5 mb-0" x-text="checklist.regulation.name">
+                                {{ checklist.regulation.name }}
+                            </h2>
+                        </div>
+                        <div class="level-item">
+                            <span class="tag is-medium" :class="scoreTagClass" x-text="score + '% Complete'">
+                                {{ checklist.score }}% Complete
+                            </span>
+                        </div>
+                    </div>
+                    <div class="level-right">
+                        <span class="is-size-7 has-text-grey"
+                              x-text="checkedCount + ' of ' + totalCount + ' items completed'">
+                            {{ checklist.checked_count }} of {{ checklist.total_count }} items completed
+                        </span>
+                    </div>
+                </div>
+
+                <progress class="progress is-animated mb-4" :class="scoreProgressClass" :value="score" max="100"
+                          x-text="score + '%'">{{ checklist.score }}%</progress>
+
+                <div>
+                    <template x-for="item in items" :key="item.id">
+                        <div class="checklist-item py-3 px-3" :class="{ 'is-checked': item.checked }">
+                            <label class="checkbox is-flex is-align-items-start" style="gap: 0.75rem; cursor: pointer;">
+                                <input type="checkbox"
+                                       :checked="item.checked"
+                                       @change="toggleItem(item)"
+                                       :disabled="item.saving"
+                                       class="mt-1">
+                                <span x-text="item.text"
+                                      :style="item.checked ? 'text-decoration: line-through; opacity: 0.6' : ''"></span>
+                                <span x-show="item.saving" class="icon is-small has-text-grey-light ml-auto" style="flex-shrink: 0">
+                                    <i class="fas fa-spinner fa-spin"></i>
+                                </span>
+                                <span x-show="item.saved" x-transition.duration.300ms class="icon is-small has-text-success ml-auto" style="flex-shrink: 0">
+                                    <i class="fas fa-check"></i>
+                                </span>
+                            </label>
+                        </div>
+                    </template>
+                </div>
+            </div>
+            {% else %}
+            <div class="box has-text-centered py-6">
+                <span class="icon is-large has-text-grey-light">
+                    <i class="fas fa-clipboard-check fa-3x"></i>
+                </span>
+                <p class="title is-5 mt-4">No Checklist Available</p>
+                <p class="subtitle is-6 has-text-grey">Select a regulation from the list to view its checklist.</p>
+            </div>
+            {% endif %}
+        </div>
+
+        {# ── Right: Regulation list sidebar ── #}
+        <div class="column is-4-desktop is-5-tablet">
+            <div class="box p-3 reg-sidebar">
+                <p class="is-size-7 has-text-weight-semibold has-text-grey-dark mb-2 px-2" style="text-transform: uppercase; letter-spacing: 0.05em;">Regulations</p>
+
+                {% for category in overview %}
+                <div x-show="activeCategory === '{{ category.id }}'" x-cloak>
+                    {% for reg in category.regulations %}
+                    <div class="reg-list-item"
+                         :class="{ 'is-active': currentRegulation === '{{ reg.id }}' }"
+                         @click="switchRegulation('{{ reg.id }}')">
+                        <div class="is-flex is-justify-content-space-between is-align-items-center">
+                            <span class="is-size-7 has-text-weight-medium">{{ reg.name }}</span>
+                            <span class="tag is-small"
+                                  :class="currentRegulation === '{{ reg.id }}' ? '' : getScoreClass(scores['{{ reg.id }}'] ?? {{ reg.score }})">
+                                <span x-text="(scores['{{ reg.id }}'] ?? {{ reg.score }}) + '%'"></span>
+                            </span>
+                        </div>
+                        <progress class="progress is-tiny mt-1" style="height: 3px;"
+                                  :class="getProgressClass(scores['{{ reg.id }}'] ?? {{ reg.score }})"
+                                  :value="scores['{{ reg.id }}'] ?? {{ reg.score }}"
+                                  max="100">
+                        </progress>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function complianceChecklist() {
+    // Initial data from server
+    const initialChecklist = {{ checklist|json_encode|raw }};
+    const initialItems = (initialChecklist?.items ?? []).map(item => ({
+        ...item,
+        saving: false,
+        saved: false
+    }));
+
+    // Build scores lookup from overview
+    const initialScores = {};
+    {% for category in overview %}
+        {% for reg in category.regulations %}
+            initialScores['{{ reg.id }}'] = {{ reg.score }};
+        {% endfor %}
+    {% endfor %}
+
+    // Determine which category the current regulation belongs to
+    let initialCategory = '{{ overview[0].id ?? '' }}';
+    {% for category in overview %}
+        {% for reg in category.regulations %}
+            {% if reg.id == currentRegulation %}
+                initialCategory = '{{ category.id }}';
+            {% endif %}
+        {% endfor %}
+    {% endfor %}
+
+    return {
+        activeCategory: initialCategory,
+        currentRegulation: '{{ currentRegulation }}',
+        checklist: initialChecklist,
+        items: initialItems,
+        scores: initialScores,
+
+        get score() {
+            return this.checklist?.score ?? 0;
+        },
+        get checkedCount() {
+            return this.checklist?.checked_count ?? 0;
+        },
+        get totalCount() {
+            return this.checklist?.total_count ?? 0;
+        },
+        get scoreTagClass() {
+            return this.getScoreClass(this.score);
+        },
+        get scoreProgressClass() {
+            return this.getProgressClass(this.score);
+        },
+
+        getScoreClass(score) {
+            if (score >= 80) return 'is-success is-light';
+            if (score >= 50) return 'is-warning is-light';
+            return 'is-danger is-light';
+        },
+        getProgressClass(score) {
+            if (score >= 80) return 'is-success';
+            if (score >= 50) return 'is-warning';
+            return 'is-danger';
+        },
+
+        setCategory(categoryId) {
+            this.activeCategory = categoryId;
+        },
+
+        switchRegulation(regulationId) {
+            if (regulationId === this.currentRegulation) return;
+            window.location.href = '/compliance?regulation=' + regulationId;
+        },
+
+        async toggleItem(item) {
+            item.saving = true;
+            item.saved = false;
+
+            // Optimistic update
+            const previousState = item.checked;
+            item.checked = !item.checked;
+
+            try {
+                const res = await fetch('/app/compliance/toggle', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        regulation_id: this.currentRegulation,
+                        item_id: item.id
+                    })
+                });
+
+                const json = await res.json();
+
+                if (json.success) {
+                    item.checked = json.data.checked;
+                    this.checklist.score = json.data.score;
+                    this.checklist.checked_count = json.data.checked_count;
+                    this.checklist.total_count = json.data.total_count;
+
+                    // Update the score in the cards overview
+                    this.scores[this.currentRegulation] = json.data.score;
+
+                    item.saved = true;
+                    setTimeout(() => { item.saved = false; }, 1500);
+                } else {
+                    // Revert on server error
+                    item.checked = previousState;
+                }
+            } catch (e) {
+                // Revert on network error
+                item.checked = previousState;
+            } finally {
+                item.saving = false;
+            }
+        }
+    };
+}
+</script>
+{% endblock %}

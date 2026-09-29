@@ -1,0 +1,508 @@
+{% extends 'layouts/base.html.twig' %}
+
+{% set active_page = 'policies' %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+      integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA=="
+      crossorigin="anonymous" referrerpolicy="no-referrer" />
+{% endblock %}
+
+{% block content %}
+<div x-data="privacyPolicyWizard()" x-init="init()">
+
+    {% from 'components/macros.html.twig' import siteSelector, wizardSteps %}
+    <nav class="breadcrumb mb-3" aria-label="breadcrumbs">
+        <ul>
+            <li><a href="/">Dashboard</a></li>
+            <li><a href="/policies">Policies</a></li>
+            <li class="is-active"><a href="#" aria-current="page">{{ templateId > 0 ? 'Edit Template' : 'Privacy Policy' }}</a></li>
+        </ul>
+    </nav>
+
+    <div class="level mb-4">
+        <div class="level-left">
+            <div class="level-item">
+                <h1 class="title is-4 mb-0">{{ templateId > 0 ? 'Edit Privacy Template' : 'Privacy Policy Wizard' }}</h1>
+            </div>
+            {% if templateId == 0 %}
+            <div class="level-item">
+                {{ siteSelector(sites, siteId, '/policies/privacy') }}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if templateId > 0 %}
+    <div class="notification is-info is-light is-small mb-4" style="padding:0.75rem 1rem">
+        <span class="icon"><i class="fas fa-layer-group"></i></span>
+        Editing template: <strong>{{ templateName }}</strong>
+        — Changes apply to the template only. Use "Apply to Sites" from the policies page to push to sites.
+    </div>
+    {% endif %}
+
+    {# ── Step Indicator ─────────────────────────────────── #}
+    {{ wizardSteps(['Website Info', 'Data Collection', 'Disclosure', 'Tracking', 'Data Protection'], 'step') }}
+
+    {# ── Step 1: Website Info ────────────────────────── #}
+    <div class="box" x-show="step === 1">
+        <h2 class="subtitle is-6 mb-4">Website Information</h2>
+
+        <div class="columns">
+            <div class="column is-6">
+                <div class="field">
+                    <label class="label is-small">Website URL</label>
+                    <input class="input is-small" type="url" x-model="sd.website_info.website" placeholder="https://example.com">
+                </div>
+                <div class="field">
+                    <label class="label is-small">Company Name</label>
+                    <input class="input is-small" type="text" x-model="sd.website_info.company">
+                </div>
+                <div class="field">
+                    <label class="label is-small">Email</label>
+                    <input class="input is-small" type="email" x-model="sd.website_info.email">
+                </div>
+                <div class="field">
+                    <label class="label is-small">Phone</label>
+                    <input class="input is-small" type="tel" x-model="sd.website_info.phone">
+                </div>
+                <div class="field">
+                    <label class="label is-small">Purpose of Website</label>
+                    <div class="select is-small is-fullwidth">
+                        <select x-model="sd.website_info.purpose">
+                            <option value="">Select...</option>
+                            <option value="E-Commerce">E-Commerce</option>
+                            <option value="Blog">Blog</option>
+                            <option value="Landing Page">Landing Page</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="column is-6">
+                <div class="field">
+                    <label class="label is-small">Address</label>
+                    <input class="input is-small" type="text" x-model="sd.website_info.address">
+                </div>
+                <div class="field">
+                    <label class="label is-small">ZIP Code</label>
+                    <input class="input is-small" type="text" x-model="sd.website_info.zipcode">
+                </div>
+                <div class="field">
+                    <label class="label is-small">State</label>
+                    <input class="input is-small" type="text" x-model="sd.website_info.state">
+                </div>
+                <div class="field">
+                    <label class="label is-small">Country</label>
+                    <input class="input is-small" type="text" x-model="sd.website_info.country">
+                </div>
+            </div>
+        </div>
+
+        <div class="field mt-3">
+            <button class="button is-primary is-small" @click="saveStep('website_info', 2)" :class="{ 'is-loading': saving }">
+                Save &amp; Continue <span class="icon"><i class="fas fa-arrow-right"></i></span>
+            </button>
+        </div>
+    </div>
+
+    {# ── Step 2: Data Collection ─────────────────────── #}
+    <div class="box" x-show="step === 2">
+        <h2 class="subtitle is-6 mb-4">Data Collection</h2>
+
+        <div class="field">
+            <label class="label is-small">Can users create accounts on your website?</label>
+            <div class="control">
+                <label class="radio"><input type="radio" x-model="sd.data_collection.create_account_on_website" value="Yes"> Yes</label>
+                <label class="radio"><input type="radio" x-model="sd.data_collection.create_account_on_website" value="No"> No</label>
+            </div>
+        </div>
+
+        <div class="field">
+            <label class="label is-small">Newsletter opt-out capability?</label>
+            <div class="control">
+                <label class="radio"><input type="radio" x-model="sd.data_collection.newsletters_optout" value="Yes"> Yes</label>
+                <label class="radio"><input type="radio" x-model="sd.data_collection.newsletters_optout" value="No"> No</label>
+            </div>
+        </div>
+
+        <div x-show="sd.data_collection.newsletters_optout === 'Yes'" class="ml-5 mb-3">
+            <p class="is-size-7 has-text-grey mb-2">Opt-out methods:</p>
+            <label class="checkbox is-block is-size-7 mb-1"><input type="checkbox" x-model="sd.data_collection.optout_with_unsubscribe_link" true-value="Yes" false-value="No"> Unsubscribe link in newsletter footer</label>
+            <label class="checkbox is-block is-size-7 mb-1"><input type="checkbox" x-model="sd.data_collection.optout_on_register_account" true-value="Yes" false-value="No"> Collect preferences on account registration</label>
+            <label class="checkbox is-block is-size-7 mb-1"><input type="checkbox" x-model="sd.data_collection.optout_change_account_settings" true-value="Yes" false-value="No"> Users can update account settings</label>
+            <label class="checkbox is-block is-size-7 mb-1"><input type="checkbox" x-model="sd.data_collection.optout_using_contact" true-value="Yes" false-value="No"> Contact us information</label>
+        </div>
+
+        <div class="field">
+            <label class="label is-small">Do you collect personal information?</label>
+            <div class="control">
+                <label class="radio"><input type="radio" x-model="sd.data_collection.personal_info" value="Yes"> Yes</label>
+                <label class="radio"><input type="radio" x-model="sd.data_collection.personal_info" value="No"> No</label>
+            </div>
+        </div>
+
+        <div x-show="sd.data_collection.personal_info === 'Yes'" class="ml-5 mb-3">
+            <p class="is-size-7 has-text-grey mb-2">Types of personal data collected:</p>
+            <div class="columns is-multiline">
+                <div class="column is-6">
+                    <label class="checkbox is-block is-size-7 mb-1"><input type="checkbox" x-model="sd.data_collection.name" true-value="Yes" false-value="No"> Name</label>
+                    <label class="checkbox is-block is-size-7 mb-1"><input type="checkbox" x-model="sd.data_collection.email" true-value="Yes" false-value="No"> Email</label>
+                    <label class="checkbox is-block is-size-7 mb-1"><input type="checkbox" x-model="sd.data_collection.mobile" true-value="Yes" false-value="No"> Mobile</label>
+                    <label class="checkbox is-block is-size-7 mb-1"><input type="checkbox" x-model="sd.data_collection.sm_profile" true-value="Yes" false-value="No"> Social media profile</label>
+                </div>
+                <div class="column is-6">
+                    <label class="checkbox is-block is-size-7 mb-1"><input type="checkbox" x-model="sd.data_collection.dob" true-value="Yes" false-value="No"> Date of birth</label>
+                    <label class="checkbox is-block is-size-7 mb-1"><input type="checkbox" x-model="sd.data_collection.address" true-value="Yes" false-value="No"> Residential address</label>
+                    <label class="checkbox is-block is-size-7 mb-1"><input type="checkbox" x-model="sd.data_collection.work_address" true-value="Yes" false-value="No"> Work address</label>
+                    <label class="checkbox is-block is-size-7 mb-1"><input type="checkbox" x-model="sd.data_collection.payment_info" true-value="Yes" false-value="No"> Payment information</label>
+                </div>
+            </div>
+            <div class="field">
+                <label class="label is-small">Other personal info collected</label>
+                <input class="input is-small" type="text" x-model="sd.data_collection.other_personal_info" placeholder="e.g. Passport number">
+            </div>
+        </div>
+
+        <div class="field">
+            <label class="label is-small">Do you collect from users under 18?</label>
+            <div class="control">
+                <label class="radio"><input type="radio" x-model="sd.data_collection.under_18" value="Yes"> Yes</label>
+                <label class="radio"><input type="radio" x-model="sd.data_collection.under_18" value="No"> No</label>
+            </div>
+        </div>
+
+        <div class="field">
+            <label class="label is-small">Do you track IP, device, or country?</label>
+            <div class="control">
+                <label class="radio"><input type="radio" x-model="sd.data_collection.ip_device_info_country" value="Yes"> Yes</label>
+                <label class="radio"><input type="radio" x-model="sd.data_collection.ip_device_info_country" value="No"> No</label>
+            </div>
+        </div>
+
+        <div class="field mt-4">
+            <div class="buttons">
+                <button class="button is-small" @click="step = 1"><span class="icon"><i class="fas fa-arrow-left"></i></span> <span>Back</span></button>
+                <button class="button is-primary is-small" @click="saveStep('data_collection', 3)" :class="{ 'is-loading': saving }">
+                    Save &amp; Continue <span class="icon"><i class="fas fa-arrow-right"></i></span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    {# ── Step 3: Disclosure ──────────────────────────── #}
+    <div class="box" x-show="step === 3">
+        <h2 class="subtitle is-6 mb-4">Disclosure — How We Use Your Information</h2>
+
+        <p class="is-size-7 has-text-grey mb-3">Select the purposes for which you use collected information:</p>
+        <div class="columns is-multiline mb-3">
+            <div class="column is-6">
+                <label class="checkbox is-block is-size-7 mb-1"><input type="checkbox" x-model="sd.disclosure.marketing_promotional" true-value="Yes" false-value="No"> Marketing/Promotional</label>
+                <label class="checkbox is-block is-size-7 mb-1"><input type="checkbox" x-model="sd.disclosure.creating_user_account" true-value="Yes" false-value="No"> Creating user accounts</label>
+                <label class="checkbox is-block is-size-7 mb-1"><input type="checkbox" x-model="sd.disclosure.testimonals" true-value="Yes" false-value="No"> Testimonials</label>
+                <label class="checkbox is-block is-size-7 mb-1"><input type="checkbox" x-model="sd.disclosure.feedback_collection" true-value="Yes" false-value="No"> Customer feedback</label>
+                <label class="checkbox is-block is-size-7 mb-1"><input type="checkbox" x-model="sd.disclosure.enforce_tc" true-value="Yes" false-value="No"> Enforce T&amp;C</label>
+                <label class="checkbox is-block is-size-7 mb-1"><input type="checkbox" x-model="sd.disclosure.processing_payment" true-value="Yes" false-value="No"> Processing payment</label>
+                <label class="checkbox is-block is-size-7 mb-1"><input type="checkbox" x-model="sd.disclosure.support" true-value="Yes" false-value="No"> Support</label>
+            </div>
+            <div class="column is-6">
+                <label class="checkbox is-block is-size-7 mb-1"><input type="checkbox" x-model="sd.disclosure.administration_info" true-value="Yes" false-value="No"> Administration</label>
+                <label class="checkbox is-block is-size-7 mb-1"><input type="checkbox" x-model="sd.disclosure.targeted_advertising" true-value="Yes" false-value="No"> Targeted advertising</label>
+                <label class="checkbox is-block is-size-7 mb-1"><input type="checkbox" x-model="sd.disclosure.manage_customer_order" true-value="Yes" false-value="No"> Manage customer orders</label>
+                <label class="checkbox is-block is-size-7 mb-1"><input type="checkbox" x-model="sd.disclosure.site_protection" true-value="Yes" false-value="No"> Site protection</label>
+                <label class="checkbox is-block is-size-7 mb-1"><input type="checkbox" x-model="sd.disclosure.user_to_user_comments" true-value="Yes" false-value="No"> User-to-user comments</label>
+                <label class="checkbox is-block is-size-7 mb-1"><input type="checkbox" x-model="sd.disclosure.dispute_resolution" true-value="Yes" false-value="No"> Dispute resolution</label>
+                <label class="checkbox is-block is-size-7 mb-1"><input type="checkbox" x-model="sd.disclosure.manage_user_account" true-value="Yes" false-value="No"> Manage user account</label>
+            </div>
+        </div>
+
+        <div class="field">
+            <label class="label is-small">Do you share data with third-party services?</label>
+            <div class="control">
+                <label class="radio"><input type="radio" x-model="sd.disclosure.third_party_service" value="Yes"> Yes</label>
+                <label class="radio"><input type="radio" x-model="sd.disclosure.third_party_service" value="No"> No</label>
+            </div>
+        </div>
+
+        <div x-show="sd.disclosure.third_party_service === 'Yes'" class="ml-5 mb-3">
+            <p class="is-size-7 has-text-grey mb-2">Third-party categories:</p>
+            <label class="checkbox is-block is-size-7 mb-1"><input type="checkbox" x-model="sd.disclosure.ad_service" true-value="Yes" false-value="No"> Ad services</label>
+            <label class="checkbox is-block is-size-7 mb-1"><input type="checkbox" x-model="sd.disclosure.sponsors" true-value="Yes" false-value="No"> Sponsors</label>
+            <label class="checkbox is-block is-size-7 mb-1"><input type="checkbox" x-model="sd.disclosure.marketing_agencies" true-value="Yes" false-value="No"> Marketing agencies</label>
+            <label class="checkbox is-block is-size-7 mb-1"><input type="checkbox" x-model="sd.disclosure.legal_entities" true-value="Yes" false-value="No"> Legal entities</label>
+            <label class="checkbox is-block is-size-7 mb-1"><input type="checkbox" x-model="sd.disclosure.analytics" true-value="Yes" false-value="No"> Analytics</label>
+            <label class="checkbox is-block is-size-7 mb-1"><input type="checkbox" x-model="sd.disclosure.payment_recovery_services" true-value="Yes" false-value="No"> Payment recovery services</label>
+            <label class="checkbox is-block is-size-7 mb-1"><input type="checkbox" x-model="sd.disclosure.data_collection_and_process" true-value="Yes" false-value="No"> Data collection &amp; processing</label>
+        </div>
+
+        <div class="field">
+            <label class="label is-small">Data retention period</label>
+            <div class="select is-small">
+                <select x-model="sd.disclosure.time_store_shared_data">
+                    <option value="">Select...</option>
+                    <option value="Less than 1 year">Less than 1 year</option>
+                    <option value="1-3 years">1-3 years</option>
+                    <option value="3-5 years">3-5 years</option>
+                    <option value="5+ years">5+ years</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+        </div>
+        <div class="field" x-show="sd.disclosure.time_store_shared_data === 'Other'">
+            <input class="input is-small" type="text" x-model="sd.disclosure.time_store_shared_data_input" placeholder="Custom retention period">
+        </div>
+
+        <div class="field mt-4">
+            <div class="buttons">
+                <button class="button is-small" @click="step = 2"><span class="icon"><i class="fas fa-arrow-left"></i></span> <span>Back</span></button>
+                <button class="button is-primary is-small" @click="saveStep('disclosure', 4)" :class="{ 'is-loading': saving }">
+                    Save &amp; Continue <span class="icon"><i class="fas fa-arrow-right"></i></span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    {# ── Step 4: Tracking Technologies ───────────────── #}
+    <div class="box" x-show="step === 4">
+        <h2 class="subtitle is-6 mb-4">Tracking Technologies</h2>
+
+        <div class="field">
+            <label class="label is-small">Cookie Policy Link</label>
+            <div class="control">
+                <input class="input is-small" type="url" x-model="sd.tracking_tech.cookie_policy_link" placeholder="https://example.com/cookie-policy">
+            </div>
+            <p class="help">URL to your cookie policy page (used in the "Cookies" section of the privacy policy)</p>
+        </div>
+
+        <div class="notification is-light is-small mt-3" style="padding:0.75rem 1rem">
+            <p class="is-size-7"><strong>Cookie types used:</strong> Necessary cookies are always enabled. Other cookie types (Functional, Analytics, Performance, Advertisement) are managed via your consent banner configuration.</p>
+        </div>
+
+        <div class="field mt-4">
+            <div class="buttons">
+                <button class="button is-small" @click="step = 3"><span class="icon"><i class="fas fa-arrow-left"></i></span> <span>Back</span></button>
+                <button class="button is-primary is-small" @click="saveStep('tracking_tech', 5)" :class="{ 'is-loading': saving }">
+                    Save &amp; Continue <span class="icon"><i class="fas fa-arrow-right"></i></span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    {# ── Step 5: Data Protection & Preview ───────────── #}
+    <div class="box" x-show="step === 5">
+        <h2 class="subtitle is-6 mb-4">Data Protection Officer</h2>
+
+        <div class="columns">
+            <div class="column is-6">
+                <div class="field">
+                    <label class="label is-small">Contact Name</label>
+                    <input class="input is-small" type="text" x-model="sd.data_protection.contact_name">
+                </div>
+                <div class="field">
+                    <label class="label is-small">Contact Email</label>
+                    <input class="input is-small" type="email" x-model="sd.data_protection.contact_email">
+                </div>
+                <div class="field">
+                    <label class="label is-small">Contact Address</label>
+                    <input class="input is-small" type="text" x-model="sd.data_protection.contact_address">
+                </div>
+            </div>
+            <div class="column is-6">
+                <div class="field">
+                    <label class="label is-small">EU Data Protection Officer?</label>
+                    <div class="control">
+                        <label class="radio"><input type="radio" x-model="sd.data_protection.eu_office" value="Yes"> Yes</label>
+                        <label class="radio"><input type="radio" x-model="sd.data_protection.eu_office" value="No"> No</label>
+                    </div>
+                </div>
+                <div x-show="sd.data_protection.eu_office === 'Yes'">
+                    <div class="field"><input class="input is-small" type="text" x-model="sd.data_protection.eu_officer_name" placeholder="DPO Name"></div>
+                    <div class="field"><input class="input is-small" type="email" x-model="sd.data_protection.eu_officer_email" placeholder="DPO Email"></div>
+                    <div class="field"><input class="input is-small" type="text" x-model="sd.data_protection.eu_officer_address" placeholder="DPO Address"></div>
+                </div>
+
+                <div class="field mt-3">
+                    <label class="label is-small">EU Representative?</label>
+                    <div class="control">
+                        <label class="radio"><input type="radio" x-model="sd.data_protection.eu_rep" value="Yes"> Yes</label>
+                        <label class="radio"><input type="radio" x-model="sd.data_protection.eu_rep" value="No"> No</label>
+                    </div>
+                </div>
+                <div x-show="sd.data_protection.eu_rep === 'Yes'">
+                    <div class="field"><input class="input is-small" type="text" x-model="sd.data_protection.eu_rep_name" placeholder="Rep Name"></div>
+                    <div class="field"><input class="input is-small" type="email" x-model="sd.data_protection.eu_rep_email" placeholder="Rep Email"></div>
+                    <div class="field"><input class="input is-small" type="text" x-model="sd.data_protection.eu_rep_address" placeholder="Rep Address"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="field">
+            <label class="label is-small">Effective Date</label>
+            <input class="input is-small" type="date" x-model="sd.data_protection.effective_date" style="max-width:200px">
+        </div>
+
+        <div class="field">
+            <label class="checkbox">
+                <input type="checkbox" x-model="showHeading">
+                Include heading in generated policy
+            </label>
+            <p class="help">Disable this if embedding in a CMS that already provides its own page heading</p>
+        </div>
+
+        <div class="field mt-4">
+            <div class="buttons">
+                <button class="button is-small" @click="step = 4"><span class="icon"><i class="fas fa-arrow-left"></i></span> <span>Back</span></button>
+                <button class="button is-primary is-small" @click="generatePreview()" :class="{ 'is-loading': saving }">
+                    <span class="icon"><i class="fas fa-wand-magic-sparkles"></i></span> <span>Save &amp; Generate Preview</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    {# ── Step 6: Preview ─────────────────────────────── #}
+    <div class="box" x-show="step === 6">
+        <h2 class="subtitle is-6 mb-3">Preview</h2>
+
+        <div class="buttons mb-3">
+            <button class="button is-small is-info is-outlined" @click="copyHtml()">
+                <span class="icon"><i class="fas fa-code"></i></span> <span>Copy HTML</span>
+            </button>
+            <button class="button is-small is-outlined" @click="copyText()">
+                <span class="icon"><i class="fas fa-copy"></i></span> <span>Copy Text</span>
+            </button>
+        </div>
+
+        <div class="content" style="border:1px solid var(--oci-border); border-radius:6px; padding:1.5rem; background:var(--oci-bg-alt);"
+             x-html="previewHtml"></div>
+
+        <div class="field mt-4">
+            <div class="buttons">
+                <button class="button is-small" @click="step = 5"><span class="icon"><i class="fas fa-arrow-left"></i></span> <span>Back</span></button>
+                <a href="/policies" class="button is-primary is-small">
+                    <span class="icon"><i class="fas fa-check"></i></span> <span>Done</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function privacyPolicyWizard() {
+    var policyData = {{ policy|json_encode|raw }};
+    var stepData = policyData.step_data_decoded || {};
+    var templateId = {{ templateId|default(0) }};
+
+    return {
+        step: 1,
+        stepLabels: ['Website Info', 'Data Collection', 'Disclosure', 'Tracking', 'Data Protection'],
+        saving: false,
+        previewHtml: '',
+        siteId: {{ siteId }},
+        languageId: {{ languageId }},
+        templateId: templateId,
+        sd: stepData,
+        showHeading: policyData.show_heading != 0,
+
+        init() {
+            if (policyData.policy_content) {
+                this.previewHtml = policyData.policy_content;
+            }
+        },
+
+        saveStep(stepName, nextStep) {
+            var self = this;
+            self.saving = true;
+
+            var body = Object.assign({}, self.sd[stepName], {
+                step: stepName
+            });
+
+            // Include either template_id or site_id/language_id
+            if (self.templateId > 0) {
+                body.template_id = self.templateId;
+            } else {
+                body.site_id = self.siteId;
+                body.language_id = self.languageId;
+            }
+
+            fetch('/app/policies/privacy/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                body: JSON.stringify(body)
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    self.step = nextStep;
+                }
+            })
+            .finally(function() { self.saving = false; });
+        },
+
+        generatePreview() {
+            var self = this;
+            self.saving = true;
+
+            // First save data_protection step
+            var body = Object.assign({}, self.sd.data_protection, {
+                step: 'data_protection',
+                show_heading: self.showHeading ? 1 : 0
+            });
+
+            if (self.templateId > 0) {
+                body.template_id = self.templateId;
+            } else {
+                body.site_id = self.siteId;
+                body.language_id = self.languageId;
+            }
+
+            fetch('/app/policies/privacy/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                body: JSON.stringify(body)
+            })
+            .then(function(r) { return r.json(); })
+            .then(function() {
+                // Now generate preview
+                var previewBody = { step: 'preview' };
+                if (self.templateId > 0) {
+                    previewBody.template_id = self.templateId;
+                } else {
+                    previewBody.site_id = self.siteId;
+                    previewBody.language_id = self.languageId;
+                }
+
+                return fetch('/app/policies/privacy/save', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                    body: JSON.stringify(previewBody)
+                });
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.success && data.data && data.data.content) {
+                    self.previewHtml = data.data.content;
+                    self.step = 6;
+                }
+            })
+            .finally(function() { self.saving = false; });
+        },
+
+        copyHtml() {
+            navigator.clipboard.writeText(this.previewHtml);
+        },
+
+        copyText() {
+            var tmp = document.createElement('div');
+            tmp.innerHTML = this.previewHtml;
+            navigator.clipboard.writeText(tmp.textContent || tmp.innerText || '');
+        }
+    };
+}
+</script>
+{% endblock %}

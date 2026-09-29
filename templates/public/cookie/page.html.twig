@@ -1,0 +1,80 @@
+{# One cookie in the public database. Body only: the site shell wraps it. #}
+<section class="hero">
+  <div class="hero__content">
+    <p style="margin:0 0 .5rem 0;font-size:.85rem;opacity:.75"><a href="/cookie/">Cookie database</a>{% for v in cookie.vendors|slice(0, 1) %} › <a href="{{ v.path is defined ? v.path : '/cookie/vendor/' ~ v.slug ~ '/' }}">{{ v.name }}</a>{% endfor %}</p>
+    <h1 class="hero__title"><code style="font-size:.9em">{{ cookie.name }}</code> cookie</h1>
+    <p class="hero__subtitle">{{ cookie.category_label }} cookie{% if cookie.vendors %} set by {{ cookie.vendors|map(v => v.name)|join(', ') }}{% endif %}{% if cookie.expiry %}, lasting {{ cookie.expiry }}{% endif %}.</p>
+  </div>
+</section>
+<section class="section">
+  <div class="container">
+    <article class="prose">
+      <h2>What the {{ cookie.name }} cookie does</h2>
+      {% for d in cookie.descriptions %}
+      <p>{{ d }}</p>
+      {% endfor %}
+      {% if cookie.wildcard %}
+      <p>The name ends in a part that changes from visitor to visitor or site to site, so this entry covers every cookie whose name starts with <code>{{ cookie.name|trim('*') }}</code>.</p>
+      {% endif %}
+
+      <h2>Who sets it</h2>
+      {% if cookie.vendors %}
+      <ul>
+        {% for v in cookie.vendors %}
+        <li><strong><a href="/cookie/vendor/{{ v.slug }}/">{{ v.name }}</a></strong>{% if v.controller and v.controller != v.name %} ({{ v.controller }}){% endif %}{% if v.privacy_url %} — <a href="{{ v.privacy_url }}" rel="nofollow noopener" target="_blank">privacy policy</a>{% endif %}</li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p>The service behind this cookie is not named in our records yet.</p>
+      {% endif %}
+
+      <h2>Consent category: {{ cookie.category_label|lower }}</h2>
+      <p>{{ cookie.category_text }}</p>
+
+      <table style="border-collapse:collapse;margin-bottom:1.5rem">
+        <tbody>
+          <tr><th style="text-align:left;padding:.35rem 1.5rem .35rem 0;vertical-align:top">Name</th><td style="padding:.5rem .75rem .5rem 0;vertical-align:top"><code>{{ cookie.name }}</code></td></tr>
+          <tr><th style="text-align:left;padding:.35rem 1.5rem .35rem 0;vertical-align:top">Category</th><td style="padding:.5rem .75rem .5rem 0;vertical-align:top">{{ cookie.category_label }}</td></tr>
+          {% if cookie.expiry %}<tr><th style="text-align:left;padding:.35rem 1.5rem .35rem 0;vertical-align:top">Lifetime</th><td style="padding:.5rem .75rem .5rem 0;vertical-align:top">{{ cookie.expiry }}</td></tr>{% endif %}
+          {% if cookie.vendors %}<tr><th style="text-align:left;padding:.35rem 1.5rem .35rem 0;vertical-align:top">Set by</th><td style="padding:.5rem .75rem .5rem 0;vertical-align:top">{{ cookie.vendors|map(v => v.name)|join(', ') }}</td></tr>{% endif %}
+        </tbody>
+      </table>
+
+      {% if cookie.related %}
+      <h2>Other cookies from the same vendor</h2>
+      <ul>
+        {% for r in cookie.related %}
+        <li><a href="{{ r.path }}"><code>{{ r.name }}</code></a></li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+
+      <h2>Is this cookie on your site?</h2>
+      <p>A free scan lists every cookie your site sets, classifies each one the way this page does, and shows which are set before the visitor has consented. <a href="https://app.getconzent.com/register">Scan your site with Conzent</a>, or <a href="/cookie/">look up another cookie</a>.</p>
+      <p style="font-size:.85rem;opacity:.7">From the Conzent cookie database, last updated {{ generated }}. Descriptions come from vendor documentation, cookie policies and our own scans; write to <a href="mailto:support@getconzent.com">support@getconzent.com</a> to correct one.</p>
+    </article>
+  </div>
+</section>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "TechArticle",
+      "headline": {{ (cookie.name ~ ' cookie: what it does, who sets it, consent category')|json_encode|raw }},
+      "description": {{ cookie.description|json_encode|raw }},
+      "dateModified": {{ generated|json_encode|raw }},
+      "author": {"@type": "Organization", "name": "Conzent"},
+      "publisher": {"@type": "Organization", "name": "Conzent", "url": "https://getconzent.com"},
+      "about": {"@type": "Thing", "name": {{ cookie.name|json_encode|raw }}}
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {"@type": "ListItem", "position": 1, "name": "Cookie database", "item": "https://getconzent.com/cookie/"},
+        {"@type": "ListItem", "position": 2, "name": {{ cookie.name|json_encode|raw }}, "item": {{ cookie.url|json_encode|raw }}}
+      ]
+    }
+  ]
+}
+</script>

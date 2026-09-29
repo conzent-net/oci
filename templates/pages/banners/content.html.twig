@@ -1,0 +1,259 @@
+{% extends 'layouts/base.html.twig' %}
+{% import 'components/macros.html.twig' as ui %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div x-data="bannerContent()">
+
+    <nav class="breadcrumb mb-3" aria-label="breadcrumbs">
+        <ul>
+            <li><a href="/">Dashboard</a></li>
+            <li><a href="/banners">Banners</a></li>
+            <li class="is-active"><a href="#" aria-current="page">Content</a></li>
+        </ul>
+    </nav>
+
+    {# ── Header ────────────────────────────────────────── #}
+    <div class="level mb-4">
+        <div class="level-left">
+            <div class="level-item">
+                <h1 class="title is-4 mb-0">Banner Content</h1>
+            </div>
+            <div class="level-item">
+                <span class="tag is-info is-light">{{ currentSite.domain }}</span>
+            </div>
+        </div>
+        <div class="level-right">
+            <div class="level-item">
+                <a href="/banners" class="button is-light">
+                    <span class="icon"><i class="fas fa-arrow-left"></i></span>
+                    <span>Back to Settings</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    {# ── Language Selector Tabs ──────────────────────── #}
+    <div class="tabs is-boxed mb-4">
+        <ul>
+            {% for lang in siteLanguages %}
+            <li class="{{ lang.id == langId ? 'is-active' : '' }}">
+                <a href="/banners/content?lang_id={{ lang.id }}">
+                    {{ lang.lang_name }}
+                    {% if lang.is_default %}
+                        <span class="tag is-success is-light ml-2" style="font-size:0.625rem">Default</span>
+                    {% endif %}
+                </a>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    {% if not isDefaultLang and defaultValues is not empty %}
+    <div class="notification is-info is-light mb-4" style="padding:0.75rem 1rem">
+        <span class="icon"><i class="fas fa-info-circle"></i></span>
+        Editing translations for <strong>{{ currentLanguage.lang_name }}</strong>.
+        The default language values are shown as reference.
+        <button class="button is-info is-small ml-3" @click="copyFromDefault()" :class="{ 'is-loading': copying }">
+            <span class="icon"><i class="fas fa-copy"></i></span>
+            <span>Copy from Default</span>
+        </button>
+        {% if openrouter_enabled %}
+        <button class="button is-warning is-small ml-2" @click="autoTranslate()"
+                :class="{ 'is-loading': translating }" :disabled="translating">
+            <span class="icon"><i class="fas fa-language"></i></span>
+            <span>Auto Translate</span>
+        </button>
+        {% endif %}
+        <span class="ml-2 has-text-success is-size-7" x-show="translateDone" x-transition>
+            <i class="fas fa-check-circle"></i> Translated &amp; saved
+        </span>
+        <span class="ml-2 has-text-danger is-size-7" x-show="translateError" x-transition x-text="translateError"></span>
+    </div>
+    {% endif %}
+
+    {# ── Field Groups ────────────────────────────────── #}
+    {% if fieldGroups is empty %}
+        <div class="box has-text-centered py-6">
+            <span class="icon is-large has-text-grey-light">
+                <i class="fas fa-window-maximize fa-3x"></i>
+            </span>
+            <p class="title is-5 mt-4">No banner fields configured</p>
+            <p class="subtitle is-6 has-text-grey">
+                Banner fields are set up when you create a site. Check your banner template configuration.
+            </p>
+        </div>
+    {% else %}
+        {% for group in fieldGroups %}
+        <div class="box mb-4">
+            <h2 class="title is-5 mb-3">
+                <span class="section-icon" style="display:inline-flex;width:28px;height:28px;background:var(--oci-primary-light);color:var(--oci-primary);border-radius:6px;align-items:center;justify-content:center;font-size:0.75rem;margin-right:0.5rem">
+                    <i class="fas fa-layer-group"></i>
+                </span>
+                {{ group.category }}
+            </h2>
+
+            {% for field in group.fields %}
+            <div class="field mb-4" style="{% if not isDefaultLang and defaultValues is not empty %}display:grid;grid-template-columns:1fr 1fr;gap:1rem{% endif %}">
+
+                {# Default value reference (non-default language only) #}
+                {% if not isDefaultLang and defaultValues is not empty %}
+                <div>
+                    <label class="label is-small has-text-grey">
+                        Default value
+                    </label>
+                    {% if field.field_type == 'textarea' %}
+                        <div class="content is-small" style="background:var(--oci-hover-bg);padding:0.5rem 0.75rem;border-radius:6px;border:1px solid var(--oci-border);min-height:80px;color:var(--oci-text-light)">
+                            {{ defaultValues[field.id] is defined ? defaultValues[field.id]|raw : field.default_value|raw }}
+                        </div>
+                    {% else %}
+                        <input class="input" type="text" disabled
+                               value="{{ defaultValues[field.id] is defined ? defaultValues[field.id] : field.default_value }}">
+                    {% endif %}
+                </div>
+                {% endif %}
+
+                {# Editable value #}
+                <div>
+                    <label class="label is-small">
+                        {{ field.field_key|replace({'_': ' '})|capitalize }}
+                    </label>
+                    {% if field.field_type == 'textarea' %}
+                        <textarea class="textarea" rows="3"
+                                  x-model="fields[{{ field.id }}]"
+                                  placeholder="{{ field.default_value }}"></textarea>
+                    {% else %}
+                        <input class="input" type="text"
+                               x-model="fields[{{ field.id }}]"
+                               placeholder="{{ field.default_value }}">
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endfor %}
+
+        {# ── Save Button ─────────────────────────────── #}
+        <div class="field mt-4">
+            <button class="button is-success is-medium" :class="{ 'is-loading': saving }"
+                    @click="saveContent()">
+                <span class="icon"><i class="fas fa-check"></i></span>
+                <span>Save Content</span>
+            </button>
+            <span class="ml-3 has-text-success" x-show="saved" x-transition>
+                <i class="fas fa-check-circle"></i> Saved
+            </span>
+        </div>
+    {% endif %}
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function bannerContent() {
+    // Pre-populate fields with current values
+    const initialFields = {
+        {% for group in fieldGroups %}
+            {% for field in group.fields %}
+                {{ field.id }}: {{ (currentValues[field.id] is defined ? currentValues[field.id] : (field.default_value ?? ''))|json_encode|raw }},
+            {% endfor %}
+        {% endfor %}
+    };
+
+    return {
+        fields: { ...initialFields },
+        saving: false,
+        saved: false,
+        copying: false,
+        translating: false,
+        translateDone: false,
+        translateError: '',
+
+        saveContent() {
+            this.saving = true;
+            this.saved = false;
+            fetch('/app/banners/content', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    site_id: {{ siteId }},
+                    site_banner_id: {{ siteBannerId }},
+                    language_id: {{ langId }},
+                    fields: this.fields
+                })
+            })
+            .then(r => r.json())
+            .then(data => {
+                this.saving = false;
+                if (data.success) {
+                    this.saved = true;
+                    setTimeout(() => { this.saved = false; }, 3000);
+                }
+            })
+            .catch(() => { this.saving = false; });
+        },
+
+        copyFromDefault() {
+            this.copying = true;
+            const defaults = {
+                {% for group in fieldGroups %}
+                    {% for field in group.fields %}
+                        {{ field.id }}: {{ (defaultValues[field.id] is defined ? defaultValues[field.id] : (field.default_value ?? ''))|json_encode|raw }},
+                    {% endfor %}
+                {% endfor %}
+            };
+            this.fields = { ...defaults };
+            this.copying = false;
+        },
+
+        autoTranslate() {
+            const defaults = {
+                {% for group in fieldGroups %}
+                    {% for field in group.fields %}
+                        {{ field.id }}: {{ (defaultValues[field.id] is defined ? defaultValues[field.id] : (field.default_value ?? ''))|json_encode|raw }},
+                    {% endfor %}
+                {% endfor %}
+            };
+
+            this.translating = true;
+            this.translateDone = false;
+            this.translateError = '';
+
+            fetch('/app/banners/translate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    target_language: '{{ currentLanguage.lang_name }}',
+                    fields: defaults
+                })
+            })
+            .then(r => r.json())
+            .then(data => {
+                this.translating = false;
+                if (data.success && data.data.translations) {
+                    for (const fid in data.data.translations) {
+                        if (data.data.translations[fid]) {
+                            this.fields[fid] = data.data.translations[fid];
+                        }
+                    }
+                    // Auto-save translations and regenerate script
+                    this.saveContent();
+                    this.translateDone = true;
+                    setTimeout(() => { this.translateDone = false; }, 4000);
+                } else {
+                    this.translateError = data.error?.message || 'Translation failed';
+                    setTimeout(() => { this.translateError = ''; }, 5000);
+                }
+            })
+            .catch(() => {
+                this.translating = false;
+                this.translateError = 'Network error';
+                setTimeout(() => { this.translateError = ''; }, 5000);
+            });
+        }
+    };
+}
+</script>
+{% endblock %}

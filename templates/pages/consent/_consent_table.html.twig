@@ -1,0 +1,83 @@
+<div id="consent-table-container">
+    <div class="table-container">
+        <table class="table is-fullwidth is-hoverable is-striped">
+            <thead>
+                <tr>
+                    <th>Consent ID</th>
+                    <th>Status</th>
+                    <th>Date</th>
+                    <th>Country</th>
+                    <th>Domain</th>
+                    <th>Language</th>
+                    <th style="width:60px"></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for consent in consents %}
+                <tr>
+                    <td>
+                        <code class="is-size-7">{{ consent.consent_session[:4]|upper }}-{{ consent.consent_session[4:4]|upper }}</code>
+                    </td>
+                    <td>
+                        {% if consent.consent_status == 'accepted' or consent.consent_status == '1' %}
+                            <span class="tag is-success is-light">Accepted</span>
+                        {% elseif consent.consent_status == 'partially_accepted' or consent.consent_status == '2' %}
+                            <span class="tag is-warning is-light">Partial</span>
+                        {% else %}
+                            <span class="tag is-danger is-light">Rejected</span>
+                        {% endif %}
+                    </td>
+                    <td class="is-size-7">{{ consent.consent_date|date('Y-m-d H:i') }}</td>
+                    <td>
+                        {% if consent.country %}
+                            <span class="is-size-7">{{ consent.country|upper }}</span>
+                        {% else %}
+                            <span class="has-text-grey-light is-size-7">--</span>
+                        {% endif %}
+                    </td>
+                    <td class="is-size-7">{{ consent.consented_domain }}</td>
+                    <td class="is-size-7">{{ consent.language ?: '--' }}</td>
+                    <td>
+                        <a href="/consents/{{ consent.id }}" class="button is-small is-ghost" title="View proof">
+                            <span class="icon"><i class="fas fa-eye"></i></span>
+                        </a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7" class="has-text-centered py-6">
+                        <p class="has-text-grey">
+                            <span class="icon is-large"><i class="fas fa-clipboard-list fa-2x"></i></span>
+                        </p>
+                        <p class="has-text-grey mt-2">No consent records found</p>
+                        <p class="has-text-grey-light is-size-7 mt-1">Consent data will appear here once visitors interact with your cookie banner</p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {# -- Pagination --------------------------------------------- #}
+    {% if totalPages > 1 %}
+    <nav class="pagination is-small is-centered mt-4" role="navigation" aria-label="pagination">
+        {% if page > 1 %}
+            <a class="pagination-previous" href="?page={{ page - 1 }}{% if filters.status %}&status={{ filters.status }}{% endif %}{% if filters.date_from %}&date_from={{ filters.date_from }}{% endif %}{% if filters.date_to %}&date_to={{ filters.date_to }}{% endif %}&site_id={{ siteId }}">Previous</a>
+        {% endif %}
+        {% if page < totalPages %}
+            <a class="pagination-next" href="?page={{ page + 1 }}{% if filters.status %}&status={{ filters.status }}{% endif %}{% if filters.date_from %}&date_from={{ filters.date_from }}{% endif %}{% if filters.date_to %}&date_to={{ filters.date_to }}{% endif %}&site_id={{ siteId }}">Next</a>
+        {% endif %}
+        <ul class="pagination-list">
+            {% for p in 1..totalPages %}
+                {% if p == page %}
+                    <li><a class="pagination-link is-current" aria-current="page">{{ p }}</a></li>
+                {% elseif p <= 3 or p > totalPages - 3 or (p >= page - 2 and p <= page + 2) %}
+                    <li><a class="pagination-link" href="?page={{ p }}{% if filters.status %}&status={{ filters.status }}{% endif %}{% if filters.date_from %}&date_from={{ filters.date_from }}{% endif %}{% if filters.date_to %}&date_to={{ filters.date_to }}{% endif %}&site_id={{ siteId }}">{{ p }}</a></li>
+                {% elseif p == 4 or p == totalPages - 3 %}
+                    <li><span class="pagination-ellipsis">&hellip;</span></li>
+                {% endif %}
+            {% endfor %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
