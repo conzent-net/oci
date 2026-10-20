@@ -1,0 +1,165 @@
+<div class="conzent-overlay cnz-hide"></div>
+[conzent_revisit_html]
+<div id="Conzent"  tabindex="0" class="conzent-[banner_type][display_position]">
+  <div class="conzent-inner-content-box" style="border:1px solid [notice_border_color];background-color:[notice_background_color]">
+    <div class="conzent-notice">
+      <p class="title-wrap" style="color:[notice_title_color]">[conzent_logo] [conzent_cookie_notice_banner_title] </p>
+      <div class="content-wrap">
+        <div class="msg-wrap" style="color:[notice_description_color]">
+        [conzent_iab_notice_description]
+        [privacy_policy_link]
+        </div>
+        <div class="btn-wrap">
+		  [button_wrap]
+        </div>
+      </div>
+	  <div class="notice_button_wrap">[banner_cookie_list][preference_button_wrap]</div>
+      <div class="conzent-branding conzent-notice-branding"><div style="min-width:140px;display:flex;">[conzent_branding]</div></div>
+    </div>
+  </div>
+</div>
+<div class="conzent-modal conzent-[preference_type][preference_position]" tabindex="0">
+  <div class="conzent-preference-center" style="border:1px solid [notice_border_color];background-color:[notice_background_color]">
+    <div class="conzent-preference-header"> <span class="conzent-preference-title" style="color:[notice_title_color]">[conzent_preference_center_preference_title]</span>
+      <span id="preCloseBtn" class="cnz-btn-close">[conzent_close_button]</span>
+    </div>
+    <div class="conzent-preference-body-wrapper">
+      <div class="conzent-iab-detail-wrapper">
+		<div class="conzent-iab-preference-des" style="color:[notice_description_color]">[conzent_iab_preference_description]</div>
+      </div>
+      <div class="conzent-horizontal-separator"></div>
+		  <div class="conzent-iab-nav-wrapper">
+			<ul class="cnz-tab">
+				<li class="cnz-tab-item tab-active" id="cnzIABTabCookie"><span>[conzent_iab_nav_item_cookie_categories]</span></li>
+				<li class="cnz-iab-item" id="cnzIABTabPurpose"><span>[conzent_iab_nav_item_purposes_n_features]</span></li>
+				<li class="cnz-iab-item" id="cnzIABTabVendor"><span>[conzent_iab_nav_item_vendors]</span></li>
+			</ul>
+			<div class="conzent-horizontal-separator"></div>
+		  </div>
+		  <div class="cnz-iab-detail-sub-wrapper">
+			<div class="conzent-preference-content-wrapper cnz-tabcontent" style="color:[notice_description_color]" id="cnzIABTabCookieSection">
+            <p class="cnz-tab-title">[conzent_iab_nav_item_cookie_categories]</p>
+				<div class="conzent-accordion-wrapper cnz-category-table">
+				  <div class="overview_text">[conzent_preference_center_overview]</div>
+				  [google_privacy_policy]
+				  [conzent_cookie_categories] 
+				</div>
+			</div>
+			<div class="conzent-preference-content-wrapper cnz-tabcontent hide-tab" style="color:[notice_description_color]" id="cnzIABTabPurposeSection">
+				<div class="conzent-accordion-wrapper">
+                <p class="cnz-tab-title">[conzent_iab_nav_item_purposes_n_features]</p>
+					<div class="conzent-accordion" id="cnzIABpurpose_tab">
+					  <div class="conzent-accordion-item">
+						<div class="conzent-accordion-arrow"><i class="cnz-arrow-right"></i></div>
+						<div class="conzent-accordion-header-wrapper">
+						  <div class="conzent-accordion-header"><button class="conzent-accordion-btn" data-tab="cnzIABpurpose_tab">[conzent_iab_common_purposes] ([IAB_PURPOSES_COUNT])</button>[IAB_PURPOSES_TOGGLE]</div>
+						  <div class="conzent-accordion-header-des"></div>
+						</div>
+					  </div>
+					  <div class="conzent-accordion-body">
+						<div class="conzent-tab-content">
+							<div id="cnzIABpurpose_tab_section">[IAB_PURPOSES]</div>
+						</div>
+					  </div>
+					</div>
+				</div>
+				<div class="conzent-accordion-wrapper">
+					<div class="conzent-accordion" id="cnzIABspecial_purpose_tab">
+					  <div class="conzent-accordion-item">
+						<div class="conzent-accordion-arrow"><i class="cnz-arrow-right"></i></div>
+						<div class="conzent-accordion-header-wrapper">
+						  <div class="conzent-accordion-header"><button class="conzent-accordion-btn" data-tab="cnzIABspecial_purpose_tab">[conzent_iab_common_special_purposes] ([IAB_SPECIAL_PURPOSES_COUNT])</button>[IAB_SPECIAL_PURPOSES_TOGGLE]</div>
+						  <div class="conzent-accordion-header-des"></div>
+						</div>
+					  </div>
+					  <div class="conzent-accordion-body">
+						<div class="conzent-tab-content">
+							<div id="cnzIABspecial_purpose_tab_section">[IAB_SPECIAL_PURPOSES]</div>
+						</div>
+					  </div>
+					</div>
+				</div>
+				<div class="conzent-accordion-wrapper">
+					<div class="conzent-accordion" id="cnzIABfeatures_tab">
+					  <div class="conzent-accordion-item">
+						<div class="conzent-accordion-arrow"><i class="cnz-arrow-right"></i></div>
+						<div class="conzent-accordion-header-wrapper">
+						  <div class="conzent-accordion-header"><button class="conzent-accordion-btn" data-tab="cnzIABfeatures_tab">[conzent_iab_common_features] ([IAB_FEATURES_COUNT])</button>[IAB_FEATURES_TOGGLE]</div>
+						  <div class="conzent-accordion-header-des"></div>
+						</div>
+					  </div>
+					  <div class="conzent-accordion-body">
+						<div class="conzent-tab-content">	
+							<div id="cnzIABfeatures_tab_section">[IAB_FEATURES]</div>
+						</div>	
+					  </div>
+					</div>
+				</div>
+				<div class="conzent-accordion-wrapper">	
+					<div class="conzent-accordion" id="cnzIABspecial_features_tab">
+					  <div class="conzent-accordion-item">
+						<div class="conzent-accordion-arrow"><i class="cnz-arrow-right"></i></div>
+						<div class="conzent-accordion-header-wrapper">
+						  <div class="conzent-accordion-header">
+							  <button class="conzent-accordion-btn" data-tab="cnzIABspecial_features_tab">[conzent_iab_common_special_features] ([IAB_SPECIAL_FEATURES_COUNT])</button>[IAB_SPECIAL_FEATURES_TOGGLE]
+						  </div>
+						  <div class="conzent-accordion-header-des"></div>
+						</div>
+					  </div>
+					  <div class="conzent-accordion-body">
+						<div class="conzent-tab-content">
+							<div id="cnzIABspecial_features_tab_section">[IAB_SPECIAL_FEATURES]</div>
+						</div>	
+					  </div>
+					</div>
+				</div>	
+			</div>
+			<div class="conzent-preference-content-wrapper cnz-tabcontent hide-tab" style="color:[notice_description_color]" id="cnzIABTabVendorSection">
+            
+				<div class="conzent-accordion-wrapper">
+                <p class="cnz-tab-title">[conzent_iab_nav_item_vendors]</p>
+					<div class="conzent-accordion" id="cnzIABvendors_thirdparty">
+					  <div class="conzent-accordion-item">
+						<div class="conzent-accordion-arrow"><i class="cnz-arrow-right"></i></div>
+						<div class="conzent-accordion-header-wrapper">
+						  <div class="conzent-accordion-header"><button class="conzent-accordion-btn" data-tab="cnzIABvendors_thirdparty">[conzent_iab_vendors_third_party_title] ([IAB_VENDORS_THIRDPARTY_COUNT])</button>[IAB_VENDORS_THIRDPARTY_TOGGLE]</div>
+						  <div class="conzent-accordion-header-des"></div>
+						</div>
+					  </div>
+					  <div class="conzent-accordion-body">
+						<div class="conzent-tab-content">
+							<div id="cnzIABvendors_thirdparty_section">[IAB_VENDORS_THIRDPARTY]</div>
+						</div>	
+					  </div>
+					</div>
+				</div>
+				<div class="conzent-accordion-wrapper">	
+					<div class="conzent-accordion" id="cnzIABvendors_google_ad">
+					  <div class="conzent-accordion-item">
+						<div class="conzent-accordion-arrow"><i class="cnz-arrow-right"></i></div>
+						<div class="conzent-accordion-header-wrapper">
+						  <div class="conzent-accordion-header"><button class="conzent-accordion-btn" data-tab="cnzIABvendors_google_ad">[conzent_iab_vendors_google_ad_title] ([IAB_VENDORS_GOOGLE_AD_COUNT])</button>[IAB_VENDORS_GOOGLE_AD_TOGGLE]</div>
+						  <div class="conzent-accordion-header-des"></div>
+						</div>
+					  </div>
+					  <div class="conzent-accordion-body">
+						<div class="conzent-tab-content">
+							<div id="cnzIABvendors_google_ad_section">
+								[IAB_VENDORS_GOOGLE_AD]
+							</div>
+						</div>
+					  </div>
+					</div>
+				</div>	
+			</div>
+		</div>
+      </div>
+	  <div class="conzent-footer-wrapper"> <span class="cnz-footer-shadow"></span>
+      <div class="conzent-prefrence-btn-wrapper">
+        [preference_button_wrap]
+      </div>
+      <div class="conzent-branding"><div style="text-align:left;max-width: calc(100% - 160px);">The choices you make regarding the purposes and entities listed in this notice are saved in a cookie named conzentConsentPrefs for a maximum duration of 12 months.</div><div style="min-width:140px;display:flex;">[conzent_branding]</div></div>
+    </div>
+   </div>
+</div>
+

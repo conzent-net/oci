@@ -1,0 +1,199 @@
+{% extends 'layouts/base.html.twig' %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div>
+    <nav class="breadcrumb mb-3" aria-label="breadcrumbs">
+        <ul>
+            <li><a href="/">Dashboard</a></li>
+            <li><a href="/account">Account</a></li>
+            <li class="is-active"><a href="#" aria-current="page">Two-factor</a></li>
+        </ul>
+    </nav>
+
+    <div class="level mb-4">
+        <div class="level-left">
+            <div class="level-item">
+                <h1 class="title is-4 mb-0">Two-factor authentication</h1>
+            </div>
+            <div class="level-item">
+                {% if enabled %}
+                    <span class="tag is-success is-light is-medium">On</span>
+                {% else %}
+                    <span class="tag is-warning is-light is-medium">Off</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    {% if not available %}
+        {# The encryption key is missing, so enrolment is refused rather than
+           writing plaintext secrets. Say exactly what to do about it. #}
+        <div class="notification is-danger is-light">
+            <strong>Two-factor authentication is unavailable.</strong>
+            <p class="mt-2">
+                <code>TOTP_ENCRYPTION_KEY</code> is not set, so authenticator secrets
+                cannot be stored safely. Generate one with
+                <code>php -r "echo bin2hex(random_bytes(32)), PHP_EOL;"</code>,
+                add it to your <code>.env</code>, and restart the application.
+            </p>
+        </div>
+    {% endif %}
+
+    {% if recovery_codes %}
+        <div class="notification is-warning is-light">
+            <h2 class="title is-6 mb-2">Save your recovery codes now</h2>
+            <p class="mb-3" style="font-size:0.9rem">
+                Each code works once, and this is the only time they are shown.
+                Keep them somewhere you can reach without your phone. If you lose
+                both your authenticator and these codes, only an administrator can
+                restore access.
+            </p>
+            <pre style="background:#fff;border-radius:8px;padding:1rem;line-height:1.9">{% for code in recovery_codes %}{{ code }}
+{% endfor %}</pre>
+        </div>
+    {% endif %}
+
+    {% if enabled %}
+        <div class="box">
+            <h2 class="title is-6">Status</h2>
+            <p style="color:#64748b;font-size:0.9rem">
+                Two-factor authentication is protecting this account.
+                <strong>{{ recovery_remaining }}</strong> unused recovery
+                {{ recovery_remaining == 1 ? 'code' : 'codes' }} remaining.
+                {% if recovery_remaining <= 2 %}
+                    <span class="has-text-danger">Generate a new set soon.</span>
+                {% endif %}
+            </p>
+        </div>
+
+        <div class="box">
+            <h2 class="title is-6">Trusted devices</h2>
+            <p style="color:#64748b;font-size:0.9rem" class="mb-3">
+                Devices that skip the code prompt for 30 days. Revoke them if one
+                is lost or shared.
+            </p>
+
+            {% if trusted_devices is empty %}
+                <p style="color:#64748b;font-size:0.9rem"><em>No trusted devices.</em></p>
+            {% else %}
+                <table class="table is-fullwidth is-striped is-hoverable">
+                    <thead>
+                        <tr><th>Device</th><th>Added</th><th>Last used</th><th>Expires</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for device in trusted_devices %}
+                            <tr>
+                                <td style="max-width:22rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                                    {{ device.label ?: 'Unknown device' }}
+                                </td>
+                                <td>{{ device.created_at }}</td>
+                                <td>{{ device.last_used_at ?: '—' }}</td>
+                                <td>{{ device.expires_at }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+
+                <form method="post" action="/account/2fa">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+                    <input type="hidden" name="action" value="revoke_devices">
+                    <button type="submit" class="button is-small">Revoke all trusted devices</button>
+                </form>
+            {% endif %}
+        </div>
+
+        <div class="box">
+            <h2 class="title is-6">New recovery codes</h2>
+            <p style="color:#64748b;font-size:0.9rem" class="mb-3">
+                Generating a new set immediately invalidates the previous one.
+            </p>
+            <form method="post" action="/account/2fa">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+                <input type="hidden" name="action" value="regenerate">
+                <div class="field is-grouped">
+                    <div class="control">
+                        <input class="input" type="text" name="code" inputmode="numeric"
+                               maxlength="6" placeholder="Current code" required
+                               style="max-width:11rem;letter-spacing:0.2em">
+                    </div>
+                    <div class="control">
+                        <button type="submit" class="button">Generate new codes</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <div class="box">
+            <h2 class="title is-6 has-text-danger">Turn off two-factor</h2>
+            <p style="color:#64748b;font-size:0.9rem" class="mb-3">
+                This removes the second factor, your recovery codes and your trusted
+                devices. A current code is required, so that nobody sitting at an
+                already-signed-in browser can quietly switch it off.
+            </p>
+            <form method="post" action="/account/2fa">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+                <input type="hidden" name="action" value="disable">
+                <div class="field is-grouped">
+                    <div class="control">
+                        <input class="input" type="text" name="code" inputmode="numeric"
+                               maxlength="6" placeholder="Current code" required
+                               style="max-width:11rem;letter-spacing:0.2em">
+                    </div>
+                    <div class="control">
+                        <button type="submit" class="button is-danger is-light">Turn off</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+    {% elseif enrolment %}
+        <div class="box">
+            <h2 class="title is-6">1. Scan this with your authenticator app</h2>
+            <p style="color:#64748b;font-size:0.9rem" class="mb-4">
+                Google Authenticator, 1Password, Bitwarden, Authy and others all work.
+            </p>
+
+            <div class="columns">
+                <div class="column is-narrow">
+                    {# Rendered server-side as SVG from a local library. Never via
+                       an external QR service, which would hand the shared secret
+                       to a third party. #}
+                    <div style="background:#fff;padding:0.75rem;border-radius:10px;display:inline-block">
+                        {{ enrolment.qr|raw }}
+                    </div>
+                </div>
+                <div class="column">
+                    <p style="color:#64748b;font-size:0.9rem" class="mb-2">
+                        Cannot scan it? Enter this key by hand instead:
+                    </p>
+                    <pre style="border-radius:8px;word-break:break-all">{{ enrolment.secret }}</pre>
+                </div>
+            </div>
+
+            <h2 class="title is-6 mt-5">2. Enter the code it shows</h2>
+            <p style="color:#64748b;font-size:0.9rem" class="mb-3">
+                Two-factor is not switched on until you do this, so you cannot lock
+                yourself out by stopping here.
+            </p>
+
+            <form method="post" action="/account/2fa">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+                <input type="hidden" name="action" value="enable">
+                <div class="field is-grouped">
+                    <div class="control">
+                        <input class="input" type="text" name="code" inputmode="numeric"
+                               pattern="[0-9]*" maxlength="6" placeholder="123456" required
+                               autocomplete="one-time-code"
+                               style="max-width:11rem;letter-spacing:0.2em">
+                    </div>
+                    <div class="control">
+                        <button type="submit" class="button is-primary">Turn on two-factor</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

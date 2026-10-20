@@ -1,0 +1,228 @@
+{#
+  Two-phase scan: what a visitor gets before choosing, and what the site sets
+  once they accept everything. Rendered only for scans that asked for both.
+  Expects: phased, urls, scan, user.
+#}
+{% import _self as scanui %}
+{% set methodCopy = {
+    'click': "Accepted with the banner's Accept all button",
+    'save_all': 'Accepted every category in the preference centre',
+    'seed': 'Consent set directly, because no Accept control was shown',
+    'not_detected': 'No Conzent banner on the page, so nothing needed accepting',
+    'cmp_paused': 'Consent management is paused, so nothing was blocked',
+    'runtime_failed': 'The banner script did not load',
+    'banner_not_shown': 'The banner was not shown to the scanner',
+    'error': 'The after-consent pass failed',
+} %}
+{% set leakNames = phased.leaks|map(c => c.cookie_name|lower) %}
+{% set unclassifiedNames = phased.unclassified|map(c => c.cookie_name|lower) %}
+{% set newNames = phased.new_after_consent|map(c => c.cookie_name|lower) %}
+{% set postVerified = urls|filter(u => u.post_consent_status == 'verified')|length %}
+{% set urlsCompleted = urls|filter(u => u.status == 'completed')|length %}
+
+{# ── Summary ─────────────────────────────────────────── #}
+<div class="columns is-multiline mb-4">
+    <div class="column is-3-desktop is-6-tablet">
+        <div class="box has-background-light p-4 has-text-centered">
+            <p class="heading">Before consent</p>
+            <p class="title is-3">{{ phased.pre.cookies|length }}</p>
+            <p class="is-size-7 has-text-grey">cookies</p>
+        </div>
+    </div>
+    <div class="column is-3-desktop is-6-tablet">
+        <div class="box has-background-light p-4 has-text-centered">
+            <p class="heading">After accept all</p>
+            <p class="title is-3">{{ postVerified > 0 ? phased.post.cookies|length : '-' }}</p>
+            <p class="is-size-7 has-text-grey">cookies</p>
+        </div>
+    </div>
+    <div class="column is-3-desktop is-6-tablet">
+        <div class="box p-4 has-text-centered {{ phased.leaks|length > 0 ? 'has-background-danger-light' : 'has-background-success-light' }}">
+            <p class="heading">Set before consent</p>
+            <p class="title is-3 {{ phased.leaks|length > 0 ? 'has-text-danger' : 'has-text-success' }}">{{ phased.leaks|length }}</p>
+            <p class="is-size-7 has-text-grey">cookies that need consent</p>
+        </div>
+    </div>
+    <div class="column is-3-desktop is-6-tablet">
+        <div class="box has-background-light p-4 has-text-centered">
+            <p class="heading">Scripts after consent</p>
+            <p class="title is-3">{{ postVerified > 0 ? phased.post.beacons|length : '-' }}</p>
+            <p class="is-size-7 has-text-grey">before consent: {{ phased.pre.beacons|length }}</p>
+        </div>
+    </div>
+</div>
+
+{% if scan.scan_status == 'completed' %}
+    {% if phased.inventory_complete %}
+    <div class="notification is-success is-light">
+        <strong>This scan is now your cookie list.</strong>
+        Every page was scanned after accepting all cookies, so the cookies found after consent are the ones your banner declares to visitors.
+    </div>
+    {% else %}
+    <div class="notification is-warning is-light">
+        <strong>Your cookie list was not updated by this scan.</strong>
+        {% if urlsCompleted == 0 %}
+            No page could be scanned.
+        {% else %}
+            Consent could not be confirmed on {{ urlsCompleted - postVerified }} of {{ urlsCompleted }} page{{ urlsCompleted != 1 ? 's' : '' }}, so the list your banner declares stays as it was. The reason is shown per page below.
+        {% endif %}
+    </div>
+    {% endif %}
+{% endif %}
+
+{# ── Per page ────────────────────────────────────────── #}
+<div class="box">
+    <h3 class="title is-5 mb-3">Pages scanned</h3>
+    <div class="table-container">
+        <table class="table is-fullwidth is-narrow is-hoverable">
+            <thead>
+                <tr>
+                    <th>Page</th>
+                    <th class="has-text-right">Before consent</th>
+                    <th>After consent</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for u in urls %}
+                <tr>
+                    <td class="is-size-7" style="word-break: break-all;">
+                        {{ u.url }}
+                        {% if u.final_url and u.final_url != u.url %}
+                            <br><span class="has-text-grey">ended on {{ u.final_url }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="is-size-7 has-text-right">
+                        {% if u.status == 'completed' %}{{ u.cookies_found }} cookies
+                        {% elseif u.status == 'failed' %}<span class="has-text-danger">{{ u.error_message|default('Failed') }}</span>
+                        {% else %}<span class="has-text-grey">{{ u.status|capitalize }}</span>{% endif %}
+                    </td>
+                    <td class="is-size-7">
+                        {% if u.post_consent_status == 'verified' %}
+                            <span class="tag is-success is-light is-small mr-1">Verified</span>
+                            {{ methodCopy[u.consent_method] ?? u.consent_method }}
+                        {% elseif u.post_consent_status == 'unverified' %}
+                            <span class="tag is-warning is-light is-small mr-1">Not verified</span>
+                            {{ u.post_consent_error|default(methodCopy[u.consent_method] ?? '') }}
+                        {% elseif u.post_consent_status == 'failed' %}
+                            <span class="tag is-danger is-light is-small mr-1">Failed</span>
+                            {{ u.post_consent_error|default('') }}
+                        {% elseif u.post_consent_status == 'unsupported' %}
+                            <span class="tag is-light is-small mr-1">Not run</span>
+                            {{ u.post_consent_error|default('') }}
+                        {% else %}
+                            <span class="has-text-grey">-</span>
+                        {% endif %}
+                        {% if user.role == 'admin' and u.diagnostics %}
+                            <details class="mt-1">
+                                <summary class="has-text-grey">Diagnostics</summary>
+                                <pre class="is-size-7 p-2" style="white-space: pre-wrap;">{{ u.diagnostics }}</pre>
+                            </details>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{# ── Side by side ────────────────────────────────────── #}
+{% macro categoryTag(slug) %}
+    {% set cat = slug|default('unclassified') %}
+    <span class="tag is-small is-light
+        {% if cat == 'necessary' %}is-success
+        {% elseif cat == 'functional' or cat == 'preferences' %}is-info
+        {% elseif cat == 'analytics' or cat == 'performance' %}is-warning
+        {% elseif cat == 'marketing' %}is-danger
+        {% endif %}">{{ cat|capitalize }}</span>
+{% endmacro %}
+
+<div class="columns">
+    <div class="column is-6">
+        <div class="box">
+            <h3 class="title is-5 mb-1">Before consent ({{ phased.pre.cookies|length }})</h3>
+            <p class="is-size-7 has-text-grey mb-3">What a visitor's browser holds before they choose. Only necessary cookies belong here.</p>
+            {% if phased.leaks|length > 0 %}
+                <p class="is-size-7 mb-2"><span class="tag is-danger is-light is-small">Needs consent</span> set before the visitor chose</p>
+            {% endif %}
+            {% if phased.unclassified|length > 0 %}
+                <p class="is-size-7 mb-2"><span class="tag is-warning is-light is-small">Unclassified</span> check whether it is necessary</p>
+            {% endif %}
+            {% if phased.pre.cookies|length > 0 %}
+            <div class="table-container">
+                <table class="table is-fullwidth is-narrow is-hoverable">
+                    <thead><tr><th>Name</th><th>Domain</th><th>Category</th></tr></thead>
+                    <tbody>
+                    {% for c in phased.pre.cookies %}
+                        {% set lname = c.cookie_name|lower %}
+                        <tr class="{{ lname in leakNames ? 'has-background-danger-light' : (lname in unclassifiedNames ? 'has-background-warning-light' : '') }}">
+                            <td><code class="is-size-7">{{ c.cookie_name }}</code></td>
+                            <td class="is-size-7">{{ c.cookie_domain|default('-') }}</td>
+                            <td>{{ scanui.categoryTag(c.category_slug) }}</td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+                <p class="has-text-grey is-size-7">No cookies before consent.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="column is-6">
+        <div class="box">
+            <h3 class="title is-5 mb-1">After accept all ({{ postVerified > 0 ? phased.post.cookies|length : '-' }})</h3>
+            <p class="is-size-7 has-text-grey mb-3">Everything the site sets once a visitor accepts all cookies. {{ phased.new_after_consent|length }} of these only appear after consent.</p>
+            {% if postVerified > 0 and phased.post.cookies|length > 0 %}
+            <div class="table-container">
+                <table class="table is-fullwidth is-narrow is-hoverable">
+                    <thead><tr><th>Name</th><th>Domain</th><th>Category</th></tr></thead>
+                    <tbody>
+                    {% for c in phased.post.cookies %}
+                        <tr>
+                            <td>
+                                <code class="is-size-7">{{ c.cookie_name }}</code>
+                                {% if c.cookie_name|lower in newNames %}<span class="tag is-info is-light is-small ml-1">New after consent</span>{% endif %}
+                            </td>
+                            <td class="is-size-7">{{ c.cookie_domain|default('-') }}</td>
+                            <td>{{ scanui.categoryTag(c.category_slug) }}</td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% elseif postVerified > 0 %}
+                <p class="has-text-grey is-size-7">No cookies after consent.</p>
+            {% else %}
+                <p class="has-text-grey is-size-7">Consent could not be confirmed on any page, so nothing is shown here.</p>
+            {% endif %}
+            <p class="is-size-7 has-text-grey mt-3">
+                <span class="icon is-small"><i class="fas fa-info-circle"></i></span>
+                During this pass the scanner lets your trackers load, so each scanned page counts as one visit in your analytics and ad platforms.
+            </p>
+        </div>
+    </div>
+</div>
+
+{% if phased.observed_elsewhere|length > 0 %}
+<div class="box">
+    <h3 class="title is-5 mb-1">Found by continuous scanning on real visits ({{ phased.observed_elsewhere|length }})</h3>
+    <p class="is-size-7 has-text-grey mb-3">Between scans, Conzent keeps checking the cookies your visitors' browsers hold once they have accepted or rejected cookies. That covers every page they use, including logged-in areas, the basket and checkout.</p>
+    <div class="table-container">
+        <table class="table is-fullwidth is-narrow is-hoverable">
+            <thead><tr><th>Name</th><th>Domain</th><th>Category</th><th>Last seen</th></tr></thead>
+            <tbody>
+            {% for c in phased.observed_elsewhere %}
+                <tr>
+                    <td><code class="is-size-7">{{ c.cookie_name }}</code></td>
+                    <td class="is-size-7">{{ c.cookie_domain|default('-') }}</td>
+                    <td>{{ scanui.categoryTag(c.category_slug) }}</td>
+                    <td class="is-size-7">{{ c.last_seen_at ? c.last_seen_at|date('Y-m-d') : '-' }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}

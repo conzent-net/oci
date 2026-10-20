@@ -1,0 +1,226 @@
+{% extends 'layouts/base.html.twig' %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div x-data="languagesPage()">
+
+    <nav class="breadcrumb mb-3" aria-label="breadcrumbs">
+        <ul>
+            <li><a href="/">Dashboard</a></li>
+            <li class="is-active"><a href="#" aria-current="page">Languages</a></li>
+        </ul>
+    </nav>
+
+    {# ── Header ────────────────────────────────────────── #}
+    <div class="level mb-4">
+        <div class="level-left">
+            <div class="level-item">
+                <h1 class="title is-4 mb-0">Languages</h1>
+            </div>
+            <div class="level-item">
+                <span class="tag is-info is-light is-medium">
+                    {{ currentSite.domain }}
+                </span>
+            </div>
+        </div>
+        <div class="level-right">
+            <div class="level-item">
+                {% if canAddLang %}
+                    <button class="button is-primary" @click="addModal = true">
+                        <span class="icon"><i class="fas fa-plus"></i></span>
+                        <span>Add Language</span>
+                    </button>
+                {% else %}
+                    <div>
+                        <a href="/billing" class="button is-warning is-small">
+                            <span class="icon"><i class="fas fa-arrow-up"></i></span>
+                            <span>Upgrade</span>
+                        </a>
+                        <p class="help has-text-grey mt-1">Language limit reached ({{ maxLangs }})</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    {# ── Site Languages Table ─────────────────────────── #}
+    {% if siteLanguages is empty %}
+        <div class="box has-text-centered py-6">
+            <span class="icon is-large has-text-grey-light">
+                <i class="fas fa-language fa-3x"></i>
+            </span>
+            <p class="title is-5 mt-4">No languages configured</p>
+            <p class="subtitle is-6 has-text-grey">Add your first language to get started.</p>
+        </div>
+    {% else %}
+    <div class="table-container">
+        <table class="table is-fullwidth is-hoverable">
+            <thead>
+                <tr>
+                    <th>Language</th>
+                    <th>Code</th>
+                    <th>Default</th>
+                    <th>Banner Content</th>
+                    <th class="has-text-right">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for lang in siteLanguages %}
+                <tr>
+                    <td class="has-text-weight-semibold">{{ lang.lang_name }}</td>
+                    <td><code>{{ lang.lang_code ?? lang.code ?? '—' }}</code></td>
+                    <td>
+                        {% if lang.is_default %}
+                            <span class="tag is-success is-light">Default</span>
+                        {% else %}
+                            <button class="button is-small is-light"
+                                    @click="setDefault({{ lang.id }})"
+                                    title="Set as default">
+                                Set default
+                            </button>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="/banners"
+                           class="button is-small is-link is-light">
+                            <span class="icon"><i class="fas fa-pencil-alt"></i></span>
+                            <span>Edit Content</span>
+                        </a>
+                    </td>
+                    <td class="has-text-right">
+                        {% if not lang.is_default %}
+                            <button class="button is-small is-danger is-light"
+                                    @click="confirmRemove({{ lang.id }}, '{{ lang.lang_name }}')">
+                                <span class="icon"><i class="fas fa-trash"></i></span>
+                            </button>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    {# ── Add Language Modal ───────────────────────────── #}
+    <div class="modal" :class="{ 'is-active': addModal }">
+        <div class="modal-background" @click="addModal = false"></div>
+        <div class="modal-card" style="max-width:480px">
+            <header class="modal-card-head">
+                <p class="modal-card-title">Add Language</p>
+                <button class="delete" aria-label="close" @click="addModal = false"></button>
+            </header>
+            <section class="modal-card-body">
+                <div class="field">
+                    <label class="label">Select Language</label>
+                    <div class="control">
+                        <div class="select is-fullwidth">
+                            <select x-model="selectedLangId">
+                                <option value="">— Choose a language —</option>
+                                {% for lang in availableLanguages %}
+                                    <option value="{{ lang.id }}">{{ lang.lang_name }} ({{ lang.lang_code ?? lang.code }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                {% if availableLanguages is empty %}
+                    <p class="has-text-grey">All available languages have been added to this site.</p>
+                {% endif %}
+            </section>
+            <footer class="modal-card-foot">
+                <button class="button is-primary" :class="{ 'is-loading': saving }"
+                        :disabled="!selectedLangId"
+                        @click="addLanguage()">Add Language</button>
+                <button class="button" @click="addModal = false">Cancel</button>
+            </footer>
+        </div>
+    </div>
+
+    {# ── Remove Confirmation Modal ────────────────────── #}
+    <div class="modal" :class="{ 'is-active': removeModal.open }">
+        <div class="modal-background" @click="removeModal.open = false"></div>
+        <div class="modal-card" style="max-width:440px">
+            <header class="modal-card-head">
+                <p class="modal-card-title">Remove Language</p>
+                <button class="delete" aria-label="close" @click="removeModal.open = false"></button>
+            </header>
+            <section class="modal-card-body">
+                <p>Remove <strong x-text="removeModal.name"></strong> from this site?</p>
+                <p class="has-text-grey mt-2">All banner translations for this language will be deleted.</p>
+            </section>
+            <footer class="modal-card-foot">
+                <button class="button is-danger" :class="{ 'is-loading': saving }"
+                        @click="removeLanguage()">Remove</button>
+                <button class="button" @click="removeModal.open = false">Cancel</button>
+            </footer>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function languagesPage() {
+    return {
+        addModal: false,
+        selectedLangId: '',
+        saving: false,
+        removeModal: { open: false, langId: 0, name: '' },
+
+        addLanguage() {
+            if (!this.selectedLangId) return;
+            this.saving = true;
+            fetch('/app/languages/add', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    site_id: {{ siteId }},
+                    language_id: parseInt(this.selectedLangId)
+                })
+            })
+            .then(r => r.json())
+            .then(data => {
+                this.saving = false;
+                if (data.success) window.location.reload();
+            })
+            .catch(() => { this.saving = false; });
+        },
+
+        setDefault(langId) {
+            fetch('/app/languages/set-default', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ site_id: {{ siteId }}, language_id: langId })
+            })
+            .then(r => r.json())
+            .then(data => { if (data.success) window.location.reload(); });
+        },
+
+        confirmRemove(langId, name) {
+            this.removeModal = { open: true, langId, name };
+        },
+
+        removeLanguage() {
+            this.saving = true;
+            fetch('/app/languages/remove', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    site_id: {{ siteId }},
+                    language_id: this.removeModal.langId
+                })
+            })
+            .then(r => r.json())
+            .then(data => {
+                this.saving = false;
+                if (data.success) window.location.reload();
+            })
+            .catch(() => { this.saving = false; });
+        }
+    };
+}
+</script>
+{% endblock %}

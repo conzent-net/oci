@@ -1,0 +1,70 @@
+{% extends 'layouts/auth.html.twig' %}
+
+{% block title %}Two-factor authentication{% endblock %}
+
+{% block content %}
+<div class="auth-card">
+    <h2 class="title is-4 has-text-centered mb-2">Two-step verification</h2>
+
+    <p style="color:#64748b;font-size:0.9rem;text-align:center" class="mb-5">
+        Open your authenticator app and enter the current 6-digit code.
+    </p>
+
+    {% if error %}
+        <div class="notification is-danger is-light" style="border-radius:10px">
+            <button class="delete" onclick="this.parentElement.remove()"></button>
+            {{ error }}
+        </div>
+    {% endif %}
+
+    <form method="post" action="/2fa/verify">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+
+        <div class="field">
+            <label class="label" for="code">Authentication code</label>
+            <div class="control has-icons-left">
+                {# inputmode=numeric brings up the number pad on a phone, and
+                   one-time-code lets iOS and Android offer the code directly
+                   from the notification. autocomplete on a 6-digit field is the
+                   difference between two taps and switching apps. #}
+                <input class="input" type="text" id="code" name="code"
+                       inputmode="numeric" pattern="[0-9]*" maxlength="6"
+                       autocomplete="one-time-code" autofocus required
+                       placeholder="123456"
+                       style="letter-spacing:0.35em;font-size:1.15rem">
+                <span class="icon is-small is-left">
+                    <i class="fas fa-shield-halved"></i>
+                </span>
+            </div>
+        </div>
+
+        <div class="field">
+            <label class="checkbox" style="color:#64748b;font-size:0.9rem">
+                <input type="checkbox" name="trust_device" value="1">
+                Trust this device for 30 days
+            </label>
+        </div>
+
+        <div class="field mt-5">
+            <button type="submit" class="button is-primary is-fullwidth">Verify</button>
+        </div>
+    </form>
+
+    <hr style="margin:1.75rem 0">
+
+    <details>
+        <summary style="cursor:pointer;color:#64748b;font-size:0.9rem">
+            Lost your phone?
+        </summary>
+        <p style="color:#64748b;font-size:0.85rem" class="mt-3">
+            Enter one of your recovery codes in the box above instead of a
+            6-digit code. Each one works once. If you have run out, ask an
+            administrator to reset two-factor authentication on your account.
+        </p>
+    </details>
+
+    <p class="has-text-centered mt-5">
+        <a href="/logout" style="color:#64748b;font-size:0.85rem">Sign in as someone else</a>
+    </p>
+</div>
+{% endblock %}

@@ -1,0 +1,34 @@
+{# The A–Z index of the public cookie database, with the lookup form. #}
+<section class="hero">
+  <div class="hero__content">
+    <h1 class="hero__title">Cookie database</h1>
+    <p class="hero__subtitle">What {{ total }} browser cookies do, who sets them, and which consent category they belong to.</p>
+    <form action="/cookie/" method="get" role="search" style="display:flex;gap:.5rem;max-width:520px;margin:0 auto">
+      <label for="cookie-q" class="visually-hidden" style="position:absolute;left:-9999px">Cookie name</label>
+      <input id="cookie-q" name="q" type="search" required placeholder="Cookie name, for example _ga" style="flex:1;padding:.7rem .9rem;border-radius:8px;border:1px solid #cbd5e1;font-family:monospace;color:#0f172a;background:#fff">
+      <button type="submit" class="btn btn-cta" style="padding:.7rem 1.1rem;border-radius:8px">Look up</button>
+    </form>
+  </div>
+</section>
+<section class="section">
+  <div class="container">
+    <article class="prose">
+      <p>Every entry names the cookie's purpose, the company behind it, its category under the GDPR and how long it lasts. Type a name above, or browse by vendor or by letter. Not listed? A <a href="https://app.getconzent.com/register">free scan</a> finds and classifies every cookie on your own site.</p>
+
+      <h2>By vendor</h2>
+      <p>
+        {% for v in vendors %}<a href="{{ v.path }}">{{ v.name }}</a> ({{ v.cookies|length }}){% if not loop.last %} · {% endif %}{% endfor %}
+      </p>
+
+      <h2>By name</h2>
+      <p>{% for letter, list in groups %}<a href="#letter-{{ letter == '#' ? 'other' : letter }}">{{ letter }}</a>{% if not loop.last %} · {% endif %}{% endfor %}</p>
+      {% for letter, list in groups %}
+      <h3 id="letter-{{ letter == '#' ? 'other' : letter }}">{{ letter }}</h3>
+      <p style="line-height:2">
+        {% for c in list %}<a href="{{ c.path }}"><code>{{ c.name }}</code></a>{% if not loop.last %} · {% endif %}{% endfor %}
+      </p>
+      {% endfor %}
+      <p style="font-size:.85rem;opacity:.7">Last updated {{ generated }}.</p>
+    </article>
+  </div>
+</section>
