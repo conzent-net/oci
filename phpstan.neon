@@ -1,0 +1,9 @@
+parameters:
+    level: 8
+    paths:
+        - src
+    scanDirectories:
+        - vendor
+    checkMissingIterableValueType: true
+    reportUnmatchedIgnoredErrors: true
+    treatPhpDocTypesAsCertain: false

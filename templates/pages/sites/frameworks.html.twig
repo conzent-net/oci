@@ -1,0 +1,222 @@
+{% extends 'layouts/base.html.twig' %}
+{% import 'components/macros.html.twig' as ui %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div x-data="frameworksPage()">
+
+    <nav class="breadcrumb mb-3" aria-label="breadcrumbs">
+        <ul>
+            <li><a href="/">Dashboard</a></li>
+            <li><a href="/sites">Sites</a></li>
+            <li class="is-active"><a href="#" aria-current="page">Privacy Frameworks</a></li>
+        </ul>
+    </nav>
+
+    <div class="columns is-vcentered mb-4">
+        <div class="column">
+            <h1 class="title is-4 mb-1">Privacy Frameworks</h1>
+            <p class="subtitle is-6 has-text-grey mb-0"><span x-text="selectedCount + ' selected'"></span></p>
+        </div>
+        <div class="column is-narrow">
+            <div class="is-flex is-align-items-center" style="gap:0.75rem">
+                {{ ui.siteSelector(sites, siteId, '/sites/frameworks') }}
+                <button class="button is-primary" :class="{'is-loading': saving}" @click="save()" :disabled="saving">
+                    <span class="icon"><i class="fas fa-save"></i></span>
+                    <span>Save Frameworks</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="notification is-info is-light mb-5">
+        <p>
+            <strong>Select the privacy frameworks</strong> that apply to your website visitors.
+            The consent banner will automatically adjust its behaviour (blocking, buttons, signals) based on
+            each visitor's location and the frameworks you select.
+        </p>
+        {% if maxFrameworks > 0 %}
+        <p class="mt-2">
+            <span class="icon"><i class="fas fa-info-circle"></i></span>
+            Your plan allows <strong>{{ maxFrameworks }}</strong> privacy framework{{ maxFrameworks != 1 ? 's' : '' }}.
+            <a href="/billing">Upgrade</a> for unlimited frameworks.
+        </p>
+        {% endif %}
+    </div>
+
+    {# Success / error messages #}
+    <div x-show="message" x-cloak class="notification mb-4" :class="messageType === 'success' ? 'is-success' : 'is-danger'" x-text="message"
+         x-transition @click="message = ''"></div>
+
+    {# Framework groups #}
+    {% for groupKey, group in groupedFrameworks %}
+    <div class="mb-5">
+        <h2 class="title is-5 mb-3">
+            <span class="icon"><i class="fas fa-globe"></i></span>
+            {{ group.label }}
+        </h2>
+
+        <div class="columns is-multiline">
+            {% for fw in group.frameworks %}
+            <div class="column is-6-tablet is-4-desktop">
+                <div class="card framework-card" :class="{'has-background-primary-light': isSelected('{{ fw.id }}')}"
+                     @click="toggle('{{ fw.id }}')" style="cursor: pointer;">
+                    <div class="card-content">
+                        <div class="level is-mobile mb-2">
+                            <div class="level-left" style="flex-shrink: 1; min-width: 0;">
+                                <div class="level-item" style="min-width: 0;">
+                                    <label class="checkbox mr-2" @click.stop>
+                                        <input type="checkbox"
+                                               :checked="isSelected('{{ fw.id }}')"
+                                               @change="toggle('{{ fw.id }}')"
+                                               :disabled="!isSelected('{{ fw.id }}') && limitReached">
+                                    </label>
+                                    <strong class="is-size-6">{{ fw.name }}</strong>
+                                </div>
+                            </div>
+                            <div class="level-right">
+                                <span class="tag {{ fw.status == 'active' ? 'is-success' : 'is-warning' }} is-light is-small">
+                                    {{ fw.status }}
+                                </span>
+                            </div>
+                        </div>
+
+                        <p class="is-size-7 has-text-grey mb-2">{{ fw.short_description }}</p>
+
+                        <div class="tags are-small">
+                            {# Consent model badge #}
+                            {% if fw.consent.model is defined %}
+                            <span class="tag {{ fw.consent.model == 'opt_in' ? 'is-danger is-light' : (fw.consent.model == 'opt_out' ? 'is-warning is-light' : 'is-info is-light') }}">
+                                {{ fw.consent.model | replace({'_': '-'}) }}
+                            </span>
+                            {% endif %}
+
+                            {# Blocking strategy badge #}
+                            {% if fw.blocking.strategy is defined %}
+                            <span class="tag {{ fw.blocking.strategy == 'block_all_non_essential' ? 'is-danger is-light' : (fw.blocking.strategy == 'block_none' ? 'is-success is-light' : 'is-warning is-light') }}">
+                                {% if fw.blocking.strategy == 'block_all_non_essential' %}block-all
+                                {% elseif fw.blocking.strategy == 'block_none' %}no-block
+                                {% else %}partial-block{% endif %}
+                            </span>
+                            {% endif %}
+
+                            {# GPC required #}
+                            {% if fw.signals.must_honor_gpc is defined and fw.signals.must_honor_gpc %}
+                            <span class="tag is-link is-light">GPC</span>
+                            {% endif %}
+
+                            {# Do Not Sell required #}
+                            {% if fw.do_not_sell.required is defined and fw.do_not_sell.required %}
+                            <span class="tag is-warning is-light">DNS</span>
+                            {% endif %}
+
+                            {# Region #}
+                            {% if fw.countries is defined %}
+                            <span class="tag is-light" title="{{ fw.countries | join(', ') }}">
+                                {{ fw.countries | length }} {{ fw.countries | length == 1 ? 'country' : 'countries' }}
+                            </span>
+                            {% endif %}
+
+                            {# US states #}
+                            {% if fw.states is defined %}
+                            <span class="tag is-light">{{ fw.states | join(', ') }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+
+    {# Bottom save button #}
+    <div class="has-text-right mt-5 mb-5">
+        <button class="button is-primary" :class="{'is-loading': saving}" @click="save()" :disabled="saving">
+            <span class="icon"><i class="fas fa-save"></i></span>
+            <span>Save Frameworks</span>
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+      integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA=="
+      crossorigin="anonymous" referrerpolicy="no-referrer" />
+<style>
+.framework-card { transition: all 0.15s ease; border: 2px solid transparent; }
+.framework-card:hover { border-color: hsl(204, 86%, 53%); }
+.framework-card.has-background-primary-light { border-color: hsl(204, 86%, 53%); }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function frameworksPage() {
+    return {
+        siteId: {{ siteId }},
+        selected: {{ selectedFrameworks | json_encode | raw }},
+        maxFrameworks: {{ maxFrameworks }},
+        saving: false,
+        message: '',
+        messageType: 'success',
+
+        get selectedCount() {
+            return this.selected.length;
+        },
+
+        get limitReached() {
+            return this.maxFrameworks > 0 && this.selected.length >= this.maxFrameworks;
+        },
+
+        isSelected(id) {
+            return this.selected.includes(id);
+        },
+
+        toggle(id) {
+            const idx = this.selected.indexOf(id);
+            if (idx > -1) {
+                this.selected.splice(idx, 1);
+            } else {
+                if (this.limitReached) {
+                    this.message = 'You have reached the maximum of ' + this.maxFrameworks + ' frameworks for your plan. Upgrade to add more.';
+                    this.messageType = 'danger';
+                    return;
+                }
+                this.selected.push(id);
+            }
+            this.message = '';
+        },
+
+        async save() {
+            this.saving = true;
+            this.message = '';
+
+            try {
+                const res = await fetch('/app/sites/frameworks', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    body: JSON.stringify({ site_id: this.siteId, frameworks: this.selected }),
+                });
+
+                const data = await res.json();
+                if (data.success) {
+                    this.message = data.data?.message || 'Frameworks saved successfully.';
+                    this.messageType = 'success';
+                } else {
+                    this.message = data.error?.message || 'Failed to save frameworks.';
+                    this.messageType = 'danger';
+                }
+            } catch (e) {
+                this.message = 'Network error. Please try again.';
+                this.messageType = 'danger';
+            } finally {
+                this.saving = false;
+            }
+        }
+    };
+}
+</script>
+{% endblock %}

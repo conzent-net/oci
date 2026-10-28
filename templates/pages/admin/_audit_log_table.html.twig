@@ -1,0 +1,125 @@
+<div id="audit-log-table">
+    {% set totalPages = total > 0 ? ((total / perPage)|round(0, 'ceil')) : 0 %}
+
+    <div class="is-flex is-justify-content-space-between is-align-items-center mb-3">
+        <p class="is-size-7 has-text-grey">
+            {{ total }} {{ total == 1 ? 'entry' : 'entries' }}
+            {% if page > 1 %} &middot; Page {{ page }} of {{ totalPages }}{% endif %}
+        </p>
+    </div>
+
+    {% if logs|length > 0 %}
+    <div class="table-container">
+        <table class="table is-fullwidth is-hoverable is-striped">
+            <thead>
+                <tr>
+                    <th style="width:160px">Timestamp</th>
+                    <th>User</th>
+                    <th>Action</th>
+                    <th>Entity</th>
+                    <th style="width:80px">ID</th>
+                    <th style="width:50px"></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in logs %}
+                <tr style="cursor:pointer" onclick="toggleDetail({{ log.id }})">
+                    <td class="is-size-7">{{ log.created_at }}</td>
+                    <td class="is-size-7">
+                        {% if log.user_email %}
+                            {{ log.user_email }}
+                        {% else %}
+                            <span class="has-text-grey-light">System</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if log.action == 'create' %}
+                            <span class="tag is-success is-light">{{ log.action }}</span>
+                        {% elseif log.action == 'update' %}
+                            <span class="tag is-info is-light">{{ log.action }}</span>
+                        {% elseif log.action == 'delete' %}
+                            <span class="tag is-danger is-light">{{ log.action }}</span>
+                        {% else %}
+                            <span class="tag is-light">{{ log.action }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="is-size-7">{{ log.entity_type }}</td>
+                    <td class="is-size-7">{{ log.entity_id ?? '—' }}</td>
+                    <td>
+                        <span class="icon is-small has-text-grey-light"><i class="fas fa-chevron-down"></i></span>
+                    </td>
+                </tr>
+                <tr id="detail-{{ log.id }}" class="is-hidden">
+                    <td colspan="6" style="padding:0">
+                        <div style="padding:1rem 1.5rem; background:var(--oci-hover-bg, #f8fafc)">
+                            <div class="columns is-multiline">
+                                {% if log.old_values %}
+                                <div class="column is-half">
+                                    <p class="has-text-weight-semibold is-size-7 mb-2">
+                                        <span class="tag is-danger is-light is-small">Old Values</span>
+                                    </p>
+                                    <pre style="font-size:.75rem; padding:.75rem; border-radius:6px; background:var(--oci-input-bg, #fff); border:1px solid var(--oci-border, #e2e8f0); white-space:pre-wrap; word-break:break-all">{{ log.old_values }}</pre>
+                                </div>
+                                {% endif %}
+                                {% if log.new_values %}
+                                <div class="column is-half">
+                                    <p class="has-text-weight-semibold is-size-7 mb-2">
+                                        <span class="tag is-success is-light is-small">New Values</span>
+                                    </p>
+                                    <pre style="font-size:.75rem; padding:.75rem; border-radius:6px; background:var(--oci-input-bg, #fff); border:1px solid var(--oci-border, #e2e8f0); white-space:pre-wrap; word-break:break-all">{{ log.new_values }}</pre>
+                                </div>
+                                {% endif %}
+                                {% if not log.old_values and not log.new_values %}
+                                <div class="column">
+                                    <p class="is-size-7 has-text-grey">No value changes recorded.</p>
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div class="is-size-7 has-text-grey mt-2">
+                                {% if log.ip_address %}IP: {{ log.ip_address }}{% endif %}
+                                {% if log.user_agent %} &middot; UA: {{ log.user_agent|length > 80 ? log.user_agent[:80] ~ '...' : log.user_agent }}{% endif %}
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {# ── Pagination ── #}
+    {% if totalPages > 1 %}
+    <nav class="pagination is-small is-centered mt-4" role="navigation" aria-label="pagination">
+        {% set queryBase = '?' %}
+        {% if filters.entity_type is defined and filters.entity_type %}{% set queryBase = queryBase ~ 'entity_type=' ~ filters.entity_type ~ '&' %}{% endif %}
+        {% if filters.action is defined and filters.action %}{% set queryBase = queryBase ~ 'action=' ~ filters.action ~ '&' %}{% endif %}
+        {% if filters.date_from is defined and filters.date_from %}{% set queryBase = queryBase ~ 'date_from=' ~ filters.date_from ~ '&' %}{% endif %}
+        {% if filters.date_to is defined and filters.date_to %}{% set queryBase = queryBase ~ 'date_to=' ~ filters.date_to ~ '&' %}{% endif %}
+        {% if filters.search is defined and filters.search %}{% set queryBase = queryBase ~ 'search=' ~ filters.search ~ '&' %}{% endif %}
+
+        <a class="pagination-previous" {% if page > 1 %}href="/admin/audit-log{{ queryBase }}page={{ page - 1 }}"{% else %}disabled{% endif %}>Previous</a>
+        <a class="pagination-next" {% if page < totalPages %}href="/admin/audit-log{{ queryBase }}page={{ page + 1 }}"{% else %}disabled{% endif %}>Next</a>
+
+        <ul class="pagination-list">
+            {% for p in 1..totalPages %}
+                {% if p == page %}
+                    <li><a class="pagination-link is-current" aria-label="Page {{ p }}" aria-current="page">{{ p }}</a></li>
+                {% elseif p == 1 or p == totalPages or (p >= page - 2 and p <= page + 2) %}
+                    <li><a class="pagination-link" href="/admin/audit-log{{ queryBase }}page={{ p }}" aria-label="Go to page {{ p }}">{{ p }}</a></li>
+                {% elseif p == page - 3 or p == page + 3 %}
+                    <li><span class="pagination-ellipsis">&hellip;</span></li>
+                {% endif %}
+            {% endfor %}
+        </ul>
+    </nav>
+    {% endif %}
+
+    {% else %}
+    {# ── Empty state ── #}
+    <div class="box has-text-centered" style="padding:3rem">
+        <span class="icon is-large has-text-grey-lighter mb-3"><i class="fas fa-clipboard-list fa-3x"></i></span>
+        <p class="title is-5">No audit log entries</p>
+        <p class="subtitle is-6 has-text-grey">Changes to the system will appear here once they are recorded.</p>
+    </div>
+    {% endif %}
+</div>

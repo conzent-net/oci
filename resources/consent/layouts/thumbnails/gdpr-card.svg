@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 160" fill="none">
+  <!-- Page background with overlay -->
+  <rect width="280" height="160" rx="4" fill="#f0f0f0"/>
+  <rect width="280" height="160" rx="4" fill="#000" opacity="0.15"/>
+  <!-- Centered card -->
+  <rect x="50" y="20" width="180" height="120" rx="10" fill="#fff" filter="url(#shadow)"/>
+  <!-- Logo circle -->
+  <circle cx="140" cy="40" r="10" fill="#e8e8e8"/>
+  <!-- Title -->
+  <rect x="100" y="56" width="80" height="5" rx="2.5" fill="#444"/>
+  <!-- Message lines -->
+  <rect x="70" y="68" width="140" height="3" rx="1.5" fill="#999"/>
+  <rect x="80" y="75" width="120" height="3" rx="1.5" fill="#999"/>
+  <!-- Buttons -->
+  <rect x="72" y="90" width="64" height="14" rx="3" fill="#2563eb"/>
+  <rect x="142" y="90" width="64" height="14" rx="3" fill="none" stroke="#ccc" stroke-width="1"/>
+  <!-- Branding -->
+  <rect x="100" y="114" width="80" height="3" rx="1.5" fill="#ddd"/>
+  <!-- Shadow filter -->
+  <defs>
+    <filter id="shadow" x="-4" y="-2" width="188" height="132" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+</svg>

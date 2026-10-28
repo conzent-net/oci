@@ -1,0 +1,237 @@
+{#
+  OCI Reusable UI Macros
+  ──────────────────────────────────────────────────────
+  Import in any template:
+    {% import 'components/macros.html.twig' as ui %}
+
+  Usage:
+    {{ ui.toggle('model_name', 'Label text', true) }}
+    {{ ui.dropdown('model_name', options, 'Label') }}
+    {{ ui.sectionHeader('icon', 'Title', 'alpine_key') }}
+#}
+
+{# ── Toggle Switch ──────────────────────────────────────── #}
+{# Renders an on/off toggle bound to Alpine x-model.          #}
+{# @param string model   Alpine model name (e.g. 'settings.general.iab_support') #}
+{# @param string label   Label text                            #}
+{# @param string helpText  Optional help text below the toggle #}
+{% macro toggle(model, label, helpText) %}
+<label class="oci-toggle">
+    <input type="checkbox" x-model="{{ model }}">
+    <span class="toggle-track"></span>
+    <span class="toggle-label">
+        {{ label }}
+        {% if helpText %}
+            <span class="is-block has-text-grey is-size-7">{{ helpText }}</span>
+        {% endif %}
+    </span>
+</label>
+{% endmacro %}
+
+{# ── Custom Select Dropdown ─────────────────────────────── #}
+{# Renders a custom dropdown with icons, bound to Alpine model. #}
+{# @param string  model     Alpine model path                  #}
+{# @param string  uid       Unique ID for this dropdown         #}
+{# @param array   options   JSON-safe array: [{value, label, icon?}]  #}
+{# @param string  label     Field label                         #}
+{% macro dropdown(model, uid, label) %}
+<div class="field">
+    {% if label %}<label class="label">{{ label }}</label>{% endif %}
+    <div class="oci-select" x-data="{ open: false }"
+         :class="{ 'is-open': open }"
+         @click.outside="open = false"
+         @keydown.escape="open = false">
+        <div class="oci-select-trigger" @click="open = !open">
+            <span class="selected-value">
+                <template x-for="opt in {{ uid }}Options" :key="opt.value">
+                    <template x-if="{{ model }} === opt.value">
+                        <span style="display:flex;align-items:center;gap:0.5rem">
+                            <span class="option-icon" x-show="opt.icon" x-html="opt.icon"></span>
+                            <span x-text="opt.label"></span>
+                        </span>
+                    </template>
+                </template>
+            </span>
+            <span class="chevron"><i class="fas fa-chevron-down"></i></span>
+        </div>
+        <div class="oci-select-menu" x-show="open" x-transition>
+            <template x-for="opt in {{ uid }}Options" :key="opt.value">
+                <div class="oci-select-option"
+                     :class="{ 'is-selected': {{ model }} === opt.value }"
+                     @click="{{ model }} = opt.value; open = false">
+                    <span class="option-icon" x-show="opt.icon" x-html="opt.icon"></span>
+                    <span x-text="opt.label"></span>
+                    <span class="option-check" x-show="{{ model }} === opt.value">
+                        <i class="fas fa-check"></i>
+                    </span>
+                </div>
+            </template>
+        </div>
+    </div>
+</div>
+{% endmacro %}
+
+{# ── Section Accordion Header ───────────────────────────── #}
+{# Renders a clickable section header with icon and chevron.   #}
+{# @param string icon      FontAwesome icon class               #}
+{# @param string title     Section title                         #}
+{# @param string key       Alpine sections key (e.g. 'general') #}
+{% macro sectionHeader(icon, title, key) %}
+<div class="oci-section-header" @click="sections.{{ key }} = !sections.{{ key }}">
+    <h2 class="title is-5 mb-0">
+        <span class="section-icon"><i class="fas fa-{{ icon }}"></i></span>
+        {{ title }}
+    </h2>
+    <span class="chevron-icon">
+        <i class="fas" :class="sections.{{ key }} ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+    </span>
+</div>
+{% endmacro %}
+
+{# ── Position Card ──────────────────────────────────────── #}
+{# Renders a visual position selector card.                    #}
+{# @param string model    Alpine model path                    #}
+{# @param string value    Option value                          #}
+{# @param string label    Display label                         #}
+{# @param string preview  Preview type: bar-top, bar-bottom, box-bl, box-br, box-tl, box-tr, popup, sidebar-left, sidebar-right, pushdown #}
+{% macro positionCard(model, value, label, preview) %}
+<div class="oci-position-card"
+     :class="{ 'is-selected': {{ model }} === '{{ value }}' }"
+     @click="{{ model }} = '{{ value }}'">
+    <input type="radio" :checked="{{ model }} === '{{ value }}'">
+    <div class="position-preview">
+        {% if preview == 'bar-top' %}
+            <div class="mock-bar pos-top"></div>
+        {% elseif preview == 'bar-bottom' %}
+            <div class="mock-bar pos-bottom"></div>
+        {% elseif preview == 'box-bl' %}
+            <div class="mock-box pos-bl"></div>
+        {% elseif preview == 'box-br' %}
+            <div class="mock-box pos-br"></div>
+        {% elseif preview == 'box-tl' %}
+            <div class="mock-box pos-tl"></div>
+        {% elseif preview == 'box-tr' %}
+            <div class="mock-box pos-tr"></div>
+        {% elseif preview == 'popup' %}
+            <div class="mock-popup"></div>
+        {% elseif preview == 'sidebar-right' %}
+            <div class="mock-sidebar pos-right"></div>
+        {% elseif preview == 'sidebar-left' %}
+            <div class="mock-sidebar pos-left"></div>
+        {% elseif preview == 'pushdown' %}
+            <div class="mock-pushdown"></div>
+        {% endif %}
+    </div>
+    <span class="position-label">{{ label }}</span>
+</div>
+{% endmacro %}
+
+{# ── Wizard Steps ───────────────────────────────────────── #}
+{# Renders a horizontal wizard progress indicator.             #}
+{# @param array  steps        List of step labels               #}
+{# @param string currentModel Alpine model for current step (1-based) #}
+{% macro wizardSteps(steps, currentModel) %}
+<div class="oci-wizard-steps">
+    {% for step in steps %}
+    <div class="oci-wizard-step"
+         :class="{
+             'is-active': {{ currentModel }} === {{ loop.index }},
+             'is-completed': {{ currentModel }} > {{ loop.index }}
+         }">
+        <div class="step-circle">
+            <i class="fas fa-check" style="font-size:0.75rem" x-show="{{ currentModel }} > {{ loop.index }}"></i>
+            <span x-show="{{ currentModel }} <= {{ loop.index }}">{{ loop.index }}</span>
+        </div>
+        <span class="step-label">{{ step }}</span>
+    </div>
+    {% endfor %}
+</div>
+{% endmacro %}
+
+{# ── Template Card ──────────────────────────────────────── #}
+{# Renders a selectable template card for GCM template picker. #}
+{# @param string model    Alpine model path                     #}
+{# @param string value    Template value                         #}
+{# @param string name     Template display name                  #}
+{# @param string desc     Short description                      #}
+{# @param string icon     FA icon class                          #}
+{# @param string color    Icon background color                  #}
+{# @param bool   disabled Whether this option requires upgrade   #}
+{# ── Site Selector ─────────────────────────────────────── #}
+{# Reusable OCI-styled site selector dropdown.              #}
+{# @param array  sites          List of site arrays [{id, domain, site_name}] #}
+{# @param int    selectedSiteId Currently selected site ID    #}
+{# @param string baseUrl        Navigation base (e.g. '/', '/banners') #}
+{% macro siteSelector(sites, selectedSiteId, baseUrl) %}
+{% if sites|length > 1 %}
+<form method="POST" action="/app/switch-site" id="site-switch-form" style="display:none">
+    <input type="hidden" name="site_id" id="site-switch-id" value="">
+</form>
+<div class="oci-select" x-data="{ open: false }"
+     :class="{ 'is-open': open }"
+     @click.outside="open = false"
+     @keydown.escape="open = false"
+     style="min-width:260px">
+    <div class="oci-select-trigger" @click="open = !open">
+        <span class="selected-value" style="display:flex;align-items:center;gap:0.5rem">
+            <i class="fas fa-globe has-text-info" style="font-size:0.85rem"></i>
+            <span>
+                {% for site in sites %}
+                    {% if site.id == selectedSiteId %}
+                        {{ site.domain }}{% if site.site_name %} ({{ site.site_name }}){% endif %}
+                    {% endif %}
+                {% endfor %}
+            </span>
+        </span>
+        <span class="chevron"><i class="fas fa-chevron-down"></i></span>
+    </div>
+    <div class="oci-select-menu" x-show="open" x-transition style="max-height:280px;overflow-y:auto">
+        {% for site in sites %}
+        <div class="oci-select-option {{ site.id == selectedSiteId ? 'is-selected' : '' }}"
+             @click="document.getElementById('site-switch-id').value='{{ site.id }}'; document.getElementById('site-switch-form').submit()">
+            <span style="display:flex;align-items:center;gap:0.5rem">
+                <i class="fas fa-globe" style="font-size:0.8rem;opacity:0.5"></i>
+                <span>{{ site.domain }}{% if site.site_name %} ({{ site.site_name }}){% endif %}</span>
+            </span>
+            {% if site.id == selectedSiteId %}
+            <span class="option-check"><i class="fas fa-check"></i></span>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% else %}
+<span class="tag is-info is-light is-medium">
+    <i class="fas fa-globe mr-2"></i>
+    {{ sites[0].domain is defined ? sites[0].domain : '' }}
+</span>
+{% endif %}
+{% endmacro %}
+
+{# ── Template Card ──────────────────────────────────────── #}
+{# Renders a selectable template card for GCM template picker. #}
+{# @param string model    Alpine model path                     #}
+{# @param string value    Template value                         #}
+{# @param string name     Template display name                  #}
+{# @param string desc     Short description                      #}
+{# @param string icon     FA icon class                          #}
+{# @param string color    Icon background color                  #}
+{# @param bool   disabled Whether this option requires upgrade   #}
+{% macro templateCard(model, value, name, desc, icon, color, disabled) %}
+<div class="oci-template-card {{ disabled ? 'is-disabled' : '' }}"
+     :class="{ 'is-selected': {{ model }} === '{{ value }}', 'is-applied': !{{ model }} && appliedTemplate === '{{ value }}' }"
+     {% if not disabled %}@click="{{ model }} = '{{ value }}'"{% endif %}>
+    <input type="radio" :checked="{{ model }} === '{{ value }}'">
+    <div class="template-icon" style="background:{{ color }}20;color:{{ color }}">
+        <i class="fas fa-{{ icon }}"></i>
+    </div>
+    <div class="template-name">{{ name }}</div>
+    <div class="template-desc">{{ desc }}</div>
+    {% if disabled %}
+    <span class="template-badge tag is-warning is-light" style="font-size:0.625rem">Upgrade</span>
+    {% endif %}
+    <span class="template-badge tag is-success is-light" style="font-size:0.625rem" x-show="appliedTemplate === '{{ value }}'" x-cloak>
+        <i class="fas fa-check mr-1"></i> Applied
+    </span>
+</div>
+{% endmacro %}
