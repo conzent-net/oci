@@ -1,0 +1,12 @@
+# Shell scripts must always use LF so they run under bash on Linux
+# (Alpine containers) and Git Bash regardless of the checkout platform.
+*.sh text eol=lf
+bin/oci text eol=lf
+
+# GTM custom templates must match, byte for byte, the copy Google stores for
+# the gallery version they reference. A single CR breaks the install, so never
+# let a Windows checkout rewrite them.
+*.tpl text eol=lf
+
+# Git hooks run under sh; a CR in the shebang line breaks them.
+.githooks/* text eol=lf

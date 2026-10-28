@@ -1,0 +1,316 @@
+{% extends 'layouts/base.html.twig' %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div x-data="createSitePage()">
+
+    {# ── First-time welcome banner ─────────────────────── #}
+    {% if isFirstSite %}
+    <section class="hero is-primary is-medium mb-6">
+        <div class="hero-body has-text-centered">
+            <p class="title is-2">
+                <span class="icon is-large mr-2"><i class="fas fa-rocket"></i></span>
+                Welcome to OCI
+            </p>
+            <p class="subtitle is-4 mt-3">
+                Let's get your first site set up — it only takes a minute.
+            </p>
+        </div>
+    </section>
+
+    {# Onboarding steps indicator #}
+    <nav class="steps is-balanced mb-6" aria-label="Setup progress">
+        <div class="columns is-centered">
+            <div class="column is-8">
+                <div class="columns has-text-centered">
+                    <div class="column">
+                        <span class="tag is-primary is-medium is-rounded">1</span>
+                        <p class="mt-2 has-text-weight-bold has-text-primary">Add your site</p>
+                    </div>
+                    <div class="column">
+                        <span class="tag is-light is-medium is-rounded">2</span>
+                        <p class="mt-2 has-text-grey">Configure banner</p>
+                    </div>
+                    <div class="column">
+                        <span class="tag is-light is-medium is-rounded">3</span>
+                        <p class="mt-2 has-text-grey">Install script</p>
+                    </div>
+                    <div class="column">
+                        <span class="tag is-light is-medium is-rounded">4</span>
+                        <p class="mt-2 has-text-grey">Go live</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+    {% else %}
+
+    {# ── Returning user header ─────────────────────────── #}
+    <nav class="breadcrumb mb-4" aria-label="breadcrumbs">
+        <ul>
+            <li><a href="/">Dashboard</a></li>
+            <li><a href="/sites">Sites</a></li>
+            <li class="is-active"><a href="#" aria-current="page">Add New Site</a></li>
+        </ul>
+    </nav>
+
+    <div class="level mb-5">
+        <div class="level-left">
+            <div class="level-item">
+                <h1 class="title is-3">Add New Site</h1>
+            </div>
+        </div>
+        <div class="level-right">
+            <div class="level-item">
+                <span class="tag is-info is-light is-medium">
+                    {{ siteCount }} site{{ siteCount != 1 ? 's' : '' }} registered
+                </span>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {# ── Plan limit error ──────────────────────────────── #}
+    {% if errors.plan is defined %}
+    <div class="notification is-danger is-light">
+        <button class="delete" @click="$event.target.parentElement.remove()"></button>
+        <strong>Plan Limit Reached:</strong> {{ errors.plan }}
+        <br>
+        <a href="/plans" class="button is-small is-danger mt-3">Upgrade Plan</a>
+    </div>
+    {% endif %}
+
+    {# ── Site creation form ────────────────────────────── #}
+    <div class="box">
+        {% if isFirstSite %}
+        <h2 class="title is-4 mb-4">
+            <span class="icon mr-2"><i class="fas fa-globe"></i></span>
+            Enter your website details
+        </h2>
+        <p class="subtitle is-6 has-text-grey mb-5">
+            We'll scan your site for cookies and set up your consent banner automatically.
+        </p>
+        {% endif %}
+
+        <form method="POST" action="/sites/create" @submit="handleSubmit($event)">
+
+            {# Domain field #}
+            <div class="field">
+                <label class="label" for="domain">
+                    Domain
+                    <span class="has-text-danger">*</span>
+                </label>
+                <div class="control has-icons-left">
+                    <input
+                        class="input {{ errors.domain is defined ? 'is-danger' : '' }}"
+                        type="text"
+                        id="domain"
+                        name="domain"
+                        placeholder="example.com"
+                        value="{{ old.domain ?? '' }}"
+                        x-model="form.domain"
+                        required
+                        autocomplete="off"
+                        autofocus
+                    >
+                    <span class="icon is-small is-left">
+                        <i class="fas fa-link"></i>
+                    </span>
+                </div>
+                {% if errors.domain is defined %}
+                <p class="help is-danger">{{ errors.domain }}</p>
+                {% endif %}
+                <p class="help">Enter your domain (e.g. <strong>example.com</strong> or <strong>https://example.com</strong>)</p>
+            </div>
+
+            {# Site name field #}
+            <div class="field">
+                <label class="label" for="site_name">Site Name</label>
+                <div class="control has-icons-left">
+                    <input
+                        class="input"
+                        type="text"
+                        id="site_name"
+                        name="site_name"
+                        placeholder="My Website"
+                        value="{{ old.site_name ?? '' }}"
+                        x-model="form.siteName"
+                    >
+                    <span class="icon is-small is-left">
+                        <i class="fas fa-tag"></i>
+                    </span>
+                </div>
+                <p class="help">Optional — defaults to the domain name if left empty</p>
+            </div>
+
+            {# Privacy policy URL #}
+            <div class="field">
+                <label class="label" for="privacy_policy_url">Privacy Policy URL</label>
+                <div class="control has-icons-left">
+                    <input
+                        class="input"
+                        type="url"
+                        id="privacy_policy_url"
+                        name="privacy_policy_url"
+                        placeholder="https://example.com/privacy-policy"
+                        value="{{ old.privacy_policy_url ?? '' }}"
+                        x-model="form.privacyPolicyUrl"
+                    >
+                    <span class="icon is-small is-left">
+                        <i class="fas fa-shield-halved"></i>
+                    </span>
+                </div>
+                <p class="help">Optional — you can add this later in site settings</p>
+            </div>
+
+            {# ── Privacy Framework Selection ────────────── #}
+            {% if groupedFrameworks is defined and groupedFrameworks|length > 0 %}
+            <div class="field mt-5">
+                <label class="label">
+                    Privacy Frameworks
+                    <span class="has-text-grey has-text-weight-normal is-size-7 ml-1">Select the regulations that apply to your visitors</span>
+                </label>
+
+                {% for groupKey, group in groupedFrameworks %}
+                <p class="has-text-weight-semibold is-size-7 has-text-grey mt-3 mb-2">
+                    <span class="icon is-small"><i class="fas fa-globe"></i></span>
+                    {{ group.label }}
+                </p>
+                <div class="columns is-multiline is-gapless">
+                    {% for fw in group.frameworks %}
+                    <div class="column is-6">
+                        <label class="checkbox is-size-7 py-1 px-2 is-block"
+                               :class="{'has-text-primary has-text-weight-semibold': form.frameworks.includes('{{ fw.id }}')}"
+                               style="cursor: pointer; border-radius: 4px;"
+                               @mouseenter="$el.style.backgroundColor='#f5f5f5'" @mouseleave="$el.style.backgroundColor=''">
+                            <input type="checkbox"
+                                   name="frameworks[]"
+                                   value="{{ fw.id }}"
+                                   class="mr-1"
+                                   x-model="form.frameworks"
+                                   {{ fw.id in (old.frameworks ?? ['gdpr', 'eprivacy_directive']) ? 'checked' : '' }}>
+                            {{ fw.name }}
+                            {% if fw.consent.model is defined %}
+                            <span class="tag is-rounded ml-1 {{ fw.consent.model == 'opt_in' ? 'is-danger' : (fw.consent.model == 'opt_out' ? 'is-warning' : 'is-info') }} is-light" style="font-size: 0.6rem; height: 1.2em;">
+                                {{ fw.consent.model | replace({'_': '-'}) }}
+                            </span>
+                            {% endif %}
+                        </label>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endfor %}
+
+                <p class="help mt-2">
+                    <span class="icon is-small"><i class="fas fa-info-circle"></i></span>
+                    GDPR and ePrivacy Directive are pre-selected as defaults. You can change this later under <strong>Privacy Frameworks</strong>.
+                </p>
+            </div>
+            {% endif %}
+
+            {% if isFirstSite %}
+            {# ── First-time: extra info box ────────────── #}
+            <div class="message is-info mt-5">
+                <div class="message-body">
+                    <p class="has-text-weight-semibold mb-2">
+                        <span class="icon"><i class="fas fa-info-circle"></i></span>
+                        What happens next?
+                    </p>
+                    <ul class="ml-4" style="list-style: disc;">
+                        <li>We'll create your site and start scanning for cookies automatically</li>
+                        <li>A consent banner will be set up based on your selected privacy frameworks</li>
+                        <li>You'll be taken to your dashboard to configure the banner and install the script</li>
+                    </ul>
+                </div>
+            </div>
+            {% endif %}
+
+            {# Submit button #}
+            <div class="field mt-5">
+                <div class="control">
+                    <button
+                        type="submit"
+                        class="button is-primary is-medium"
+                        :class="{ 'is-loading': submitting }"
+                        :disabled="submitting || !form.domain.trim()"
+                    >
+                        <span class="icon">
+                            <i class="fas fa-plus-circle"></i>
+                        </span>
+                        <span>
+                            {% if isFirstSite %}
+                                Create My First Site
+                            {% else %}
+                                Add Site
+                            {% endif %}
+                        </span>
+                    </button>
+
+                    {% if not isFirstSite %}
+                    <a href="/" class="button is-light is-medium ml-3">Cancel</a>
+                    {% endif %}
+                </div>
+            </div>
+        </form>
+    </div>
+
+    {% if isFirstSite %}
+    {# ── First-time: feature highlights ────────────────── #}
+    <div class="columns mt-6">
+        <div class="column">
+            <div class="box has-text-centered">
+                <span class="icon is-large has-text-info">
+                    <i class="fas fa-cookie-bite fa-2x"></i>
+                </span>
+                <h3 class="title is-5 mt-3">Automatic Cookie Scanning</h3>
+                <p class="has-text-grey">We'll detect all cookies on your website and categorise them for you.</p>
+            </div>
+        </div>
+        <div class="column">
+            <div class="box has-text-centered">
+                <span class="icon is-large has-text-success">
+                    <i class="fas fa-check-double fa-2x"></i>
+                </span>
+                <h3 class="title is-5 mt-3">20+ Privacy Frameworks</h3>
+                <p class="has-text-grey">GDPR, CCPA, LGPD, POPIA, and more — with geo-aware consent rules per visitor.</p>
+            </div>
+        </div>
+        <div class="column">
+            <div class="box has-text-centered">
+                <span class="icon is-large has-text-warning">
+                    <i class="fas fa-chart-line fa-2x"></i>
+                </span>
+                <h3 class="title is-5 mt-3">Consent Analytics</h3>
+                <p class="has-text-grey">Track consent rates and visitor behaviour with detailed reports.</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function createSitePage() {
+    return {
+        submitting: false,
+        form: {
+            domain: '{{ old.domain ?? '' }}',
+            siteName: '{{ old.site_name ?? '' }}',
+            privacyPolicyUrl: '{{ old.privacy_policy_url ?? '' }}',
+            frameworks: {{ old.frameworks is defined ? old.frameworks | json_encode | raw : "['gdpr', 'eprivacy_directive']" }}
+        },
+
+        handleSubmit(event) {
+            if (!this.form.domain.trim()) {
+                event.preventDefault();
+                return;
+            }
+            this.submitting = true;
+            // Let the form submit naturally
+        }
+    };
+}
+</script>
+{% endblock %}

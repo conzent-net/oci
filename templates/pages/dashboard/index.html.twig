@@ -1,0 +1,67 @@
+{% extends 'layouts/base.html.twig' %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="columns is-multiline">
+    {# Page header #}
+    <div class="column is-12">
+        <h1 class="title is-3">Dashboard</h1>
+        <p class="subtitle is-6 has-text-grey">Welcome to Open Consent Infrastructure</p>
+    </div>
+
+    {# Stat cards (placeholder — will be filled with real data) #}
+    <div class="column is-3">
+        <div class="box">
+            <p class="heading">Active Sites</p>
+            <p class="title is-4" id="stat-sites">—</p>
+        </div>
+    </div>
+    <div class="column is-3">
+        <div class="box">
+            <p class="heading">Consents Today</p>
+            <p class="title is-4" id="stat-consents">—</p>
+        </div>
+    </div>
+    <div class="column is-3">
+        <div class="box">
+            <p class="heading">Page Views (30d)</p>
+            <p class="title is-4" id="stat-pageviews">—</p>
+        </div>
+    </div>
+    <div class="column is-3">
+        <div class="box">
+            <p class="heading">Compliance Score</p>
+            <p class="title is-4 has-text-success" id="stat-compliance">—</p>
+        </div>
+    </div>
+
+    {# Quick actions #}
+    <div class="column is-12">
+        <div class="box">
+            <h2 class="title is-5 mb-4">Quick Actions</h2>
+            <div class="buttons">
+                <a class="button is-link" href="/sites/create">
+                    <span>Add Site</span>
+                </a>
+                <a class="button is-info is-outlined" href="/scans">
+                    <span>Run Cookie Scan</span>
+                </a>
+                <a class="button is-warning is-outlined" href="/banners">
+                    <span>Customize Banner</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    {# Recent activity (htmx-loaded) #}
+    <div class="column is-12">
+        <div class="box">
+            <h2 class="title is-5 mb-4">Recent Activity</h2>
+            <div hx-get="/app/api/activity/recent" hx-trigger="load" hx-swap="innerHTML">
+                <p class="has-text-grey">Loading activity...</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 160" fill="none">
+  <!-- Page background -->
+  <rect width="280" height="160" rx="4" fill="#f0f0f0"/>
+  <!-- Page content lines -->
+  <rect x="20" y="16" width="120" height="6" rx="3" fill="#ddd"/>
+  <rect x="20" y="28" width="160" height="4" rx="2" fill="#e8e8e8"/>
+  <rect x="20" y="36" width="140" height="4" rx="2" fill="#e8e8e8"/>
+  <!-- Right sidebar panel -->
+  <rect x="170" y="0" width="110" height="160" fill="#fff" stroke="#e0e0e0" stroke-width="1"/>
+  <!-- Sidebar title -->
+  <rect x="182" y="16" width="70" height="5" rx="2.5" fill="#444"/>
+  <!-- Close button -->
+  <line x1="264" y1="14" x2="270" y2="20" stroke="#999" stroke-width="1.5"/>
+  <line x1="270" y1="14" x2="264" y2="20" stroke="#999" stroke-width="1.5"/>
+  <!-- Message lines -->
+  <rect x="182" y="30" width="86" height="3" rx="1.5" fill="#999"/>
+  <rect x="182" y="37" width="78" height="3" rx="1.5" fill="#999"/>
+  <!-- Separator -->
+  <line x1="182" y1="48" x2="268" y2="48" stroke="#e8e8e8" stroke-width="1"/>
+  <!-- Category toggles -->
+  <rect x="182" y="56" width="50" height="4" rx="2" fill="#666"/>
+  <rect x="254" y="55" width="14" height="7" rx="3.5" fill="#2563eb"/>
+  <rect x="182" y="70" width="40" height="4" rx="2" fill="#666"/>
+  <rect x="254" y="69" width="14" height="7" rx="3.5" fill="#ccc"/>
+  <rect x="182" y="84" width="55" height="4" rx="2" fill="#666"/>
+  <rect x="254" y="83" width="14" height="7" rx="3.5" fill="#ccc"/>
+  <!-- Buttons -->
+  <rect x="182" y="104" width="86" height="14" rx="3" fill="#2563eb"/>
+  <rect x="182" y="122" width="86" height="14" rx="3" fill="none" stroke="#ccc" stroke-width="1"/>
+  <!-- Branding -->
+  <rect x="200" y="148" width="52" height="3" rx="1.5" fill="#ddd"/>
+</svg>
