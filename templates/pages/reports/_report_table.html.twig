@@ -1,0 +1,109 @@
+{% if reports|length > 0 %}
+<div class="table-container">
+    <table class="table is-fullwidth is-striped is-hoverable">
+        <thead>
+            <tr>
+                <th>Title</th>
+                <th>Type</th>
+                <th>Period</th>
+                <th>Status</th>
+                <th>Created</th>
+                <th class="has-text-right">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for report in reports %}
+            <tr>
+                <td>
+                    <a href="/reports/{{ report.id }}" target="_blank" class="has-text-weight-medium">
+                        {{ report.title }}
+                    </a>
+                </td>
+                <td>
+                    {% if report.report_type == 'full' %}
+                        <span class="tag is-info is-light">Full</span>
+                    {% elseif report.report_type == 'consent' %}
+                        <span class="tag is-success is-light">Consent</span>
+                    {% elseif report.report_type == 'scan' %}
+                        <span class="tag is-warning is-light">Scan</span>
+                    {% else %}
+                        <span class="tag is-light">{{ report.report_type }}</span>
+                    {% endif %}
+                </td>
+                <td>{{ report.period_start }} &mdash; {{ report.period_end }}</td>
+                <td>
+                    {% if report.status == 'sent' %}
+                        <span class="tag is-success is-light">
+                            <span class="icon is-small"><i class="fas fa-check"></i></span>
+                            <span>Sent</span>
+                        </span>
+                    {% elseif report.status == 'failed' %}
+                        <span class="tag is-danger is-light">
+                            <span class="icon is-small"><i class="fas fa-times"></i></span>
+                            <span>Failed</span>
+                        </span>
+                    {% else %}
+                        <span class="tag is-light">
+                            <span class="icon is-small"><i class="fas fa-file-alt"></i></span>
+                            <span>Generated</span>
+                        </span>
+                    {% endif %}
+                </td>
+                <td>{{ report.created_at }}</td>
+                <td class="has-text-right">
+                    <div class="buttons is-right are-small">
+                        <a href="/reports/{{ report.id }}" target="_blank" class="button is-small is-info is-light"
+                           title="View report">
+                            <span class="icon"><i class="fas fa-eye"></i></span>
+                        </a>
+                        <button class="button is-small is-primary is-light"
+                                @click="openSendModal({{ report.id }})"
+                                title="Send via email">
+                            <span class="icon"><i class="fas fa-paper-plane"></i></span>
+                        </button>
+                        <button class="button is-small is-danger is-light"
+                                @click="openDeleteModal({{ report.id }})"
+                                title="Delete">
+                            <span class="icon"><i class="fas fa-trash"></i></span>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{# Pagination #}
+{% set totalPages = max(((total / perPage)|round(0, 'ceil')), 1) %}
+{% if totalPages > 1 %}
+<nav class="pagination is-centered mt-4" role="navigation" aria-label="pagination">
+    <a class="pagination-previous" {{ page <= 1 ? 'disabled' : '' }}
+       href="?site_id={{ siteId }}&page={{ page - 1 }}">Previous</a>
+    <a class="pagination-next" {{ page >= totalPages ? 'disabled' : '' }}
+       href="?site_id={{ siteId }}&page={{ page + 1 }}">Next</a>
+    <ul class="pagination-list">
+        {% for p in 1..totalPages %}
+            <li>
+                <a class="pagination-link {{ p == page ? 'is-current' : '' }}"
+                   href="?site_id={{ siteId }}&page={{ p }}">{{ p }}</a>
+            </li>
+        {% endfor %}
+    </ul>
+</nav>
+{% endif %}
+
+{% else %}
+{# Empty state #}
+<div class="has-text-centered py-6">
+    <span class="icon is-large has-text-grey-light">
+        <i class="fas fa-chart-bar fa-3x"></i>
+    </span>
+    <p class="title is-5 mt-4 has-text-grey">No reports yet</p>
+    <p class="subtitle is-6 has-text-grey-light">Generate your first compliance report to get started.</p>
+    <button class="button is-primary mt-2" @click="showGenerateModal = true">
+        <span class="icon"><i class="fas fa-file-alt"></i></span>
+        <span>Generate Report</span>
+    </button>
+</div>
+{% endif %}
