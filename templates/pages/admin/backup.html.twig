@@ -1,0 +1,826 @@
+{% extends 'layouts/base.html.twig' %}
+
+{% block title %}Backup and restore{% endblock %}
+
+{% block content %}
+<div class="container" x-data="backupPage()">
+
+    <nav class="breadcrumb mb-4" aria-label="breadcrumbs">
+        <ul>
+            <li><a href="/admin">Admin</a></li>
+            <li class="is-active"><a>Backup and restore</a></li>
+        </ul>
+    </nav>
+
+    <div class="level mb-5">
+        <div class="level-left">
+            <div>
+                <h1 class="title is-3">Backup and restore</h1>
+                <p class="subtitle is-6 has-text-grey">
+                    What this install has backed up, where those copies are, and how to get them back.
+                </p>
+            </div>
+        </div>
+        <div class="level-right">
+            <button class="button is-primary"
+                    :class="{ 'is-loading': running }"
+                    :disabled="running"
+                    @click="runBackup()">
+                <span class="icon"><i class="fas fa-play"></i></span>
+                <span>Run backup now</span>
+            </button>
+        </div>
+    </div>
+
+    {# ── The status banner. The reason this page exists. ─────────────── #}
+    <div class="notification mb-5"
+         :class="{
+            'is-success is-light': health === 'green',
+            'is-warning is-light': health === 'amber',
+            'is-danger is-light':  health === 'red',
+            'is-info is-light':    health === 'unset'
+         }">
+        <div class="columns is-vcentered">
+            <div class="column is-narrow">
+                <span class="icon is-large">
+                    <i class="fas fa-2x"
+                       :class="{
+                          'fa-circle-check': health === 'green',
+                          'fa-triangle-exclamation': health === 'amber' || health === 'red',
+                          'fa-circle-question': health === 'unset'
+                       }"></i>
+                </span>
+            </div>
+            <div class="column">
+                <p class="title is-5 mb-1" x-text="headline"></p>
+                <p class="is-size-6" x-text="detail"></p>
+                <template x-if="overview.schedule_configured">
+                    <p class="is-size-7 has-text-grey mt-2">
+                        Daily at <strong x-text="String(overview.schedule_hour).padStart(2,'0') + ':00'"></strong>.
+                        Next run <span x-text="formatWhen(overview.next_run)"></span>.
+                        Keeping <span x-text="overview.retention"></span> backups.
+                    </p>
+                </template>
+            </div>
+            <div class="column is-narrow">
+                <template x-for="d in overview.destinations" :key="d.name">
+                    <span class="tag mr-1"
+                          :class="destinationClass(d)"
+                          :title="destinationTitle(d)"
+                          x-text="d.name"></span>
+                </template>
+            </div>
+        </div>
+    </div>
+
+    <template x-if="flash">
+        <div class="notification" :class="flashType === 'error' ? 'is-danger' : 'is-success'">
+            <button class="delete" @click="flash = ''"></button>
+            <span x-text="flash"></span>
+        </div>
+    </template>
+
+    {# ── History ─────────────────────────────────────────────────────── #}
+    <div class="box">
+        <div class="level mb-2">
+            <div class="level-left">
+                <div>
+                    <h2 class="title is-5">History</h2>
+                    <p class="subtitle is-7 has-text-grey mb-0">
+                        Every attempt, including the ones that failed.
+                    </p>
+                </div>
+            </div>
+            <div class="level-right">
+                {# The Stored column is only worth trusting if you can see how
+                   old the check is and force a new one. Listing real storage
+                   means network calls, so it is cached for a few minutes
+                   rather than repeated on every page load. #}
+                <div class="has-text-right">
+                    <p class="is-size-7 has-text-grey mb-1">
+                        Storage checked
+                        <span title="{{ overview.storage_checked_at|date('Y-m-d H:i:s') }}">
+                            {{ overview.storage_checked_at|date('H:i:s') }}
+                        </span>
+                    </p>
+                    <a class="button is-small"
+                       href="/admin/backup?refresh_storage=1"
+                       title="Re-read every configured destination now and update the Stored column.">
+                        <span class="icon is-small"><i class="fas fa-arrows-rotate"></i></span>
+                        <span>Refresh</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        {% if overview.storage_unreachable is not empty %}
+            {# Never let this fail quietly. A destination we cannot list is the
+               one case where the page genuinely does not know whether a copy
+               exists, and it must say so rather than imply loss. #}
+            <div class="notification is-warning is-light py-2 px-3 is-size-7">
+                <strong>Could not check every destination.</strong>
+                {% for name, error in overview.storage_unreachable %}
+                    <br><code>{{ name }}</code> — {{ error }}
+                {% endfor %}
+                <br>Archives held there are shown as unknown, not missing.
+            </div>
+        {% endif %}
+
+        {% include 'pages/admin/_backup_table.html.twig' %}
+    </div>
+
+    {# ── Settings ────────────────────────────────────────────────────── #}
+    <div class="box">
+        <h2 class="title is-5">Schedule and retention</h2>
+
+        <div class="field">
+            <label class="checkbox">
+                <input type="checkbox" x-model="settings.enabled">
+                Run a backup automatically every day
+            </label>
+            <p class="help">
+                Turning this on also starts the stale-backup alarm: if a day passes with no
+                successful backup, this page turns red and you get an email.
+            </p>
+        </div>
+
+        <div class="columns">
+            <div class="column is-3">
+                <div class="field">
+                    <label class="label is-small" for="schedule_hour">Hour</label>
+                    <div class="control">
+                        <div class="select is-fullwidth">
+                            <select id="schedule_hour" x-model="settings.hour" :disabled="!settings.enabled">
+                                <template x-for="h in 24" :key="h">
+                                    <option :value="h - 1"
+                                            x-text="String(h - 1).padStart(2,'0') + ':00'"></option>
+                                </template>
+                            </select>
+                        </div>
+                    </div>
+                    <p class="help">Server time.</p>
+                </div>
+            </div>
+            <div class="column is-3">
+                <div class="field">
+                    <label class="label is-small" for="retention">Keep</label>
+                    <div class="control">
+                        <input class="input" id="retention" type="number" min="1" max="365"
+                               x-model.number="settings.retention">
+                    </div>
+                    <p class="help">Older backups are pruned.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="field">
+            <label class="checkbox">
+                <input type="checkbox" x-model="settings.includeConfig">
+                Include configuration (<code>.env</code>) in every archive
+            </label>
+            <p class="help has-text-danger" x-show="settings.includeConfig">
+                The archive will then contain live credentials, including your payment,
+                DNS and mail keys, and the key that decrypts two-factor secrets. Anyone
+                who can download a backup gets all of them. Leave this off unless you
+                have somewhere genuinely private to keep the archives.
+            </p>
+            <p class="help" x-show="!settings.includeConfig">
+                Off by default. Archives hold the database and generated consent scripts only.
+                Note that without <code>.env</code>, two-factor secrets cannot be decrypted after
+                a restore onto a fresh install.
+            </p>
+        </div>
+
+        <div class="field mt-4">
+            <button class="button is-primary" :class="{ 'is-loading': saving }" @click="saveSettings()">
+                Save settings
+            </button>
+        </div>
+    </div>
+
+    {# ── Offsite destinations ────────────────────────────────────────── #}
+    <div class="box">
+        <h2 class="title is-5">Offsite copies</h2>
+        <p class="subtitle is-7 has-text-grey">
+            A backup on the same disk as the thing it protects is a rollback point, not
+            disaster recovery. Every archive is pushed to whichever of these is enabled.
+        </p>
+
+        <template x-if="destFlash">
+            <div class="notification" :class="destOk ? 'is-success is-light' : 'is-danger is-light'">
+                <button class="delete" @click="destFlash = ''"></button>
+                <span x-text="destFlash"></span>
+            </div>
+        </template>
+
+        {# ── Storage Box / SFTP ── #}
+        <h3 class="title is-6 mt-4">Hetzner Storage Box (SFTP)</h3>
+        <div class="field">
+            <label class="checkbox">
+                <input type="checkbox" x-model="sftp.enabled"> Send every backup here
+            </label>
+        </div>
+        <div class="columns is-multiline">
+            <div class="column is-6">
+                <label class="label is-small" for="sftp_host">Host</label>
+                <input class="input" id="sftp_host" type="text" x-model="sftp.host"
+                       placeholder="uXXXXXX.your-storagebox.de">
+            </div>
+            <div class="column is-2">
+                <label class="label is-small" for="sftp_port">Port</label>
+                <input class="input" id="sftp_port" type="number" x-model="sftp.port" placeholder="23">
+                <p class="help">Storage Box uses 23.</p>
+            </div>
+            <div class="column is-4">
+                <label class="label is-small" for="sftp_user">Username</label>
+                <input class="input" id="sftp_user" type="text" x-model="sftp.username"
+                       placeholder="uXXXXXX-sub1">
+            </div>
+            <div class="column is-6">
+                <label class="label is-small" for="sftp_path">Remote directory</label>
+                <input class="input" id="sftp_path" type="text" x-model="sftp.path"
+                       placeholder="getconzent.com/backups">
+            </div>
+            <div class="column is-6">
+                <label class="label is-small" for="sftp_pass">Password</label>
+                <input class="input" id="sftp_pass" type="password" x-model="sftp.password"
+                       :placeholder="secretPlaceholder(sftp, 'password')">
+            </div>
+            <div class="column is-12">
+                <label class="label is-small" for="sftp_key">Private key (preferred)</label>
+                <textarea class="textarea is-small" id="sftp_key" rows="3" x-model="sftp.private_key"
+                          :placeholder="secretPlaceholder(sftp, 'private_key')"></textarea>
+                <p class="help">Paste an OpenSSH private key. Encrypted before it is stored, and never sent back to this page.</p>
+            </div>
+        </div>
+        <div class="buttons">
+            <button class="button is-primary" :class="{ 'is-loading': destSaving === 'sftp' }"
+                    @click="saveDestination('sftp')">Save</button>
+            <button class="button" :class="{ 'is-loading': destTesting === 'sftp' }"
+                    @click="testDestination('sftp')">Test connection</button>
+        </div>
+
+        <hr>
+
+        {# ── S3-compatible ── #}
+        <h3 class="title is-6">S3-compatible storage</h3>
+        <div class="field">
+            <label class="checkbox">
+                <input type="checkbox" x-model="s3.enabled"> Send every backup here
+            </label>
+        </div>
+        <div class="columns is-multiline">
+            <div class="column is-6">
+                <label class="label is-small" for="s3_endpoint">Endpoint</label>
+                <input class="input" id="s3_endpoint" type="text" x-model="s3.endpoint"
+                       placeholder="https://fsn1.your-objectstorage.com">
+                <p class="help">Hetzner, R2, Backblaze, Wasabi, MinIO — anything S3-compatible.</p>
+            </div>
+            <div class="column is-3">
+                <label class="label is-small" for="s3_region">Region</label>
+                <input class="input" id="s3_region" type="text" x-model="s3.region" placeholder="us-east-1">
+            </div>
+            <div class="column is-3">
+                <label class="label is-small" for="s3_bucket">Bucket</label>
+                <input class="input" id="s3_bucket" type="text" x-model="s3.bucket">
+            </div>
+            <div class="column is-6">
+                <label class="label is-small" for="s3_prefix">Prefix</label>
+                <input class="input" id="s3_prefix" type="text" x-model="s3.prefix"
+                       placeholder="getconzent.com/backups">
+            </div>
+            <div class="column is-6">
+                <label class="checkbox mt-5">
+                    <input type="checkbox" x-model="s3.path_style"> Use path-style addressing
+                </label>
+                <p class="help">MinIO and some providers require this. Leave off for AWS and R2.</p>
+            </div>
+            <div class="column is-6">
+                <label class="label is-small" for="s3_access">Access key</label>
+                <input class="input" id="s3_access" type="password" x-model="s3.access_key"
+                       :placeholder="secretPlaceholder(s3, 'access_key')">
+            </div>
+            <div class="column is-6">
+                <label class="label is-small" for="s3_secret">Secret key</label>
+                <input class="input" id="s3_secret" type="password" x-model="s3.secret_key"
+                       :placeholder="secretPlaceholder(s3, 'secret_key')">
+            </div>
+        </div>
+        <div class="buttons">
+            <button class="button is-primary" :class="{ 'is-loading': destSaving === 's3' }"
+                    @click="saveDestination('s3')">Save</button>
+            <button class="button" :class="{ 'is-loading': destTesting === 's3' }"
+                    @click="testDestination('s3')">Test connection</button>
+        </div>
+
+        <p class="help mt-3">
+            Credentials are encrypted with a key derived from <code>APP_SECRET</code>. Archives do not
+            carry <code>APP_SECRET</code>, so after restoring onto a new server these will show as
+            needing re-entry — that is deliberate, so a stolen archive never grants write access to
+            the storage holding it.
+        </p>
+    </div>
+
+    {# ── Restore ─────────────────────────────────────────────────────── #}
+    <div class="box" id="restore">
+        <h2 class="title is-5">Restore</h2>
+
+        {# Live progress. The only thing on this page that keeps answering while
+           the app is behind the maintenance gate. #}
+        <template x-if="restore && (restore.status === 'queued' || restore.status === 'running')">
+            <div class="notification is-info is-light">
+                <p class="title is-6 mb-2">Restore in progress</p>
+                <progress class="progress is-info" :value="restore.percent || 0" max="100"></progress>
+                <p class="is-size-7">
+                    <span x-text="restore.step"></span>
+                    — <span x-text="(restore.databases || []).join(', ')"></span>
+                </p>
+                <p class="is-size-7 has-text-grey mt-2">
+                    The rest of the application is returning 503 until this finishes.
+                </p>
+            </div>
+        </template>
+
+        <template x-if="restore && restore.status === 'done'">
+            <div class="notification is-success is-light">
+                <button class="delete" @click="restore = null"></button>
+                <p><strong>Restore complete.</strong>
+                   Restored <span x-text="(restore.databases || []).join(', ')"></span>.</p>
+                <p class="is-size-7 mt-2">
+                    The previous data is still on the server as
+                    <code x-text="'&lt;database&gt;_' + restore.prerestore_suffix"></code>,
+                    so this is reversible until you drop it.
+                </p>
+            </div>
+        </template>
+
+        <template x-if="restore && restore.status === 'failed'">
+            <div class="notification is-danger is-light">
+                <button class="delete" @click="restore = null"></button>
+                <p><strong>Restore failed.</strong> <span x-text="restore.error"></span></p>
+                <p class="is-size-7 mt-2">
+                    Staging happens before anything is swapped, so a failure here means live
+                    data was not replaced.
+                </p>
+            </div>
+        </template>
+
+        <div class="notification is-warning is-light">
+            <p><strong>Restoring replaces every database in this install.</strong>
+               A backup is taken first, and the displaced data is kept aside so a bad restore
+               can be rolled back.</p>
+            <p class="mt-2 is-size-7">
+                If the application will not start at all, this page cannot help you — use
+                <code>scripts/restore.sh</code> on the host. The in-app path needs the app,
+                worker and database already running.
+            </p>
+        </div>
+
+        <h3 class="title is-6 mt-5">Restore an archive from another server</h3>
+        <p class="subtitle is-7 has-text-grey">
+            Upload a <code>.tar.gz</code> taken from any Conzent install. It is inspected
+            first — you see what it contains before anything happens.
+        </p>
+
+        <div class="field">
+            <div class="file has-name is-fullwidth">
+                <label class="file-label">
+                    <input class="file-input" type="file" accept=".gz,application/gzip"
+                           @change="pickFile($event)">
+                    <span class="file-cta">
+                        <span class="file-icon"><i class="fas fa-upload"></i></span>
+                        <span class="file-label">Choose an archive</span>
+                    </span>
+                    <span class="file-name" x-text="fileName || 'No file selected'"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="field">
+            <button class="button" :class="{ 'is-loading': uploading }"
+                    :disabled="!fileName || uploading" @click="uploadArchive()">
+                Upload and inspect
+            </button>
+        </div>
+
+        <template x-if="uploaded">
+            <div class="notification is-light">
+                <p class="mb-2"><strong x-text="uploaded.token"></strong></p>
+                <table class="table is-narrow is-fullwidth">
+                    <tbody>
+                        <tr><td>Databases</td><td x-text="(uploaded.inspect.databases || []).join(', ')"></td></tr>
+                        <tr><td>Taken</td><td x-text="uploaded.inspect.manifest.created_at || 'unknown'"></td></tr>
+                        <tr><td>From</td><td x-text="uploaded.inspect.manifest.app_url || 'unknown'"></td></tr>
+                        <tr><td>Migrations</td><td x-text="uploaded.inspect.manifest.migrations || '?'"></td></tr>
+                        <tr><td>Size</td><td x-text="(uploaded.size_bytes / 1048576).toFixed(1) + ' MB'"></td></tr>
+                        <tr><td>Configuration</td>
+                            <td x-text="uploaded.inspect.includes_config ? 'included (.env)' : 'not included'"></td></tr>
+                    </tbody>
+                </table>
+                <p class="is-size-7 has-text-grey mb-3" x-show="!uploaded.inspect.includes_config">
+                    Without <code>.env</code>, two-factor secrets from this archive cannot be
+                    decrypted on this server. Everything else restores normally.
+                </p>
+                <button class="button is-warning"
+                        @click="askRestoreUploaded(uploaded.token)">
+                    Restore this archive
+                </button>
+            </div>
+        </template>
+    </div>
+
+    {# ── Confirmation modal. Never confirm(); always a styled dialog. ── #}
+    <div class="modal" :class="{ 'is-active': confirmTarget }">
+        <div class="modal-background" @click="confirmTarget = null"></div>
+        <div class="modal-card">
+            <header class="modal-card-head">
+                <p class="modal-card-title">Restore and replace all data</p>
+                <button class="delete" aria-label="close" @click="confirmTarget = null"></button>
+            </header>
+            <section class="modal-card-body">
+                <p class="mb-3">
+                    This replaces every database in this install with the contents of
+                    <strong x-text="confirmTarget && confirmTarget.name"></strong>.
+                </p>
+                <p class="mb-3 is-size-7 has-text-grey">
+                    A backup is taken first, and the displaced data is kept as
+                    <code>&lt;database&gt;_prerestore_&lt;job&gt;</code> so this is reversible.
+                    The application returns 503 while it runs.
+                </p>
+                <div class="field">
+                    <label class="label is-small">
+                        Type <code x-text="confirmTarget && confirmTarget.name"></code> to confirm
+                    </label>
+                    <div class="control">
+                        <input class="input" type="text" x-model="confirmText"
+                               placeholder="filename" @keydown.enter="startRestore()">
+                    </div>
+                </div>
+                <label class="checkbox is-size-7">
+                    <input type="checkbox" x-model="preBackup">
+                    Take a backup before restoring (recommended)
+                </label>
+                <p class="help has-text-danger" x-show="!preBackup">
+                    Without it, the current data is still kept aside as a prerestore schema,
+                    but there is no archive of it.
+                </p>
+            </section>
+            <footer class="modal-card-foot">
+                <button class="button is-warning" :class="{ 'is-loading': restoring }"
+                        :disabled="!confirmTarget || confirmText !== confirmTarget.name"
+                        @click="startRestore()">Restore</button>
+                <button class="button" @click="confirmTarget = null">Cancel</button>
+            </footer>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+      integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA=="
+      crossorigin="anonymous" referrerpolicy="no-referrer" />
+{% endblock %}
+
+{% block scripts %}
+<script>
+function backupPage() {
+    return {
+        overview: {{ overview|json_encode(constant('JSON_UNESCAPED_SLASHES'))|raw }},
+        csrf: {{ csrf_token|json_encode|raw }},
+        running: {{ overview.running ? 'true' : 'false' }},
+        saving: false,
+        flash: '',
+        flashType: 'success',
+        pollTimer: null,
+        restore: null,
+        restoreTimer: null,
+        confirmTarget: null,
+        confirmText: '',
+        preBackup: true,
+        restoring: false,
+        uploading: false,
+        fileObj: null,
+        fileName: '',
+        uploaded: null,
+        sftp: {{ sftp|json_encode(constant('JSON_UNESCAPED_SLASHES'))|raw }},
+        s3: {{ s3|json_encode(constant('JSON_UNESCAPED_SLASHES'))|raw }},
+        destFlash: '',
+        destOk: true,
+        destSaving: '',
+        destTesting: '',
+        settings: {
+            enabled: {{ overview.schedule_configured ? 'true' : 'false' }},
+            hour: {{ overview.schedule_hour ?? 3 }},
+            retention: {{ overview.retention }},
+            includeConfig: {{ overview.include_config ? 'true' : 'false' }},
+        },
+
+        get health() { return this.overview.health; },
+
+        get headline() {
+            if (this.running) return 'A backup is running now';
+            switch (this.overview.health) {
+                case 'green': return 'Backups are healthy';
+                case 'amber': return 'The last backup is getting old';
+                case 'red':   return this.overview.last_success_at
+                    ? 'Backups have stopped'
+                    : 'No backup has ever completed';
+                default:      return 'No backups are configured';
+            }
+        },
+
+        get detail() {
+            if (!this.overview.last_success_at) {
+                return this.overview.schedule_configured
+                    ? 'A schedule is set but nothing has succeeded yet. Run one now to prove it works.'
+                    : 'Nothing is scheduled and nothing has run. This install has no backups at all.';
+            }
+            const hrs = this.overview.last_success_age_hours;
+            return 'Last successful backup ' + this.humanAge(hrs) + '.';
+        },
+
+        humanAge(hours) {
+            if (hours === null || hours === undefined) return 'never';
+            if (hours < 1) return Math.max(1, Math.round(hours * 60)) + ' minutes ago';
+            if (hours < 48) return Math.round(hours) + ' hours ago';
+            return Math.round(hours / 24) + ' days ago';
+        },
+
+        formatWhen(iso) {
+            if (!iso) return '—';
+            try { return new Date(iso).toLocaleString(); } catch (e) { return iso; }
+        },
+
+        destinationClass(d) {
+            if (!d.configured) return 'is-light';
+            if (!d.last_result) return 'is-light';
+            return d.last_result.status === 'uploaded' ? 'is-success is-light' : 'is-danger is-light';
+        },
+
+        destinationTitle(d) {
+            if (!d.configured) return d.name + ' is not configured';
+            if (!d.last_result) return d.name + ': configured, nothing sent yet';
+            return d.last_result.status === 'uploaded'
+                ? d.name + ': last upload succeeded'
+                : d.name + ': last upload failed — ' + (d.last_result.error || 'unknown error');
+        },
+
+        async post(url, payload) {
+            const body = new URLSearchParams({ _csrf_token: this.csrf, ...payload });
+            const r = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body,
+            });
+            const json = await r.json().catch(() => ({}));
+            // Tokens are single-use; take the fresh one back or the next
+            // action on this page dies with "session expired".
+            const fresh = json?.data?.csrf_token || json?.error?.csrf_token;
+            if (fresh) this.csrf = fresh;
+            return { ok: r.ok, json };
+        },
+
+        async runBackup() {
+            this.flash = '';
+            const { ok, json } = await this.post('/admin/backup/run', {});
+            if (!ok) {
+                this.flashType = 'error';
+                this.flash = json?.error?.message || 'Could not start the backup.';
+                return;
+            }
+            this.running = true;
+            this.schedulePoll();
+        },
+
+        async saveSettings() {
+            this.saving = true;
+            const { ok, json } = await this.post('/admin/backup/settings', {
+                schedule_enabled: this.settings.enabled ? '1' : '0',
+                schedule_hour: String(this.settings.hour),
+                retention: String(this.settings.retention),
+                include_config: this.settings.includeConfig ? '1' : '0',
+            });
+            this.saving = false;
+            this.flashType = ok ? 'success' : 'error';
+            this.flash = ok
+                ? 'Settings saved.'
+                : (json?.error?.message || 'Could not save settings.');
+            if (ok && json?.data?.overview) this.overview = json.data.overview;
+        },
+
+        // Self-rescheduling so polling stops on its own once nothing is
+        // running — same shape as the scan status card.
+        schedulePoll() {
+            if (this.pollTimer) clearTimeout(this.pollTimer);
+            if (!this.running) return;
+            this.pollTimer = setTimeout(() => this.refresh(), 2500);
+        },
+
+        async refresh() {
+            try {
+                const r = await fetch('/admin/backup/status', { headers: { Accept: 'application/json' } });
+                const json = await r.json();
+                if (json?.data?.overview) {
+                    const wasRunning = this.running;
+                    this.overview = json.data.overview;
+                    this.running = json.data.overview.running;
+                    if (wasRunning && !this.running) {
+                        const newest = (json.data.recent || [])[0];
+                        this.flashType = newest && newest.status === 'success' ? 'success' : 'error';
+                        this.flash = newest && newest.status === 'success'
+                            ? 'Backup complete: ' + newest.filename
+                            : 'Backup failed: ' + ((newest && newest.error) || 'see the history below');
+                        if (window.htmx) htmx.ajax('GET', '/admin/backup', '#backup-history');
+                    }
+                }
+            } catch (e) { /* transient; the next tick retries */ }
+            this.schedulePoll();
+        },
+
+        // ── Restore ──────────────────────────────────────────────────
+
+        askRestore(id, name) {
+            this.confirmTarget = { kind: 'backup', id, name };
+            this.confirmText = '';
+        },
+
+        askRestoreUploaded(token) {
+            this.confirmTarget = { kind: 'upload', token, name: token };
+            this.confirmText = '';
+        },
+
+        async startRestore() {
+            if (!this.confirmTarget || this.confirmText !== this.confirmTarget.name) return;
+            this.restoring = true;
+
+            const t = this.confirmTarget;
+            const url = t.kind === 'upload'
+                ? '/admin/backup/restore-uploaded'
+                : '/admin/backup/' + t.id + '/restore';
+            const payload = t.kind === 'upload'
+                ? { token: t.token, confirm: this.confirmText, pre_backup: this.preBackup ? '1' : '0' }
+                : { confirm: this.confirmText, pre_backup: this.preBackup ? '1' : '0' };
+
+            const { ok, json } = await this.post(url, payload);
+            this.restoring = false;
+
+            if (!ok) {
+                this.flashType = 'error';
+                this.flash = json?.error?.message || 'Could not start the restore.';
+                return;
+            }
+
+            this.confirmTarget = null;
+            this.uploaded = null;
+            this.restore = { status: 'queued', step: 'queued', percent: 0, databases: [] };
+            this.pollRestore();
+        },
+
+        pollRestore() {
+            if (this.restoreTimer) clearTimeout(this.restoreTimer);
+            this.restoreTimer = setTimeout(() => this.refreshRestore(), 2000);
+        },
+
+        async refreshRestore() {
+            try {
+                const r = await fetch('/admin/backup/restore/status', { headers: { Accept: 'application/json' } });
+                // 503 means the gate is up and this poller is the only route
+                // still answering; anything else and we simply retry.
+                if (r.ok) {
+                    const json = await r.json();
+                    const s = json?.data?.restore;
+                    if (s) {
+                        const wasRunning = this.restore
+                            && ['queued', 'running'].includes(this.restore.status);
+                        this.restore = s;
+                        if (wasRunning && s.status === 'done') {
+                            // The restore replaced the session store, so a reload
+                            // is honest about where the operator now stands.
+                            setTimeout(() => location.reload(), 2500);
+                            return;
+                        }
+                        if (s.status === 'failed') return;
+                    }
+                }
+            } catch (e) { /* transient during the swap; retry */ }
+
+            if (this.restore && ['queued', 'running'].includes(this.restore.status)) {
+                this.pollRestore();
+            }
+        },
+
+        // ── Upload ───────────────────────────────────────────────────
+
+        pickFile(e) {
+            this.fileObj = e.target.files && e.target.files[0] ? e.target.files[0] : null;
+            this.fileName = this.fileObj ? this.fileObj.name : '';
+            this.uploaded = null;
+        },
+
+        async uploadArchive() {
+            if (!this.fileObj) return;
+            this.uploading = true;
+            this.flash = '';
+
+            const fd = new FormData();
+            fd.append('_csrf_token', this.csrf);
+            fd.append('archive', this.fileObj);
+
+            try {
+                const r = await fetch('/admin/backup/upload', { method: 'POST', body: fd });
+                // Read as text first: a rejection from the web server (413) or a
+                // PHP fatal is not JSON, and blindly calling .json() turned every
+                // one of those into a bare "Upload failed" that said nothing.
+                const raw = await r.text();
+                let json = null;
+                try { json = JSON.parse(raw); } catch (e) { /* not JSON — see below */ }
+
+                const fresh = json?.data?.csrf_token || json?.error?.csrf_token;
+                if (fresh) this.csrf = fresh;
+
+                if (r.ok && json?.data) {
+                    this.uploaded = json.data;
+                } else {
+                    this.flashType = 'error';
+                    if (json?.error?.message) {
+                        this.flash = json.error.message;
+                    } else if (r.status === 413) {
+                        const mb = (this.fileObj.size / 1048576).toFixed(1);
+                        this.flash = 'The web server rejected the upload as too large (413). The file is '
+                            + mb + ' MB. Raise client_max_body_size for /admin/backup/upload in the nginx '
+                            + 'config, or restore from the command line instead.';
+                    } else {
+                        this.flash = 'Upload failed (HTTP ' + r.status + '). '
+                            + (raw ? raw.replace(/<[^>]*>/g, ' ').trim().slice(0, 200) : 'No response body.');
+                    }
+                }
+            } catch (e) {
+                this.flashType = 'error';
+                this.flash = 'Upload failed before it reached the server: ' + e.message;
+            }
+
+            this.uploading = false;
+        },
+
+        // ── Offsite destinations ─────────────────────────────────────
+
+        // A stored secret never comes back to the browser, so the field shows
+        // its state instead of its value. "Cannot be read" is its own case:
+        // after a restore onto a new server the ciphertext is here but the key
+        // is not, and that must not look like "empty".
+        secretPlaceholder(cfg, field) {
+            if (cfg[field + '_unreadable']) return 'Stored, but not readable on this server — re-enter it';
+            if (cfg[field + '_set']) return 'Stored. Leave blank to keep it.';
+            return 'Not set';
+        },
+
+        destPayload(kind) {
+            const cfg = kind === 'sftp' ? this.sftp : this.s3;
+            const out = { destination: kind, enabled: cfg.enabled ? '1' : '0' };
+            const fields = kind === 'sftp'
+                ? ['host', 'port', 'username', 'password', 'private_key', 'passphrase', 'path']
+                : ['endpoint', 'region', 'bucket', 'prefix', 'access_key', 'secret_key'];
+            for (const f of fields) if (cfg[f] !== undefined && cfg[f] !== null) out[f] = String(cfg[f]);
+            if (kind === 's3') out.path_style = cfg.path_style ? '1' : '0';
+            return out;
+        },
+
+        async saveDestination(kind) {
+            this.destSaving = kind;
+            this.destFlash = '';
+            const { ok, json } = await this.post('/admin/backup/destination', this.destPayload(kind));
+            this.destSaving = '';
+            this.destOk = ok;
+            this.destFlash = ok
+                ? (json?.data?.note || 'Saved.')
+                : (json?.error?.message || 'Could not save.');
+            if (ok && json?.data?.settings) {
+                // Secrets are cleared from the form; the returned flags say
+                // what is stored.
+                Object.assign(kind === 'sftp' ? this.sftp : this.s3, json.data.settings);
+                const cfg = kind === 'sftp' ? this.sftp : this.s3;
+                for (const f of ['password', 'private_key', 'passphrase', 'access_key', 'secret_key']) cfg[f] = '';
+            }
+        },
+
+        async testDestination(kind) {
+            this.destTesting = kind;
+            this.destFlash = '';
+            const { ok, json } = await this.post('/admin/backup/destination',
+                Object.assign(this.destPayload(kind), { action: 'test' }));
+            this.destTesting = '';
+            const t = json?.data?.test;
+            this.destOk = !!(ok && t && t.ok);
+            this.destFlash = t ? t.message : (json?.error?.message || 'Test failed.');
+        },
+
+        init() {
+            this.schedulePoll();
+            // Pick up a restore already running when the page loads.
+            this.refreshRestore();
+        },
+    };
+}
+</script>
+{% endblock %}

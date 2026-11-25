@@ -1,0 +1,17 @@
+{# Combined scan content — notification + table — used as htmx swap target #}
+<div id="scan-table-container"
+     {% if hasActiveScans %}
+     hx-get="/scans?site_id={{ siteId }}"
+     hx-trigger="every 5s"
+     hx-swap="outerHTML"
+     {% endif %}>
+
+    {% if hasActiveScans %}
+    <div class="notification is-info is-light mb-4">
+        <span class="icon"><i class="fas fa-spinner fa-spin"></i></span>
+        <strong>Scan in progress</strong> — results will appear automatically.
+    </div>
+    {% endif %}
+
+    {% include 'pages/scans/_scan_table.html.twig' %}
+</div>
