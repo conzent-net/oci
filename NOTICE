@@ -1,0 +1,17 @@
+Conzent OCI — Open Consent Infrastructure
+Copyright 2026 Conzent ApS
+
+This product includes software developed by Conzent ApS (https://getconzent.com).
+
+Licensed under the Apache License, Version 2.0. See the LICENSE.md file for the
+full license text.
+
+Attribution (optional, appreciated):
+Conzent OCI ships with a "Powered by Conzent" link in the consent banner. You are
+free to remove or replace it — Apache 2.0 imposes no such requirement. If you keep
+it, it helps others discover the project. Thank you.
+
+Trademarks and IAB Europe CMP ID:
+The Apache 2.0 license does not grant rights to the "Conzent" name, logos, or other
+trademarks, nor to Conzent's IAB Europe Consent Management Platform (CMP) ID. To run
+a TCF-certified setup, register your own CMP ID directly with IAB Europe.

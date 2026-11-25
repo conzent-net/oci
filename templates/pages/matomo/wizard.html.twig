@@ -1,0 +1,659 @@
+{% extends 'layouts/base.html.twig' %}
+{% import 'components/macros.html.twig' as ui %}
+
+{% block title %}Matomo TM Wizard{% endblock %}
+
+{% block content %}
+<div x-data="matomoWizard()">
+
+    {# ── Breadcrumb ── #}
+    <nav class="breadcrumb mb-4" aria-label="breadcrumbs">
+        <ul>
+            <li><a href="/">Dashboard</a></li>
+            <li class="is-active"><a href="#" aria-current="page">Matomo TM Wizard</a></li>
+        </ul>
+    </nav>
+
+    {# ── Page header ── #}
+    <div class="level mb-5">
+        <div class="level-left">
+            <div>
+                <h1 class="title is-3">Matomo Tag Manager Wizard</h1>
+                <p class="subtitle is-6 has-text-grey">Automatically configure your Matomo TM container with Conzent CMP and tracking pixels</p>
+            </div>
+        </div>
+        <div class="level-right">
+            {{ ui.siteSelector(sites, siteId, '/matomo/wizard') }}
+        </div>
+    </div>
+
+    {# ── Step indicator ── #}
+    <div class="steps mb-6">
+        <div class="columns is-mobile">
+            <div class="column has-text-centered">
+                <span class="icon-text">
+                    <span class="icon is-medium" :class="step >= 1 ? 'has-text-primary' : 'has-text-grey-light'">
+                        <i class="fas fa-circle-1 fa-lg" x-show="step !== 1 || step < 1"></i>
+                        <i class="fas fa-check-circle fa-lg" x-show="step > 1" x-cloak></i>
+                    </span>
+                    <span :class="step >= 1 ? 'has-text-weight-semibold' : 'has-text-grey'">Connect</span>
+                </span>
+            </div>
+            <div class="column has-text-centered">
+                <span class="icon-text">
+                    <span class="icon is-medium" :class="step >= 2 ? 'has-text-primary' : 'has-text-grey-light'">
+                        <i class="fas fa-circle-2 fa-lg" x-show="step < 3"></i>
+                        <i class="fas fa-check-circle fa-lg" x-show="step > 2" x-cloak></i>
+                    </span>
+                    <span :class="step >= 2 ? 'has-text-weight-semibold' : 'has-text-grey'">Configure Pixels</span>
+                </span>
+            </div>
+            <div class="column has-text-centered">
+                <span class="icon-text">
+                    <span class="icon is-medium" :class="step >= 3 ? 'has-text-primary' : 'has-text-grey-light'">
+                        <i class="fas fa-circle-3 fa-lg" x-show="step < 3"></i>
+                        <i class="fas fa-check-circle fa-lg" x-show="step >= 3 && applyDone" x-cloak></i>
+                    </span>
+                    <span :class="step >= 3 ? 'has-text-weight-semibold' : 'has-text-grey'">Apply</span>
+                </span>
+            </div>
+        </div>
+        <progress class="progress is-primary is-small" :value="step" max="3" x-text="step + ' / 3'"></progress>
+    </div>
+
+    {# ════════════════════════════════════════════════════════
+       STEP 1 — Connect to Matomo
+       ════════════════════════════════════════════════════════ #}
+    <div x-show="step === 1" x-cloak>
+        <div class="box">
+            <h2 class="title is-5 mb-4">
+                <span class="icon"><i class="fas fa-plug"></i></span>
+                Connect to Matomo Tag Manager
+            </h2>
+
+            <template x-if="!matomoConnected">
+                <div>
+                    <p class="mb-4">Enter your Matomo instance URL and API token to connect. You can find your API token in Matomo under <strong>Settings &rarr; Personal &rarr; Security &rarr; Auth tokens</strong>.</p>
+
+                    <div class="field">
+                        <label class="label">Matomo Server URL</label>
+                        <div class="control has-icons-left">
+                            <input class="input" type="url" x-model="matomoUrl"
+                                   placeholder="https://analytics.example.com"
+                                   :class="connectError ? 'is-danger' : ''">
+                            <span class="icon is-small is-left"><i class="fas fa-server"></i></span>
+                        </div>
+                        <p class="help">The full URL of your Matomo instance (must include https://)</p>
+                    </div>
+
+                    <div class="field">
+                        <label class="label">API Token</label>
+                        <div class="control has-icons-left has-icons-right">
+                            <input class="input" :type="showToken ? 'text' : 'password'" x-model="matomoToken"
+                                   placeholder="Enter your Matomo API token"
+                                   :class="connectError ? 'is-danger' : ''">
+                            <span class="icon is-small is-left"><i class="fas fa-key"></i></span>
+                            <span class="icon is-small is-right" style="pointer-events:all;cursor:pointer" @click="showToken = !showToken">
+                                <i class="fas" :class="showToken ? 'fa-eye-slash' : 'fa-eye'"></i>
+                            </span>
+                        </div>
+                        <p class="help">Your personal API token with at least <code>write</code> access</p>
+                    </div>
+
+                    <div class="notification is-danger is-light" x-show="connectError" x-cloak>
+                        <span class="icon"><i class="fas fa-exclamation-circle"></i></span>
+                        <span x-text="connectError"></span>
+                    </div>
+
+                    <div class="field mt-4">
+                        <button class="button is-primary" @click="validateConnection()" :class="validating ? 'is-loading' : ''" :disabled="!matomoUrl || !matomoToken">
+                            <span class="icon"><i class="fas fa-plug"></i></span>
+                            <span>Validate &amp; Connect</span>
+                        </button>
+                    </div>
+                </div>
+            </template>
+
+            <template x-if="matomoConnected">
+                <div>
+                    <div class="notification is-success is-light mb-4">
+                        <span class="icon"><i class="fas fa-check-circle"></i></span>
+                        Connected to Matomo at <strong x-text="matomoUrl"></strong>
+                        <button class="delete is-small" style="float:right" @click="disconnect()" title="Disconnect"></button>
+                    </div>
+
+                    {# Site selector #}
+                    <div class="field">
+                        <label class="label">Matomo Site</label>
+                        <div class="control">
+                            <div class="select is-fullwidth">
+                                <select x-model="selectedMatomoSite" @change="onMatomoSiteChange()">
+                                    <option value="">Select a site...</option>
+                                    <template x-for="s in matomoSites" :key="s.idsite">
+                                        <option :value="s.idsite" x-text="s.name + ' (' + s.main_url + ')'"></option>
+                                    </template>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    {# Container selector #}
+                    <div class="field" x-show="selectedMatomoSite">
+                        <label class="label">Tag Manager Container</label>
+                        <div class="control">
+                            <div class="select is-fullwidth" :class="loadingContainers ? 'is-loading' : ''">
+                                <select x-model="selectedContainer">
+                                    <option value="">Select a container...</option>
+                                    <template x-for="c in containers" :key="c.idcontainer">
+                                        <option :value="c.idcontainer" x-text="c.name"></option>
+                                    </template>
+                                </select>
+                            </div>
+                        </div>
+                        <p class="help" x-show="containers.length === 0 && !loadingContainers && selectedMatomoSite">
+                            No Tag Manager containers found for this site. Create one in Matomo first.
+                        </p>
+                    </div>
+
+                    {# Next button #}
+                    <div class="field mt-5">
+                        <button class="button is-primary" :disabled="!selectedContainer" @click="step = 2">
+                            <span>Next: Configure Pixels</span>
+                            <span class="icon"><i class="fas fa-arrow-right"></i></span>
+                        </button>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    {# ════════════════════════════════════════════════════════
+       STEP 2 — Configure Pixels
+       ════════════════════════════════════════════════════════ #}
+    <div x-show="step === 2" x-cloak>
+        <div class="box">
+            <h2 class="title is-5 mb-2">
+                <span class="icon"><i class="fas fa-code"></i></span>
+                Configure Tracking Pixels
+            </h2>
+
+            {# CMP info box #}
+            <div class="notification is-primary is-light mb-5">
+                <span class="icon"><i class="fas fa-shield-halved"></i></span>
+                The <strong>Conzent CMP Tag</strong> (consent banner, trigger, and cookie variable) is always created automatically. The pixels below are optional — expand any service you use to enter its tracking script.
+            </div>
+
+            <p class="subtitle is-6 has-text-grey mb-5">Click a service to expand it and paste the tracking script. Leave collapsed to skip.</p>
+
+            {# ── Google Analytics ── #}
+            <div class="box mb-3 p-0" x-data="{ open: false }">
+                <div class="px-4 py-3" style="cursor:pointer;display:flex;align-items:center;gap:0.5rem" @click="open = !open">
+                    <span class="icon has-text-info"><i class="fas fa-chart-line"></i></span>
+                    <strong style="flex:1">Google Analytics</strong>
+                    <span class="tag is-success is-light" x-show="pixels.google_analytics.trim()" x-cloak>Configured</span>
+                    <span class="icon is-small has-text-grey"><i class="fas" :class="open ? 'fa-chevron-up' : 'fa-chevron-down'"></i></span>
+                </div>
+                <div class="px-4 pb-4" x-show="open" x-cloak>
+                    <div class="field">
+                        <label class="label is-small">GA4 Tracking Script</label>
+                        <div class="control">
+                            <textarea class="textarea" x-model="pixels.google_analytics" rows="4"
+                                      placeholder="Paste the full Google Analytics &lt;script&gt; snippet here..."></textarea>
+                        </div>
+                        <p class="help">The complete gtag.js script from your Google Analytics property</p>
+                    </div>
+                </div>
+            </div>
+
+            {# ── Facebook Pixel ── #}
+            <div class="box mb-3 p-0" x-data="{ open: false }">
+                <div class="px-4 py-3" style="cursor:pointer;display:flex;align-items:center;gap:0.5rem" @click="open = !open">
+                    <span class="icon has-text-link"><i class="fab fa-facebook"></i></span>
+                    <strong style="flex:1">Facebook Pixel</strong>
+                    <span class="tag is-success is-light" x-show="pixels.facebook_pixel.trim()" x-cloak>Configured</span>
+                    <span class="icon is-small has-text-grey"><i class="fas" :class="open ? 'fa-chevron-up' : 'fa-chevron-down'"></i></span>
+                </div>
+                <div class="px-4 pb-4" x-show="open" x-cloak>
+                    <div class="field">
+                        <label class="label is-small">Pixel Script</label>
+                        <div class="control">
+                            <textarea class="textarea" x-model="pixels.facebook_pixel" rows="4"
+                                      placeholder="Paste the full Facebook Pixel &lt;script&gt; snippet here..."></textarea>
+                        </div>
+                        <p class="help">The complete script tag provided by Facebook/Meta</p>
+                    </div>
+                </div>
+            </div>
+
+            {# ── Microsoft Clarity ── #}
+            <div class="box mb-3 p-0" x-data="{ open: false }">
+                <div class="px-4 py-3" style="cursor:pointer;display:flex;align-items:center;gap:0.5rem" @click="open = !open">
+                    <span class="icon has-text-info"><i class="fab fa-microsoft"></i></span>
+                    <strong style="flex:1">Microsoft Clarity</strong>
+                    <span class="tag is-success is-light" x-show="pixels.microsoft_clarity.trim()" x-cloak>Configured</span>
+                    <span class="icon is-small has-text-grey"><i class="fas" :class="open ? 'fa-chevron-up' : 'fa-chevron-down'"></i></span>
+                </div>
+                <div class="px-4 pb-4" x-show="open" x-cloak>
+                    <div class="field">
+                        <label class="label is-small">Clarity Script</label>
+                        <div class="control">
+                            <textarea class="textarea" x-model="pixels.microsoft_clarity" rows="4"
+                                      placeholder="Paste the full Clarity &lt;script&gt; snippet here..."></textarea>
+                        </div>
+                        <p class="help">The complete Clarity tracking script</p>
+                    </div>
+                </div>
+            </div>
+
+            {# ── LinkedIn ── #}
+            <div class="box mb-3 p-0" x-data="{ open: false }">
+                <div class="px-4 py-3" style="cursor:pointer;display:flex;align-items:center;gap:0.5rem" @click="open = !open">
+                    <span class="icon has-text-link"><i class="fab fa-linkedin"></i></span>
+                    <strong style="flex:1">LinkedIn Insight Tag</strong>
+                    <span class="tag is-success is-light" x-show="pixels.linkedin_insights.trim()" x-cloak>Configured</span>
+                    <span class="icon is-small has-text-grey"><i class="fas" :class="open ? 'fa-chevron-up' : 'fa-chevron-down'"></i></span>
+                </div>
+                <div class="px-4 pb-4" x-show="open" x-cloak>
+                    <div class="field">
+                        <label class="label is-small">Insight Tag Script</label>
+                        <div class="control">
+                            <textarea class="textarea" x-model="pixels.linkedin_insights" rows="4"
+                                      placeholder="Paste the full LinkedIn Insight Tag &lt;script&gt; snippet here..."></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {# ── Snapchat ── #}
+            <div class="box mb-3 p-0" x-data="{ open: false }">
+                <div class="px-4 py-3" style="cursor:pointer;display:flex;align-items:center;gap:0.5rem" @click="open = !open">
+                    <span class="icon has-text-warning"><i class="fab fa-snapchat"></i></span>
+                    <strong style="flex:1">Snapchat Pixel</strong>
+                    <span class="tag is-success is-light" x-show="pixels.snapchat_pixel.trim()" x-cloak>Configured</span>
+                    <span class="icon is-small has-text-grey"><i class="fas" :class="open ? 'fa-chevron-up' : 'fa-chevron-down'"></i></span>
+                </div>
+                <div class="px-4 pb-4" x-show="open" x-cloak>
+                    <div class="field">
+                        <label class="label is-small">Pixel Script</label>
+                        <div class="control">
+                            <textarea class="textarea" x-model="pixels.snapchat_pixel" rows="4"
+                                      placeholder="Paste the full Snapchat Pixel &lt;script&gt; snippet here..."></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {# ── TikTok ── #}
+            <div class="box mb-3 p-0" x-data="{ open: false }">
+                <div class="px-4 py-3" style="cursor:pointer;display:flex;align-items:center;gap:0.5rem" @click="open = !open">
+                    <span class="icon"><i class="fab fa-tiktok"></i></span>
+                    <strong style="flex:1">TikTok Pixel</strong>
+                    <span class="tag is-success is-light" x-show="pixels.tiktok_pixel.trim()" x-cloak>Configured</span>
+                    <span class="icon is-small has-text-grey"><i class="fas" :class="open ? 'fa-chevron-up' : 'fa-chevron-down'"></i></span>
+                </div>
+                <div class="px-4 pb-4" x-show="open" x-cloak>
+                    <div class="field">
+                        <label class="label is-small">Pixel Script</label>
+                        <div class="control">
+                            <textarea class="textarea" x-model="pixels.tiktok_pixel" rows="4"
+                                      placeholder="Paste the full TikTok Pixel &lt;script&gt; snippet here..."></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {# ── Custom HTML Tag ── #}
+            <div class="box mb-3 p-0" x-data="{ open: false }">
+                <div class="px-4 py-3" style="cursor:pointer;display:flex;align-items:center;gap:0.5rem" @click="open = !open">
+                    <span class="icon has-text-grey"><i class="fas fa-code"></i></span>
+                    <strong style="flex:1">Custom HTML Tag</strong>
+                    <span class="tag is-success is-light" x-show="customTagName.trim() && customTagScript.trim()" x-cloak>Configured</span>
+                    <span class="icon is-small has-text-grey"><i class="fas" :class="open ? 'fa-chevron-up' : 'fa-chevron-down'"></i></span>
+                </div>
+                <div class="px-4 pb-4" x-show="open" x-cloak>
+                    <div class="field">
+                        <label class="label is-small">Tag Name</label>
+                        <div class="control">
+                            <input class="input" type="text" x-model="customTagName" placeholder="My Custom Tag">
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label class="label is-small">HTML / Script</label>
+                        <div class="control">
+                            <textarea class="textarea" x-model="customTagScript" rows="4"
+                                      placeholder="Paste custom HTML or &lt;script&gt; code here..."></textarea>
+                        </div>
+                        <p class="help">Any custom HTML or JavaScript tag you want to manage through Matomo TM</p>
+                    </div>
+                </div>
+            </div>
+
+            {# Navigation #}
+            <div class="field is-grouped mt-5">
+                <p class="control">
+                    <button class="button" @click="step = 1">
+                        <span class="icon"><i class="fas fa-arrow-left"></i></span>
+                        <span>Back</span>
+                    </button>
+                </p>
+                <p class="control">
+                    <button class="button is-primary" @click="step = 3">
+                        <span>Next: Review & Apply</span>
+                        <span class="icon"><i class="fas fa-arrow-right"></i></span>
+                    </button>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    {# ════════════════════════════════════════════════════════
+       STEP 3 — Review & Apply
+       ════════════════════════════════════════════════════════ #}
+    <div x-show="step === 3" x-cloak>
+        <div class="box">
+            <h2 class="title is-5 mb-4">
+                <span class="icon"><i class="fas fa-rocket"></i></span>
+                Review & Apply
+            </h2>
+
+            {# Summary #}
+            <div class="content mb-5" x-show="!applying && !applyDone">
+                <p>The following will be created in your Matomo Tag Manager container:</p>
+                <table class="table is-fullwidth is-striped">
+                    <thead>
+                        <tr>
+                            <th>Component</th>
+                            <th>Details</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><span class="icon is-small has-text-primary"><i class="fas fa-check"></i></span> Conzent CMP</td>
+                            <td>Tag, consent trigger, cookie variable (always created)</td>
+                        </tr>
+                        <template x-for="item in summaryItems" :key="item.name">
+                            <tr>
+                                <td>
+                                    <span class="icon is-small has-text-primary"><i class="fas fa-check"></i></span>
+                                    <span x-text="item.name"></span>
+                                </td>
+                                <td x-text="item.detail"></td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+
+                <div class="notification is-info is-light" x-show="summaryItems.length === 0">
+                    <span class="icon"><i class="fas fa-info-circle"></i></span>
+                    No additional pixels configured. Only the Conzent CMP foundation will be created.
+                </div>
+            </div>
+
+            {# Progress during apply #}
+            <div x-show="applying" class="mb-5">
+                <div class="notification is-info is-light">
+                    <span class="icon"><i class="fas fa-spinner fa-spin"></i></span>
+                    Applying configuration to your Matomo TM container... This may take a moment.
+                </div>
+            </div>
+
+            {# Results after apply #}
+            <div x-show="applyDone" class="mb-5">
+                <div class="notification" :class="applyAllSuccess ? 'is-success is-light' : 'is-warning is-light'">
+                    <span class="icon">
+                        <i :class="applyAllSuccess ? 'fas fa-check-circle' : 'fas fa-exclamation-triangle'"></i>
+                    </span>
+                    <span x-text="applyAllSuccess ? 'All tags created successfully!' : 'Completed with some warnings. Check results below.'"></span>
+                </div>
+
+                <table class="table is-fullwidth is-striped">
+                    <thead>
+                        <tr>
+                            <th>Component</th>
+                            <th>Status</th>
+                            <th>Details</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="r in applyResults" :key="r.name">
+                            <tr>
+                                <td x-text="r.name"></td>
+                                <td>
+                                    <span class="tag" :class="r.success ? 'is-success is-light' : 'is-warning is-light'"
+                                          x-text="r.success ? 'Created' : 'Warning'"></span>
+                                </td>
+                                <td x-text="r.error || '—'"></td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+
+                <div class="notification is-light mt-4">
+                    <span class="icon"><i class="fas fa-lightbulb"></i></span>
+                    Remember to <strong>publish</strong> the container version in Matomo Tag Manager for the changes to go live.
+                </div>
+            </div>
+
+            {# Navigation / Apply #}
+            <div class="field is-grouped mt-5">
+                <p class="control" x-show="!applying && !applyDone">
+                    <button class="button" @click="step = 2">
+                        <span class="icon"><i class="fas fa-arrow-left"></i></span>
+                        <span>Back</span>
+                    </button>
+                </p>
+                <p class="control" x-show="!applying && !applyDone">
+                    <button class="button is-primary" @click="applyWizard()" :class="applying ? 'is-loading' : ''">
+                        <span class="icon"><i class="fas fa-rocket"></i></span>
+                        <span>Apply Configuration</span>
+                    </button>
+                </p>
+                <p class="control" x-show="applyDone">
+                    <a href="/matomo/wizard?site_id={{ siteId }}" class="button is-primary">
+                        <span class="icon"><i class="fas fa-redo"></i></span>
+                        <span>Run Again</span>
+                    </a>
+                </p>
+                <p class="control" x-show="applyDone">
+                    <a href="/" class="button">
+                        <span class="icon"><i class="fas fa-home"></i></span>
+                        <span>Back to Dashboard</span>
+                    </a>
+                </p>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function matomoWizard() {
+    return {
+        step: 1,
+        siteId: {{ siteId }},
+        websiteKey: '{{ websiteKey }}',
+
+        // Step 1 — connection
+        matomoUrl: '{{ savedMatomoUrl }}',
+        matomoToken: '',
+        showToken: false,
+        matomoConnected: {{ matomoConnected ? 'true' : 'false' }},
+        validating: false,
+        connectError: '',
+
+        // Step 1 — site/container selection
+        matomoSites: [],
+        containers: [],
+        selectedMatomoSite: '{{ savedMatomoSiteId }}',
+        selectedContainer: '{{ savedContainerId }}',
+        loadingContainers: false,
+
+        // Step 2 — pixel config
+        pixels: {
+            google_analytics: '',
+            facebook_pixel: '',
+            microsoft_clarity: '',
+            linkedin_insights: '',
+            snapchat_pixel: '',
+            tiktok_pixel: ''
+        },
+        customTagName: '',
+        customTagScript: '',
+
+        // Step 3 — apply
+        applying: false,
+        applyDone: false,
+        applyResults: [],
+        applyAllSuccess: false,
+
+        init() {
+            if (this.matomoConnected) {
+                this.loadSites().then(() => {
+                    if (this.selectedMatomoSite) {
+                        this.loadContainers();
+                    }
+                });
+            }
+        },
+
+        async validateConnection() {
+            this.validating = true;
+            this.connectError = '';
+
+            try {
+                const res = await fetch('/app/matomo/validate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        matomo_url: this.matomoUrl,
+                        matomo_token: this.matomoToken
+                    })
+                });
+                const json = await res.json();
+
+                if (json.success && json.data?.connected) {
+                    this.matomoConnected = true;
+                    this.matomoSites = json.data.sites || [];
+                } else {
+                    this.connectError = json.error?.message || json.error || 'Connection failed. Check your URL and token.';
+                }
+            } catch (e) {
+                this.connectError = 'Network error: ' + e.message;
+            }
+
+            this.validating = false;
+        },
+
+        async loadSites() {
+            try {
+                const res = await fetch('/app/matomo/validate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        matomo_url: this.matomoUrl,
+                        matomo_token: this.matomoToken || '(session)'
+                    })
+                });
+                const json = await res.json();
+                if (json.success && json.data?.sites) {
+                    this.matomoSites = json.data.sites;
+                }
+            } catch (e) {
+                console.error('Failed to load Matomo sites', e);
+            }
+        },
+
+        disconnect() {
+            this.matomoConnected = false;
+            this.matomoToken = '';
+            this.matomoSites = [];
+            this.containers = [];
+            this.selectedMatomoSite = '';
+            this.selectedContainer = '';
+        },
+
+        async onMatomoSiteChange() {
+            this.containers = [];
+            this.selectedContainer = '';
+            if (!this.selectedMatomoSite) return;
+
+            this.loadingContainers = true;
+            try {
+                const res = await fetch('/app/matomo/containers?matomo_site_id=' + this.selectedMatomoSite);
+                const json = await res.json();
+                if (json.success) {
+                    this.containers = json.data?.containers || [];
+                }
+            } catch (e) {
+                console.error('Failed to load containers', e);
+            }
+            this.loadingContainers = false;
+        },
+
+        get summaryItems() {
+            const items = [];
+            if (this.pixels.google_analytics.trim())
+                items.push({ name: 'Google Analytics', detail: 'Custom HTML tag' });
+            if (this.pixels.facebook_pixel.trim())
+                items.push({ name: 'Facebook Pixel', detail: 'Custom HTML tag' });
+            if (this.pixels.microsoft_clarity.trim())
+                items.push({ name: 'Microsoft Clarity', detail: 'Custom HTML tag' });
+            if (this.pixels.linkedin_insights.trim())
+                items.push({ name: 'LinkedIn Insight Tag', detail: 'Custom HTML tag' });
+            if (this.pixels.snapchat_pixel.trim())
+                items.push({ name: 'Snapchat Pixel', detail: 'Custom HTML tag' });
+            if (this.pixels.tiktok_pixel.trim())
+                items.push({ name: 'TikTok Pixel', detail: 'Custom HTML tag' });
+            if (this.customTagName.trim() && this.customTagScript.trim())
+                items.push({ name: this.customTagName, detail: 'Custom HTML tag' });
+            return items;
+        },
+
+        async applyWizard() {
+            this.applying = true;
+            this.applyDone = false;
+            this.applyResults = [];
+
+            const payload = {
+                site_id: this.siteId,
+                matomo_site_id: parseInt(this.selectedMatomoSite),
+                container_id: this.selectedContainer,
+                website_key: this.websiteKey,
+                server_url: '',
+                pixels: { ...this.pixels }
+            };
+
+            // Add custom tag if configured
+            if (this.customTagName.trim() && this.customTagScript.trim()) {
+                payload.pixels.custom_tags = [{
+                    name: this.customTagName,
+                    script: this.customTagScript
+                }];
+            }
+
+            try {
+                const res = await fetch('/app/matomo/wizard/apply', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const json = await res.json();
+                if (json.success && json.data) {
+                    this.applyResults = json.data.results || [];
+                    this.applyAllSuccess = this.applyResults.every(r => r.success);
+                } else {
+                    this.applyResults = [{ name: 'Error', success: false, error: json.error?.message || json.error || 'Unknown error' }];
+                }
+            } catch (e) {
+                this.applyResults = [{ name: 'Error', success: false, error: e.message }];
+            }
+
+            this.applying = false;
+            this.applyDone = true;
+        }
+    };
+}
+</script>
+{% endblock %}

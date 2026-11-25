@@ -1,0 +1,172 @@
+{# Every attempt, failures included — a history that only shows successes is
+   the same lie that let three silent backup failures run for months. #}
+<div id="backup-history">
+{% if backups is empty %}
+    <div class="has-text-centered py-6">
+        <span class="icon is-large has-text-grey-light"><i class="fas fa-database fa-2x"></i></span>
+        <p class="title is-5 mt-3">No backups yet</p>
+        <p class="subtitle is-6 has-text-grey">Run one now, or set a daily schedule below.</p>
+    </div>
+{% else %}
+    <table class="table is-fullwidth is-hoverable is-striped">
+        <thead>
+            <tr>
+                <th>When</th>
+                <th>Trigger</th>
+                <th>Result</th>
+                <th>Size</th>
+                <th>Contents</th>
+                <th title="Where each archive is right now, checked against the storage itself — not where an upload once succeeded.">Stored</th>
+                <th class="has-text-right">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for b in backups %}
+            <tr>
+                <td>
+                    <span title="{{ b.started_at }}">{{ b.started_at|date('Y-m-d H:i') }}</span>
+                    {% if b.finished_at %}
+                        <br><span class="is-size-7 has-text-grey">
+                            took {{ (b.finished_at|date('U') - b.started_at|date('U')) }}s
+                        </span>
+                    {% endif %}
+                </td>
+                <td>
+                    <span class="tag is-light">
+                        {{ b.trigger_type == 'pre_restore' ? 'before restore' : b.trigger_type }}
+                    </span>
+                </td>
+                <td>
+                    {% if b.status == 'success' %}
+                        <span class="tag is-success is-light">Success</span>
+                    {% elseif b.status == 'running' %}
+                        <span class="tag is-info is-light">Running</span>
+                    {% else %}
+                        <span class="tag is-danger is-light">Failed</span>
+                        {% if b.error %}
+                            <br><span class="is-size-7 has-text-danger">{{ b.error|slice(0, 160) }}</span>
+                        {% endif %}
+                    {% endif %}
+                </td>
+                <td>{{ b.size_bytes ? (b.size_bytes / 1048576)|number_format(1) ~ ' MB' : '—' }}</td>
+                <td class="is-size-7">
+                    {% if b.table_count %}{{ b.table_count }} tables{% else %}—{% endif %}
+                    {% if b.includes_config %}
+                        <br><span class="tag is-warning is-light is-small" title="This archive contains .env">
+                            <span class="icon is-small"><i class="fas fa-key"></i></span>
+                            <span>includes secrets</span>
+                        </span>
+                    {% endif %}
+                </td>
+                {# Where the archive is RIGHT NOW, verified against the storage
+                   itself — not where an upload once succeeded. Local and
+                   offsite are shown side by side and independently, because
+                   they are independent facts and the operator has to be able
+                   to see both at once to trust either. #}
+                <td>
+                    {% if b.status == 'success' %}
+                        {% if b.stored_local %}
+                            <span class="tag is-success is-light is-small" title="The archive is on this server's disk.">
+                                <span class="icon is-small"><i class="fas fa-server"></i></span>
+                                <span>this server</span>
+                            </span>
+                        {% else %}
+                            <span class="tag is-light is-small has-text-grey" title="Not on this server's disk — pruned by retention, or the backup directory has no persistent volume behind it.">
+                                <span class="icon is-small"><i class="fas fa-server"></i></span>
+                                <span>not local</span>
+                            </span>
+                        {% endif %}
+
+                        {% for d in b.stored_offsite %}
+                            <span class="tag is-success is-light is-small" title="Confirmed present on {{ d }}.">
+                                <span class="icon is-small"><i class="fas fa-cloud"></i></span>
+                                <span>{{ d }}</span>
+                            </span>
+                        {% endfor %}
+
+                        {% for d in b.offsite_missing %}
+                            <span class="tag is-danger is-light is-small" title="The upload to {{ d }} succeeded, but the archive is no longer there — pruned or deleted at the far end.">
+                                <span class="icon is-small"><i class="fas fa-cloud"></i></span>
+                                <span>{{ d }} gone</span>
+                            </span>
+                        {% endfor %}
+
+                        {% for d in b.offsite_unknown %}
+                            <span class="tag is-warning is-light is-small" title="{{ d }} could not be listed, so whether it still holds this archive is unknown. Not the same as missing.">
+                                <span class="icon is-small"><i class="fas fa-question"></i></span>
+                                <span>{{ d }}?</span>
+                            </span>
+                        {% endfor %}
+                    {% else %}
+                        {% for d in b.destinations %}
+                            {% if d.status == 'failed' %}
+                                <span class="tag is-danger is-light is-small" title="{{ d.error }}">{{ d.destination }}</span>
+                            {% else %}
+                                <span class="tag is-light is-small">{{ d.destination }}</span>
+                            {% endif %}
+                        {% else %}
+                            <span class="has-text-grey">—</span>
+                        {% endfor %}
+                    {% endif %}
+                </td>
+                <td class="has-text-right">
+                    {# One rule: a copy anywhere means both actions work. When the
+                       local file is gone the server retrieves it from whichever
+                       destination still holds it and then serves or restores it,
+                       so the buttons do not change shape depending on where the
+                       archive happens to live. #}
+                    {% if b.status == 'success' and b.downloadable %}
+                        {% set offsiteOnly = not b.stored_local %}
+                        <div class="buttons is-right are-small">
+                            <a class="button" href="/admin/backup/{{ b.id }}/download"
+                               {% if offsiteOnly %}title="Not on this server. The download retrieves it from {{ b.stored_offsite|join(' or ') }} first, so it will take longer to start."{% endif %}>
+                                <span class="icon is-small"><i class="fas fa-{{ offsiteOnly ? 'cloud-arrow-down' : 'download' }}"></i></span>
+                                <span>Download</span>
+                            </a>
+                            <button class="button is-warning is-light"
+                                    @click="askRestore({{ b.id }}, {{ b.filename|json_encode }})"
+                                    {% if offsiteOnly %}title="The local file is gone, but {{ b.stored_offsite|join(' and ') }} still has it. Restoring retrieves it first."{% endif %}>
+                                <span class="icon is-small"><i class="fas fa-rotate-left"></i></span>
+                                <span>Restore</span>
+                            </button>
+                        </div>
+                    {% elseif b.status == 'success' and b.offsite_unknown is not empty %}
+                        {# Could not reach the storage. Refusing to guess is the
+                           whole point: "unknown" must never render as "lost". #}
+                        <span class="tag is-warning is-light"
+                              title="Not on this server, and {{ b.offsite_unknown|join(', ') }} could not be reached to check. The archive may well still be there.">
+                            <span class="icon is-small"><i class="fas fa-question"></i></span>
+                            <span>Can't check</span>
+                        </span>
+                    {% elseif b.status == 'success' %}
+                        {# No copy anywhere. Say so rather than offering buttons
+                           that cannot work. #}
+                        <span class="tag is-danger is-light"
+                              title="The row survived in the database but the archive did not, and no destination holds a copy. Almost always a backup directory with no persistent volume behind it — see BACKUP_DIR.">
+                            <span class="icon is-small"><i class="fas fa-triangle-exclamation"></i></span>
+                            <span>No copy left</span>
+                        </span>
+                    {% endif %}
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+
+    {% set pages = (total / perPage)|round(0, 'ceil') %}
+    {% if pages > 1 %}
+        <nav class="pagination is-small" role="navigation" aria-label="pagination">
+            <ul class="pagination-list">
+            {% for p in 1..pages %}
+                <li>
+                    <a class="pagination-link {{ p == page ? 'is-current' : '' }}"
+                       hx-get="/admin/backup?page={{ p }}"
+                       hx-target="#backup-history"
+                       hx-swap="outerHTML">{{ p }}</a>
+                </li>
+            {% endfor %}
+            </ul>
+        </nav>
+    {% endif %}
+{% endif %}
+</div>

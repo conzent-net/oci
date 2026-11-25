@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 160" fill="none">
+  <!-- Page background with overlay -->
+  <rect width="280" height="160" rx="4" fill="#f0f0f0"/>
+  <rect width="280" height="160" rx="4" fill="#000" opacity="0.15"/>
+  <!-- Large centered wall dialog -->
+  <rect x="30" y="5" width="220" height="150" rx="6" fill="#fff" filter="url(#shadow)"/>
+  <!-- Header with title and close X -->
+  <line x1="30" y1="30" x2="250" y2="30" stroke="#e5e5e5" stroke-width="1"/>
+  <circle cx="50" cy="18" r="6" fill="#e8e8e8"/>
+  <rect x="62" y="15" width="80" height="5" rx="2.5" fill="#444"/>
+  <!-- Close X -->
+  <line x1="237" y1="13" x2="243" y2="23" stroke="#999" stroke-width="1.5"/>
+  <line x1="243" y1="13" x2="237" y2="23" stroke="#999" stroke-width="1.5"/>
+  <!-- Message lines -->
+  <rect x="44" y="38" width="190" height="3" rx="1.5" fill="#999"/>
+  <rect x="44" y="45" width="170" height="3" rx="1.5" fill="#999"/>
+  <!-- Separator -->
+  <line x1="44" y1="56" x2="236" y2="56" stroke="#e5e5e5" stroke-width="1"/>
+  <!-- Accordion rows -->
+  <rect x="44" y="62" width="60" height="4" rx="2" fill="#666"/>
+  <rect x="210" y="62" width="12" height="5" rx="2.5" fill="#ccc"/>
+  <line x1="44" y1="74" x2="236" y2="74" stroke="#f0f0f0" stroke-width="0.5"/>
+  <rect x="44" y="78" width="50" height="4" rx="2" fill="#666"/>
+  <rect x="210" y="78" width="12" height="5" rx="2.5" fill="#2563eb"/>
+  <line x1="44" y1="90" x2="236" y2="90" stroke="#f0f0f0" stroke-width="0.5"/>
+  <rect x="44" y="94" width="55" height="4" rx="2" fill="#666"/>
+  <rect x="210" y="94" width="12" height="5" rx="2.5" fill="#2563eb"/>
+  <line x1="44" y1="106" x2="236" y2="106" stroke="#f0f0f0" stroke-width="0.5"/>
+  <rect x="44" y="110" width="48" height="4" rx="2" fill="#666"/>
+  <rect x="210" y="110" width="12" height="5" rx="2.5" fill="#2563eb"/>
+  <!-- Footer with buttons -->
+  <line x1="30" y1="124" x2="250" y2="124" stroke="#e5e5e5" stroke-width="1"/>
+  <rect x="44" y="130" width="58" height="14" rx="3" fill="none" stroke="#ccc" stroke-width="1"/>
+  <rect x="108" y="130" width="58" height="14" rx="3" fill="none" stroke="#ccc" stroke-width="1"/>
+  <rect x="172" y="130" width="58" height="14" rx="3" fill="#2563eb"/>
+  <!-- Shadow filter -->
+  <defs>
+    <filter id="shadow" x="-4" y="-2" width="232" height="162" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+</svg>

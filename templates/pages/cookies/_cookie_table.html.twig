@@ -1,0 +1,117 @@
+{# Cookie table — used as htmx partial #}
+{% if cookies|length > 0 %}
+<div class="table-container">
+    <table class="table is-fullwidth is-hoverable is-striped">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Domain</th>
+                <th>Category</th>
+                <th>Duration</th>
+                <th>Source</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for cookie in cookies %}
+            <tr>
+                <td>
+                    <code class="is-size-7">{{ cookie.cookie_name }}</code>
+                </td>
+                <td class="is-size-7">{{ cookie.cookie_domain|default('—') }}</td>
+                <td>
+                    {% set cat = cookie.category_slug|default('unclassified') %}
+                    <span class="tag is-small
+                        {% if cat == 'necessary' %}is-success is-light
+                        {% elseif cat == 'functional' %}is-info is-light
+                        {% elseif cat == 'analytics' %}is-warning is-light
+                        {% elseif cat == 'marketing' %}is-danger is-light
+                        {% else %}is-light
+                        {% endif %}">
+                        {{ cookie.category_name|default(cat|capitalize) }}
+                    </span>
+                </td>
+                <td class="is-size-7">{{ cookie.default_duration|default('—') }}</td>
+                <td>
+                    {% if cookie.from_scan %}
+                        <span class="tag is-info is-light is-small">
+                            <i class="fas fa-search mr-1"></i> Scan
+                        </span>
+                    {% else %}
+                        <span class="tag is-light is-small">
+                            <i class="fas fa-hand mr-1"></i> Manual
+                        </span>
+                    {% endif %}
+                </td>
+                <td>
+                    <div class="buttons are-small">
+                        <button class="button is-small is-info is-light"
+                                @click='openEdit({{ cookie|json_encode }})'>
+                            <span class="icon is-small"><i class="fas fa-edit"></i></span>
+                        </button>
+                        <button class="button is-small is-danger is-light"
+                                @click="deleteCookie({{ cookie.id }}, '{{ cookie.cookie_name|e('js') }}')">
+                            <span class="icon is-small"><i class="fas fa-trash"></i></span>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{# ── Pagination ────────────────────────────────────── #}
+{% if pagination.totalPages > 1 %}
+<nav class="pagination is-small is-centered mt-4" role="navigation">
+    <a class="pagination-previous"
+       {% if pagination.page > 1 %}href="/cookies?site_id={{ siteId }}&page={{ pagination.page - 1 }}{% if currentCategory %}&category={{ currentCategory }}{% endif %}{% if currentSearch %}&search={{ currentSearch }}{% endif %}"{% else %}disabled{% endif %}>
+        Previous
+    </a>
+    <a class="pagination-next"
+       {% if pagination.page < pagination.totalPages %}href="/cookies?site_id={{ siteId }}&page={{ pagination.page + 1 }}{% if currentCategory %}&category={{ currentCategory }}{% endif %}{% if currentSearch %}&search={{ currentSearch }}{% endif %}"{% else %}disabled{% endif %}>
+        Next
+    </a>
+    <ul class="pagination-list">
+        {% for p in 1..pagination.totalPages %}
+            {% if p <= 3 or p > pagination.totalPages - 2 or (p >= pagination.page - 1 and p <= pagination.page + 1) %}
+                <li>
+                    <a class="pagination-link {{ p == pagination.page ? 'is-current' : '' }}"
+                       href="/cookies?site_id={{ siteId }}&page={{ p }}{% if currentCategory %}&category={{ currentCategory }}{% endif %}{% if currentSearch %}&search={{ currentSearch }}{% endif %}">{{ p }}</a>
+                </li>
+            {% elseif p == 4 or p == pagination.totalPages - 2 %}
+                <li><span class="pagination-ellipsis">&hellip;</span></li>
+            {% endif %}
+        {% endfor %}
+    </ul>
+</nav>
+{% endif %}
+
+{% else %}
+    {# ── Empty State ───────────────────────────────── #}
+    <div class="has-text-centered py-6">
+        <span class="icon is-large has-text-grey-lighter mb-3">
+            <i class="fas fa-cookie-bite fa-3x"></i>
+        </span>
+        <h3 class="title is-5 has-text-grey">No cookies found</h3>
+        <p class="subtitle is-6 has-text-grey-light mb-4">
+            {% if currentCategory or currentSearch %}
+                No cookies match your current filters. Try clearing the filters.
+            {% else %}
+                Add cookies manually or run a cookie scan to detect them automatically.
+            {% endif %}
+        </p>
+        {% if not currentCategory and not currentSearch %}
+        <div class="buttons is-centered">
+            <button class="button is-primary" @click="addModal = true">
+                <span class="icon"><i class="fas fa-plus"></i></span>
+                <span>Add Cookie</span>
+            </button>
+            <a href="/scans?site_id={{ siteId }}" class="button is-outlined">
+                <span class="icon"><i class="fas fa-search"></i></span>
+                <span>Run Scan</span>
+            </a>
+        </div>
+        {% endif %}
+    </div>
+{% endif %}

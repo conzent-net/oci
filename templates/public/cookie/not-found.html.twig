@@ -1,0 +1,19 @@
+{# Served for any cookie we have not classified yet. Body only. #}
+<section class="hero">
+  <div class="hero__content">
+    <h1 class="hero__title">We have not classified that cookie yet</h1>
+    <p class="hero__subtitle">It is not in the database, or the name is spelled differently from the one we know.</p>
+  </div>
+</section>
+<section class="section">
+  <div class="container">
+    <article class="prose">
+      <form action="/cookie/" method="get" role="search" style="display:flex;gap:.5rem;max-width:520px;margin:0 0 1.5rem">
+        <input name="q" type="search" required placeholder="Try another name" style="flex:1;padding:.7rem .9rem;border-radius:8px;border:1px solid #cbd5e1;font-family:monospace;color:#0f172a;background:#fff">
+        <button type="submit" class="btn btn-cta" style="padding:.7rem 1.1rem;border-radius:8px">Look up</button>
+      </form>
+      <p>Names are case-sensitive and often end in a part that changes, such as an account id. Try the part before the last underscore.</p>
+      <p>If the cookie is on your own site, a <a href="https://app.getconzent.com/register">free scan</a> finds and classifies it, and every cookie we classify is added to this database. Or browse the <a href="/cookie/">full list</a>.</p>
+    </article>
+  </div>
+</section>
