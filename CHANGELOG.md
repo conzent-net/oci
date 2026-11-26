@@ -1,0 +1,551 @@
+# Changelog
+
+All notable changes to the Conzent OCI core will be documented in this file.
+
+This project adheres to [Semantic Versioning](https://semver.org/).
+
+## [Unreleased]
+
+## [v2.9.3] - 2026-11-26
+
+Consent fixes in the loader (`/c/consent.js`, now v1.6.8) and in the generated site scripts, and for self-hosted installs an admin area without dead links and commands to administer the install.
+
+**After updating:** the loader comes with the update, but most of the consent fixes below are in each site's generated script, and a site only gets them once its script is rebuilt. `scripts/update.sh` does not do this. In the installation folder run:
+
+```
+docker compose exec app php bin/oci scripts:regenerate
+```
+
+(without Docker: `php bin/oci scripts:regenerate`). It rebuilds the script of every active site.
+
+If a cache or CDN sits in front of your Conzent address, it can go on serving the old `/c/consent.js`: the bundled nginx allows shared caches to keep it for up to a day. With `CLOUDFLARE_ZONE_ID` and `CLOUDFLARE_API_TOKEN` set in `.env`, `scripts:regenerate` purges it from Cloudflare (`php bin/oci cache:purge-loader` does only that purge). For any other cache, purge `/c/consent.js` there.
+
+What each fix needs:
+
+- Scripts inserted by inline code, and the tracking-cookie list on loader sites: the new loader (purge it from a cache in front, if any) and `scripts:regenerate`.
+- Renew Now and blocked embeds: `scripts:regenerate`.
+- Admin area and commands: nothing beyond the update.
+
+### Fixed
+
+- **A third-party script that a page's own inline code creates and inserts could run before consent.** The standard Meta Pixel snippet, and others built the same way, create a `<script>` element, give it a third-party address and insert it. The loader marked such a script as held only once it was in the page, when the browser had already started it, so it ran before consent and again after a refusal. The loader now holds it as soon as its address is set, before the browser starts it, and it is released when its category is granted. This covers third-party scripts with a `src` that inline code creates with `document.createElement`. You were affected if a site uses such a snippet and, with the banner showing and nothing chosen, the browser's developer tools (Network tab) showed the script being loaded, for the Meta Pixel `connect.facebook.net/…/fbevents.js`.
+
+- **On sites that use the standard snippet (`/c/consent.js`), the tracking-cookie name list in the site script did not hold cookie writes.** The site script carries the install's list of tracking-cookie names (from the `oci_blocked_cookie_names` table), but only the loader's built-in list held cookie writes, so a name that was only in the database list was written before consent. From the moment the site script has loaded, the database list now holds them; until then the loader's built-in list does. The built-in list gained the Twitter/X (`muc_ads`, `personalization_id`, `guest_id`), Criteo (`cto_bundle`, `cto_bidid`, `cto_lwid`), Taboola (`t_gid`, `t_pt_gid`, `taboola_…`) and HubSpot (`__hs…`, `hubspotutk`, `__hstc`, `__hssc`, `__hssrc`) cookies, all as marketing. You were affected if such a cookie was set before a choice (developer tools, Application → Cookies).
+
+- **After Renew Now the banner did not come back.** After **Banners → Renew User Consents → Renew Now**, a visitor who had consented kept the old choice for one more page view (Consent Mode was updated to granted and blocked embeds were released), and from the second page on the banner never showed again, because the renewal stored a "necessary only" choice. Now the choice stored in the browser is ended before it is read: every visitor sees the banner on every page until they choose, nothing optional is granted and Consent Mode stays denied. The consent log is not changed. Visitors who went through a renewal before this update keep the "necessary only" choice it stored, and that renewal does not ask them again; to ask them, press Renew Now again after `scripts:regenerate`.
+
+- **A blocked YouTube or Google Maps embed stayed empty after Accept All until the page was reloaded.** It now comes back right after Accept All, without a reload, and is blocked again when consent is withdrawn.
+
+- **The admin area of a self-hosted install linked to screens it does not have.** The admin menu showed entries that answered 404 there; it now shows only **Backup and restore** and **Audit Log**, and the Admin link opens Backup and restore. The e-mail sent when a scan server stops responding no longer links a Scan Servers screen on a self-hosted install; it names the `scanner:list` and `scanner:health` commands.
+
+### Added
+
+- **Commands to administer a self-hosted install**, which has no screens for users, scan servers or cookie classification. Run them as `docker compose exec app php bin/oci <command>`:
+  - `user:list`: list accounts
+  - `user:show`: show one account
+  - `user:create`: create an account; prints a generated password once
+  - `user:role`: make an account admin, customer or agency
+  - `user:deactivate`: stop an account signing in, and sign it out
+  - `user:activate`: let a deactivated account sign in again
+  - `user:delete`: delete an account (it can be restored)
+  - `user:restore`: restore a deleted account
+  - `user:unlock`: clear the failed sign-in count of a locked account
+  - `requests:list`: list cookie and beacon reclassification requests (pending by default)
+  - `requests:approve`: approve one: the category changes for every site
+  - `requests:reject`: reject one
+  - `scanner:list`: list registered scan servers
+  - `scanner:disable`: stop sending scans to a server
+  - `scanner:enable`: send scans to a disabled server again
+  - `scanner:remove`: remove a server registration
+  - `cookies:show`: show how the global cookie database classifies a cookie
+  - `cookies:classify`: set its global category
+
+  Every change they make is written to the Audit Log. They refuse to demote, deactivate or delete the last active administrator, and ask before deleting an account, removing a scan server or demoting an administrator (`--yes` answers for scripts). The options and rules of each are in the self-hosting CLI article (`knowledge-base/articles/95-self-hosting/cli.md`, section "Accounts, requests and scan servers") and the README section "Administering a Self-Hosted Install".
+
+---
+
+## [v2.9.2] - 2026-11-25
+
+Fixes for self-hosted installs. Cloud is not affected.
+
+**After updating (self-hosted):** the fixes below are in `docker-compose.yml`, so the containers must be recreated; `docker compose restart` is not enough. In the installation folder run:
+
+```
+bash scripts/update.sh
+docker compose exec app php bin/oci scanner:register
+```
+
+`scripts/update.sh` fetches the release, rebuilds and recreates the containers, and runs the migrations; it also clears Redis, so everyone is signed out. It resets tracked files, so if you changed `docker-compose.yml` by hand to work around the missing banner, your change is replaced by the same fix; keep your own changes in `docker-compose.override.yml`. To update by hand instead: `git fetch origin main`, `git reset --hard origin/main`, `docker compose up -d --build`, then the `scanner:register` command above.
+
+### Fixed
+
+- **On a self-hosted install the consent banner never showed.** `/c/consent.js` loaded, but the site's own script, `/sites_data/<site key>/script.js`, answered 404. You were affected if the banner was missing on every site and that address returned "404 Not Found". The scripts are written to their own Docker volume, and the bundled nginx did not mount it. It does now (read-only). To check after updating: open `<your Conzent address>/sites_data/<site key>/script.js` in a browser (the site key is the `data-key` in the site's embed snippet); it should show JavaScript. The scripts were generated all along, so nothing needs regenerating.
+
+- **The daily IAB vendor list refresh never reached visitors on a self-hosted install.** The scheduler fetched the new list into its own container, where neither nginx nor the app could see it, and it was lost at the next restart. Sites with TCF on kept serving the list that shipped with the release. The scheduler and the worker now share the web root with the app.
+
+- **The worker, the scheduler and the beacon worker ran in debug mode on a self-hosted install**, because `APP_DEBUG` was passed only to the app and the code treats "not set" as on. They are also told they are the self-hosted edition, as the app already was.
+
+- **The bundled scanner was registered with 5 parallel scans while it runs 3.** `SCANNER_MAX_CONCURRENT` reached the scanner but not the app, which records the scanner's capacity. Both now get the same value: 3, or `SCANNER_MAX_CONCURRENT` from your `.env`. The registered value changes when `scanner:register` runs, which is why it is part of the update step above.
+
+### Changed
+
+- **A new install made with the installer (`scripts/install.sh`) starts in production mode with debug off.** The installer copied `APP_ENV=dev` and `APP_DEBUG=true` from `.env.example`, and with debug on every error page shows the stack trace to the visitor. **Existing installs keep their `.env`: check it, and on a server others can reach set `APP_ENV=production` and `APP_DEBUG=false`, then run `docker compose up -d`.** The same applies if you installed by copying `.env.example` yourself.
+
+- `.env.example` now lists `APP_PORT`, `DB_ROOT_PASSWORD`, `SCANNER_MAX_CONCURRENT` and `SCANNER_TIMEOUT`, which `docker-compose.yml` reads and only the docs mentioned.
+
+---
+
+## [v2.9.1] - 2026-11-25
+
+Two fixes for self-hosted installs. Cloud is not affected.
+
+**After updating (self-hosted)**
+
+1. **If `APP_ENV=prod` is set in your `.env`, clear the compiled container and restart PHP.** Only `prod` compiles the service container; the default (`production`, or `dev` from `.env.example`) does not, and needs nothing here. The compiled container lives in `var/cache/container` on the `app-var` volume, which survives an update (`scripts/update.sh` clears only the Twig cache). It still describes the old code, so after this update the dashboard fails with HTTP 500 and `docker compose logs app` shows an error starting `Too few arguments to function OCI\Shared\Repository\NullPlanRepository::__construct()`. In production PHP-FPM also keeps the code it has loaded until it restarts, so clearing alone is not enough. Run, in the installation folder:
+   ```
+   docker compose exec app php bin/oci cache:clear
+   docker compose restart app worker scheduler
+   ```
+   It worked when the dashboard loads again and the error no longer appears in `docker compose logs app`. `cache:clear` does remove the compiled container. It was reported that it does not, but that is not the cause: the stale file comes back from the volume at every update, and PHP-FPM keeps serving the old code until it is restarted.
+2. **To use two-factor authentication, set `TOTP_ENCRYPTION_KEY` in `.env`.** Generate a key with `docker compose exec app php -r "echo bin2hex(random_bytes(32)), PHP_EOL;"` (the command from `.env.example`), add it to `.env`, then run `docker compose up -d`. `docker compose restart` does not re-read `.env`. It worked when **Account → Two-factor** no longer says "Two-factor authentication is unavailable". Keep a copy of the key somewhere safe: the backups Conzent makes leave `.env` out by default. Do not rotate it casually: a new key makes every enrolled authenticator unreadable and every user has to enrol again.
+3. **Check the settings in your `.env`, because they now take effect.** Values that never reached the containers before are now applied: `CONSENT_IP_KEY`, `CONSENT_LOG_RETENTION_DAYS`, the `GVL_*` settings, `DISABLE_CACHE`, `CMP_VERSION`, and the Google, OpenRouter, Cloudflare, ipregistry and scanner-alert settings. `MAIL_ENCRYPTION` now defaults to `tls`, also when it is set but empty; until now mail went out without STARTTLS whatever `.env` said. If your SMTP server does not offer STARTTLS, set `MAIL_ENCRYPTION=none`.
+
+### Fixed
+
+- **A fresh self-hosted install looped between `/` and `/account/setup` after the account setup form was saved.** You were affected if, with no website added yet, saving the setup form brought you straight back to it, or the browser stopped with "too many redirects". The dashboard looked for the company record in a place that is always empty on self-hosted installs, while account setup looked in the right one. Both now read the same record, and a set-up account lands on `/sites`.
+
+- **Two-factor authentication could not be enabled with the default Docker Compose setup.** The account page said `TOTP_ENCRYPTION_KEY` was not set even with the key in `.env`. `.env` is not part of the image: a container sees only the variables `docker-compose.yml` lists for it, and `TOTP_ENCRYPTION_KEY` was not listed. It is passed to the app now, and so are other settings that were missing:
+  - `CONSENT_IP_KEY`: visitor IPs in the consent log are pseudonymised instead of truncated once it is set.
+  - `MAIL_ENCRYPTION`, for the app, the worker and the scheduler. The worker had no mail settings at all, so the cookie-change alerts it sends when it completes a scan never went out.
+  - `APP_SECRET` for the worker and the scheduler. Without it they could not read the SFTP and S3 backup destination credentials, so off-site backups set up in the admin pages were not shipped.
+  - The script settings (`CMP_ID`, `CMP_VERSION`, `CDN_URL`, `DISABLE_CACHE`, Cloudflare) for the worker, so scripts it regenerates match the ones the app writes.
+  - The consent-log retention, vendor-list (`GVL_*`) and scanner-alert settings for the scheduler.
+  - The documented Google sign-in, OpenRouter, ipregistry, Cloudflare and vendor-list settings for the app.
+
+  Unset values keep their previous defaults. Apply your `.env` with `docker compose up -d` after updating (`scripts/update.sh` does this for you).
+
+---
+
+## [v2.9.0] - 2026-11-23
+
+**After updating, regenerate your site scripts** (`php bin/oci scripts:regenerate`). The form fix below only reaches a site once its script is regenerated.
+
+### Changed
+
+- **The monthly pageview limit is counted per domain (Cloud).** It used to be one number for the whole account, shared by every domain on it. Each domain now has its own limit, and on the Small Businesses plan a domain can be given a larger one (250,000, 500,000 or 1,000,000 a month) under Billing, for an extra per domain. Self-hosted installs have no pageview limit and are not affected. Needs the new migration (`php bin/oci migrations:migrate`).
+
+- **An admin can now sign in as an agency account**, to see what that agency sees. Since v2.7.5 only customer accounts could be signed in as. Agencies still sign in only as their own customers, and an admin account can never be signed in as. When an admin signed in as an agency opens one of that agency's customers, stopping returns the admin to their own account, and the audit log names the admin.
+
+### Fixed
+
+- **The scanner image did not build on ARM64 (aarch64) Linux hosts.** Both `docker compose up -d` and the one-line installer stopped while installing Chrome: on ARM64 the browser sits in a `chrome-linux-arm64` folder, which the build did not look for, so it tried to link an empty path. The build now finds Chrome on both x64 and ARM64, and stops with a clear message if no Chrome binary is found. Rebuild the scanner after updating (`docker compose build scanner`).
+
+- **A domain paused for reaching its pageview limit stayed paused into the next month (Cloud).** A paused domain serves no banner, so nothing ever rebuilt its script when the count went back to zero. The scheduler now rebuilds those domains when a new month starts.
+
+- **jQuery loaded from a CDN under a versioned file name was held until the visitor answered the banner.** The banner let `jquery.min.js` and `jquery.js` through, but the jQuery CDN's own files are named `jquery-3.6.0.min.js` and `jquery-ui.min.js`, so they were held like a tracker and the page's own code failed with "$ is not defined". jQuery now passes in every form it ships in (versioned, slim, UI, migrate, and everything on `code.jquery.com`). The built-in whitelist (libraries, payment gateways, form bot checks) is also in the loader itself (now 1.6.6) instead of arriving with `version.json`: a script that was held and released a moment later ran after the inline code that needed it. Other files on the general library CDNs stay held.
+
+- **A form protected by Cloudflare Turnstile, reCAPTCHA or hCaptcha could not be sent until the visitor answered the banner.** The banner held the bot check like a tracker, so the widget never rendered, the form went out without a token and the form's server rejected it as spam. These bot checks are now always allowed, each matched on its exact host and path, so the rest of google.com and gstatic.com stays held.
+
+- **Google Consent Mode now sends a clean sequence: one default, then one update per choice.** Nothing reached Google granted before, but Tag Assistant showed four things that read as an inaccurate implementation. A `gtag('consent', 'consent_update', …)` alias, which is not a valid consent command, went out after every choice and has been removed (the `conzent_consent_update` and `cookie_consent_update` dataLayer events are unchanged). A first visit sent an update before the visitor had chosen; it now keeps the denied default until they do. On GTM sites a second, identical default and `developer_id` went out, because the banner did not see the loader's default before GTM had started. And one choice sent the same update two or three times; an update identical to the previous one is now skipped. Regenerate your site scripts after updating.
+
+- **Advanced Consent Mode held Google tags that load after the page.** With "Allow Google tags to fire before consent" on, Google tags are meant to load at once with consent denied and send cookieless pings until the visitor chooses. Tags in the page's HTML did, but a Google tag inserted later, by Google Tag Manager itself or by Google Tag Assistant's debug mode, was held until consent, so Tag Assistant showed "No tags found" on a first visit. Google tag hosts are now allowed everywhere the banner checks a script while Advanced mode is on. A tag you marked with `data-consent` keeps its category, and in Basic mode Google tags still wait for consent. Regenerate your site scripts after updating.
+
+- **A geo-targeted banner with TCF on showed to every first-time visitor.** The banner decided before the visitor's location was known, so a banner set to show only in the EU (or in selected countries) failed open and appeared everywhere on a first visit, and a visitor outside the region never received the automatic grant of all Consent Mode signals that applies when no banner is needed. The decision now waits for the location lookup (typically well under 0.1 s, hard limit 2 s); with no lookup to wait for, nothing changes. Regenerate your site scripts after updating.
+
+### Added
+
+- **Debug mode checks the load order as the page loads.** With `?debug=true` on a page (or debug mode on in the site settings), the browser console now says whether the Google Consent Mode default and the TCF stub were in place before the first Google tag ran, and names the tag when one ran first. Until now debug mode only reported after the visitor made a choice. When consent arrives late, the message points first to checking whether that tag is served through Google tag gateway, then to the guide for that case.
+
+---
+
+## [v2.8.1] - 2026-10-28
+
+### Fixed
+
+- **On a Windows checkout the app container would not start** (`docker-entrypoint-prod.sh: no such file or directory`). Git converted the shell scripts to Windows line endings, which Linux containers cannot run. The repository now ships a `.gitattributes` that keeps shell scripts, `bin/oci` and the Git hooks on Unix line endings whatever the platform. A Windows clone made before this release keeps its converted files after updating: in the installation folder run `git rm --cached -r -q . && git reset --hard`, then rebuild (`docker compose build`). That re-checks out the tracked files and discards local edits to them; your `.env` is not tracked and is kept. Linux and macOS installations are not affected.
+
+---
+
+## [v2.8.0] - 2026-10-28
+
+**After updating, run the migrations** (`php bin/oci migrations:migrate`) **and regenerate your site scripts** (`php bin/oci scripts:regenerate`). The payment fix below only reaches a site once its script is regenerated.
+
+### Fixed
+
+- **A checkout could stop at the payment provider's wait page until the visitor accepted marketing cookies.** The banner holds third-party scripts until the visitor chooses, and a payment provider's script was held like a tracker. Payment providers' scripts are now always allowed: ePay and Bambora, Stripe, PayPal, Klarna, Nets, QuickPay, Mollie, Adyen, Braintree, Square, Checkout.com, Authorize.net, Google Pay, Apple Pay and Vipps MobilePay. Each is matched on its exact host, so a lookalike address is still held.
+- **The Open Cookie Database sync overwrote hand-edited cookie entries.** An entry saved or confirmed by hand in the cookie database is now kept as it is, and the sync reports it as kept. The migration marks the entries already edited, using the audit log.
+- **The universal script tag in the documentation pointed at a host that does not exist.** It now uses the same address as the app's own snippet.
+
+### Added
+
+- **Alerts for a broken installation.** Set `GAPS_WEBHOOK_URL` and `GAPS_WEBHOOK_TOKEN` (see `.env.example`) and the app posts an alert when an API key it depends on is rejected, a scan server stops answering, or the newest backup is too old, and posts again when it recovers. Keys are checked hourly by the scheduler, or on demand with `php bin/oci health:keys`. Without the two settings nothing is sent.
+
+### Security
+
+- symfony/yaml is updated to 7.4.21, which clears the advisory `composer audit` reported. `composer audit` now reports none.
+- `league/event` is removed: it was required but never used.
+
+### Changed
+
+- **The bundled scanner runs on Node 24 with puppeteer-core 25.16.0** (Node 20 reaches end of life). Its Chrome is now installed with a pinned `@puppeteer/browsers` 3.2.6, which also fixes a fresh scanner image that failed to build because the unpinned installer needed `unzip`. Rebuild the scanner after updating (`docker compose build scanner`). Scan results are unchanged; old and new were compared on live sites.
+- The IAB Global Vendor List shipped with the install is refreshed to version 182.
+
+---
+
+## [v2.7.5] - 2026-10-20
+
+Security release. **Update as soon as you can**, then run the migrations (`php bin/oci migrations:migrate`) and regenerate your site scripts (`php bin/oci scripts:regenerate`). The banner runtime is now 13.11.
+
+Thanks to **kta1kri**, who found and reported the first two issues privately and in detail.
+
+### Security
+
+- **One account could read and change another account's data (CWE-639).** Several signed-in pages and actions took a site or record id from the request and never checked that the site belonged to the person asking. Because accounts can be created freely and ids are sequential, any account could open another site's consent records (including visitor IP addresses), read, send, delete and reschedule its reports, switch its banner off, change its banner settings and texts, overwrite or clear its cookie and privacy policies, and copy its scan results. Every handler that takes a site or record id now checks ownership through one shared check, and an id that is not yours answers "not found". A test now reads every signed-in route and fails when a new one takes an id without that check.
+- **Script could be stored in a cookie name and run on a customer's website (CWE-79).** Anyone with a site's public key could report a "cookie" whose name contained markup, and the cookie table on the cookie policy page and in the preference centre inserted it as HTML. Cookie names are now checked when they arrive (RFC 6265 characters only, at most 255), names stored before this release are filtered out of the public cookie list, and the table is built as text.
+- **The scan webhook accepted unsigned results when `SCANNER_WEBHOOK_SECRET` was not set.** It now always requires a key: `SCANNER_WEBHOOK_SECRET` when set, otherwise `SCANNER_API_KEY`. The app hands the same key to the scanner with every job, so the bundled scanner needs no change.
+- **Google Tag Manager connection:** the OAuth state now carries a one-time value bound to your session, and the return address after connecting must be a page on your own installation (it could be pointed at another website).
+- **Smaller hardening:** a banner layout must be one of the registered layouts (a crafted value could read other template files); scans only visit the site's own domain and its associated domains; the "is the script installed" check refuses addresses on private networks, including through redirects; signing in as a customer is limited to customer accounts.
+
+### Fixed
+
+- **A fresh installation stopped during migrations** on two missing columns (`oci_subscriptions.migration_free_months`, `oci_sites.suspended_reason`). A new installation now migrates from start to finish; existing installations get the missing column added.
+
+### Changed
+
+- **With IAB TCF on, the banner appears before the vendor list has loaded.** It used to wait for the whole list (about 900 KB), which delayed the banner and the page's Largest Contentful Paint. The list's sections fill in when it arrives, and a click on accept or reject made before then is held and applied once the list is ready, so the consent it saves is the same.
+
+---
+
+## [v2.7.4] - 2026-10-13
+
+**After updating, regenerate your site scripts** (`php bin/oci scripts:regenerate`). The fix below is in the loader (now 1.6.5) and the banner runtime (now 13.09).
+
+### Fixed
+
+- **WordPress page builders would not start on a site with the consent script.** A page builder edits on the public address of the page, so the loader ran there and held the builder's own scripts as if they were trackers. The loader and the runtime now stand down on a WordPress admin page, on a login page, in a page framed by an admin page, and on a builder or Customizer address when the person is logged in to WordPress. A builder parameter on its own changes nothing: a visitor who follows a link ending in `?et_fb=1` gets the banner and the blocking as before. Covers Divi, Elementor, Beaver Builder, Bricks, Oxygen, Breakdance, WPBakery, Visual Composer, Brizy, Thrive, Avada, Zion and SiteOrigin.
+
+---
+
+## [v2.7.3] - 2026-09-29
+
+Rebuild the image when updating (`docker compose build`): the change below is in the container's startup script.
+
+### Security
+
+- **Workers and the scheduler no longer run as root.** The container entrypoint still prepares the volumes as root, then starts every `php ...` command as `www-data`; PHP-FPM is unchanged. `public/`, `var/` and `backups/` are handed to `www-data` on every start. Set `OCI_RUN_AS_ROOT=1` on a service that must stay on root. When running a command by hand, use `docker compose exec -u www-data app php bin/oci <command>`.
+
+---
+
+## [v2.7.2] - 2026-09-29
+
+**After updating, regenerate your site scripts** (`php bin/oci scripts:regenerate`). Most of the consent fixes below live in the banner runtime (now 13.08), and deployed bundles carry the old code until they are rebuilt.
+
+### Fixed
+
+- **Rejecting cookies emptied the shopper's basket on Shopify stores.** The runtime removed cookies the shop itself needs. Platform essentials are now kept, and consent reaches Shopify even when its API loads late.
+- **Refusing a category did not remove that category's cookies.** Withdrawing or refusing consent now deletes the cookies of the refused categories, not only stops new ones.
+- **Blocking switched off before the visitor had chosen.** Scripts stay held until a choice is made, category by category, and a released script comes back as the tag the page wrote, module scripts included.
+- **First-time visitors could not consent on some pages.** The banner now waits for the page body, so held scripts are released and the banner can render.
+- **Policy page embeds showed category headings with nothing under them.** Every `cnz-cookie-table` embed on a page is filled, and its cookie rows load without the visitor opening the banner.
+- **Category switches disagreed with each other** on layouts that render the category list twice, which could record consent the visitor had just refused. Every copy now has its own identity and they stay in step.
+- **A site's own button CSS repainted the consent interface.** The banner's styles are armoured against the host page.
+- **An imported banner lost its buttons when the page was saved**, and the color tab now shows the colors the banner actually uses.
+- **Banner saves failed with "Permission denied"** on installs where a worker or a command run as root wrote a site's bundle first. Files written by a root process are handed to the owner of the folder they live in.
+- **A failed migration no longer lets a deploy succeed.**
+- **The daily backup did not fire**, and the scheduler reported that it had.
+- Every bundle write purges the edge cache, whatever `DISABLE_CACHE` says.
+- Microsoft Clarity's cookies wait for analytics consent, not marketing.
+- The bundle stands down inside a frame whose `document.cookie` is locked, instead of throwing.
+
+### Added
+
+- **Two-factor authentication** with TOTP, recovery codes and trusted devices. `php bin/oci user:2fa-reset --email=ADDR` turns it off for a locked-out user.
+- **Backups from the admin area:** history, schedule, download, restore onto any server, and offsite destinations over SFTP (including Hetzner Storage Box) and S3. Every database is included, and a heartbeat monitor raises an alarm when backups go silent. See `docs/backup-restore.md`.
+- **Customer-authored banner layouts run in a sandbox.** Layout authoring is limited to admins, Twig is upgraded, and `php bin/oci security:layout-audit` checks existing layouts for traces of the hole this closes.
+- **Banners can be edited per law:** the GDPR banner, the CCPA banner, or both at once. Colors take any opacity, and the logo and revisit icon can be set.
+- **Scans can show what a site sets after consent**, not only what the blocker lets through, and live cookie observations are presented as continuous scanning.
+- **Cloudflare Turnstile on the signup form**, and a circuit breaker on outbound verification mail.
+- **`security.txt` support:** `/.well-known/` is reachable, so an install can publish its own security contact.
+- **A public cookie database, off by default.** `php bin/oci cookies:publish-pages` writes a static page per classified cookie. The nightly run only happens where the global setting `cookie_pages_enabled` is `1`.
+- **The service status feed keeps 90 days of readings** and says why the service was away.
+- A Cloudflare Worker that serves a branded page while the origin is down (`docker/cloudflare/maintenance-worker.js`).
+- **`POST /api/v1/plugin/claim`: a CMS plugin can fetch its own website key by proving it runs on the site's domain.** The plugin publishes a one-time token on its site, posts the domain and the token, and the app fetches the token back (SSRF-guarded, DNS-pinned, no redirects) before answering with the key. Nothing is created: a domain with no site in Conzent is told so. Rate-limited per client and per domain; every issued key writes an audit entry on the site. Ships with a `CLAIM_ALLOW_PRIVATE_HOSTS` switch for development only, ignored in production.
+- The outbound URL guard used by diagnostics now lives in core (`OCI\Infrastructure\Http\UrlGuard`) and treats both `prod` and `production` as production.
+
+---
+
+## [v2.7.1] - 2026-08-31
+
+### Fixed
+
+- **Consent was never stored on sites registered with a `www.` domain but served on the apex** — the banner reappeared on every page load, indefinitely. `getRootDomain()` stripped `www.` from the visitor's hostname but not from the configured domain, so the comparison failed, the lookup fell through to the configured host, and the runtime tried to set the consent cookie on `.www.example.com` while the browser was on `example.com`. Per [RFC 6265](https://datatracker.ietf.org/doc/html/rfc6265#section-5.1.3) a browser must reject that, because `www` is a *child* of the apex rather than a parent, so every consent decision was silently discarded.
+
+  The cookie domain is now always the apex, which is correct in both directions: `.example.com` is sent to `www.example.com` and to every other subdomain. Cookie deletion used the same lookup, so consent *withdrawal* was affected on these sites too.
+
+  **Are you affected?** Only if your site's configured domain begins with `www.`. Subdomain setups (`de.example.com` sharing consent from a site registered as `example.com`) were never affected, because a parent-domain cookie is always accepted. **After updating, regenerate your site scripts** — the fix is applied at generation as well as at runtime, and existing deployed bundles carry the old code until they are rebuilt.
+
+- **An associated domain on a subdomain overwrote the primary domain's privacy policy link** — the policy list was keyed by the last two labels of each domain, so `shop.example.com` collapsed onto `example.com` and replaced the site's own policy URL. Keys are now the full host, which is also what the runtime looks up, so `example.co.uk` is no longer truncated to the public suffix `co.uk` either.
+
+- **A privacy policy link could be set to the literal string `undefined`** — the runtime looked up the policy list by full hostname while it was generated with a truncated key, and guarded with `!= ""`, which is true for a missing entry. A host with no entry now leaves the existing link untouched.
+
+- **An associated domain with no privacy policy URL stored an empty link** — the per-domain policy field is optional, and a blank value now inherits the site's own privacy policy instead.
+
+- **Adding `www.<your-domain>` as an associated domain reported a confusing error** — the form correctly refused it, because `www` is already covered by the primary domain, but the message read as though a different domain had been entered. It now explains that subdomains inherit consent automatically and do not need to be added.
+
+---
+
+## [v2.7.0] - 2026-08-30
+
+### Added
+- **Google Additional Consent v2** — the CMP now emits AC v2 (`2~<consented>~dv.<disclosed>`) instead of v1 (`1~<consented>`). The new third segment declares which Google ad tech providers were *disclosed* to the visitor, which is what evidences transparency for the ~700 ATPs that sit outside the IAB Global Vendor List. v2 has been Google's standard since December 2023. Existing visitors are **not** re-prompted: a stored v1 consent list is read and upgraded in place on the next page view, and the `euconsent-v2` cookie payload is unchanged.
+  - The cookie continues to store only the consented ATP ids. The disclosed segment is derived at runtime from the current vendor list, because persisting it would push a reject-all cookie past the 4096-byte browser limit, where it is dropped silently and consent is lost.
+  - **Expect more unchecked Google vendors over time.** A visitor who accepted everything last month has consented to the list as it was then; providers Google has added since correctly appear as disclosed-but-not-consented until the visitor revisits their choices. This is a fidelity improvement over v1, which could not express the distinction.
+- **Google Additional Consent toggle in banner settings** — the setting was seeded on at site creation but had no control in the UI (see the fix below).
+
+### Fixed
+- **Additional Consent was silently switched off by saving banner settings** — `google_additional_consent` was seeded to `1` when a site was created but was missing from the banner settings form, so every save dropped the key and the runtime fell back to off. Sites could lose Google Additional Consent signalling without anyone changing it. The setting now has a toggle under IAB TCF support and survives a save.
+- **Customising preferences on a GDPR + CCPA site rejected everything** — the save path compared the configured law to the bare string `gdpr`, so `gdpr_ccpa` fell through to the reject-all branch: every customised selection was discarded and the TC string recorded a full rejection. `gdpr_ccpa` is now correctly treated as a GDPR configuration in both the save path and TCF applicability signalling.
+- **Preference centre could fail to render from a malformed consent cookie** — the Google vendor list read the consent string with an unguarded `split("~")[1].split(".")`, which threw on any value without a `~` and took the whole modal down. It also showed the "select all" toggle as checked when the provider list was empty.
+- **Cookie values containing `=` were truncated on read** — `Conzent_Cookie.read` split on every `=` and kept only the second field. It also decoded values that are written raw, so a stray `%` in any unrelated cookie on the domain threw a `URIError` and broke every cookie read on the page.
+- **Vendor tab and vendor count ignored publisher vendor narrowing** — the preference centre and the `{vendor_count}` placeholder were built before `narrowGoogleVendorsTo()` was applied, so publishers using an ATP allow-list saw the full list rendered while the consent signal used the narrowed one.
+
+### Changed
+- **License corrected to Apache 2.0** — Conzent OCI is open source under the Apache License 2.0, and Apache 2.0 is **authoritative**. Earlier releases were published with conflicting license text: the repository carried a Business Source License 1.1 grant with a four-year conversion clause, while getconzent.com stated Apache 2.0. That conflict is resolved in favour of Apache 2.0, and the resolution applies to code obtained under those earlier releases as well.
+- **BSL-era restrictions withdrawn** — the Business Source License forbade offering the code as a competing hosted or managed service. Apache 2.0 grants commercial use, modification, and redistribution, including as a hosted service, with no field-of-use restriction and no conversion date. That restriction is not enforced and has been removed from all project copy.
+- **"Powered by Conzent" branding is optional** — previously stated as a license obligation. Apache 2.0 cannot impose a visible-badge requirement, so the badge is now a request, not a condition, and is freely removable in self-hosted installs. Attribution obligations are limited to what Apache 2.0 §4 requires (preserving copyright, patent, trademark, and attribution notices, and any `NOTICE` file).
+- **Trademarks and CMP ID remain reserved** — the license grant does not extend to the Conzent name, logos, or Conzent's IAB Europe CMP ID. TCF registration is per-operator: register your own CMP ID with IAB Europe. See [`NOTICE`](NOTICE).
+
+---
+
+## [v2.4.1] - 2026-03-25
+
+### Fixed
+- **Stale code after update** — `--update` now forces a full Docker rebuild with `--no-cache` to prevent cached layers from serving old code
+- **Stale public assets** — The `app-public` Docker volume is now removed before rebuild on updates, ensuring CSS/JS/media files are refreshed
+- **Cache flush on update** — Redis and Twig template caches are now flushed automatically after an update
+
+### Added
+- **Force update script** — New `scripts/update.sh` for a one-command clean rebuild: pulls latest code, rebuilds containers without cache, runs migrations, and flushes all caches
+
+---
+
+## [v2.4.0] - 2026-03-25
+
+### Added
+- **Internationalization** — Extracted ~194 hardcoded English strings from templates into locale YAML files for full i18n support
+- **Danish translations** — Complete Danish language support across the platform
+
+### Changed
+- **Twig locale rendering** — Fixed locale context to pass via `render()` instead of `addGlobal()`, ensuring correct per-request translations
+- **Twig environment** — Creates fresh Twig environment per language to prevent stale globals
+- **Pricing configuration** — Updated plan pricing
+
+### Fixed
+- **CCPA/GDPR templates** — Fixed framework-specific consent template rendering
+- **Site deletion** — Script files are now properly deleted when a site is removed
+- **Translation frontmatter** — Fixed broken frontmatter in translated markdown files
+
+---
+
+## [v2.3.0] - 2026-03-24
+
+### Added
+- **Privacy Framework** — Full privacy/cookie policy framework with multi-step generation, template support, and per-site customization
+- **Pageview usage bar** — Dashboard now shows pageview usage with exceeded notice and plan upgrade prompts
+- **Compliance score & recommendations** — Dashboard compliance score widget with actionable recommendation checklist
+- **Help & support pages** — In-app help center with support documentation
+
+### Changed
+- **Dashboard layout** — Redesigned dashboard with improved layout and richer statistics
+- **Banner script engine** — Script minification, GTM integration fixes, IAB TCF error handling improvements
+- **Branding** — Updated logo and branding across the platform
+- **Site limitations** — Improved plan-based site and domain limit enforcement
+- **Custom layouts** — Fixed duplicate layout handling and custom layout editing
+
+### Fixed
+- **Banner defaults** — Fixed default banner settings not applying correctly on new sites
+- **Script generation** — Fixed ASCII encoding issues, minification errors, and cache invalidation
+- **Modal dialogs** — Fixed modal display and interaction issues
+- **Color settings** — Fixed color picker and theme application bugs
+- **Scan page** — Fixed scan display and recommendation rendering
+- **Login flow** — Fixed login edge cases and font rendering
+
+---
+
+## [v2.2.1] - 2026-03-17
+
+### Added
+- **User registration** — Public registration page with email/password signup and automatic login
+- **Scan card redesign** — Simplified scan index page with cleaner card layout
+
+### Fixed
+- **Docker volume stale assets** — Public assets (CSS, JS, media) are now synced into Docker volumes on every container start, fixing updates not appearing after `--update`
+- **Dashboard recommendations** — Fixed recommendation checklist display and consent stats
+- **Scan repository** — Fixed scan queries and detail page
+- **Logo display** — Fixed logo rendering issues
+
+### Changed
+- **Dashboard** — Enhanced customer dashboard with richer consent statistics and scan summary
+- **README** — Added full installer options table with `--update`, `--config`, `--uninstall` and usage examples
+
+---
+
+## [v2.2.0] - 2026-03-17
+
+### Added
+- **Notification system** — In-app notifications with bell icon in navbar, mark-as-read, mark-all-read, and detail view
+- **Onboarding flow** — Persistent onboarding checklist for new users with completion tracking
+- **Layout duplication** — Duplicate existing banner layouts from the layouts page
+- **Agency invite withdrawal** — Agency users can withdraw pending customer invitations
+- **Scan service** — New scan orchestration service layer for cookie scanning
+- **Dashboard enhancements** — Expanded customer dashboard with richer consent stats and recommendations
+- **Banner page improvements** — Enhanced banner list with better status display and inline actions
+- **App screenshots** — Added dashboard, banner settings, consent logs, cookie scanner, and policy generator screenshots
+
+### Changed
+- License page removed from app menu — license information now lives on the public website at [getconzent.com/license](https://getconzent.com/license/)
+- Navbar updated with notification bell and unread count badge
+- Base layout updated with notification CSS and onboarding support
+- Language management handlers improved with better validation
+
+### Fixed
+- Session middleware edge cases
+- Dark mode logo display in navbar
+
+---
+
+## [v2.1.8] - 2026-03-16
+
+### Added
+- **Agency domain** — Repository layer for agency management (customer lists, invitations, health data)
+- **Sidebar role arrays** — Menu items can now target multiple roles (e.g. `['agency', 'admin']`)
+- **Impersonation role awareness** — "Return to Agency/Admin" button text and redirect now match the original user's role
+- **Session impersonator role** — Stores originating role during impersonation for correct return routing
+
+### Changed
+- Agency users now see the standard customer dashboard at `/` instead of the legacy commission dashboard
+- Site creation onboarding improved with guided first-site flow
+
+### Fixed
+- Impersonation stop redirect now correctly returns agency users to `/agency/customers` instead of `/admin/users`
+- Banner list handler edge cases
+
+---
+
+## [v2.1.7] - 2026-03-16
+
+### Added
+- **Safe update flow** — running the installer on an existing installation now preserves data (no more `down -v`)
+- **`--update` flag** — explicit update mode that pulls latest code, rebuilds containers, and runs new migrations without data loss
+
+### Fixed
+- Running the one-liner twice no longer wipes the database
+- Admin account creation skipped on updates (existing credentials preserved)
+
+---
+
+## [v2.1.6] - 2026-03-16
+
+### Fixed
+- Include `oci_reports` and `oci_user_checklist_items` table migrations (used by core code)
+- Guard A/B test routes with `class_exists` so they're skipped when the module isn't installed
+- Prevent 500 errors from missing cloud module classes in self-hosted edition
+
+---
+
+## [v2.1.5] - 2026-03-16
+
+### Fixed
+- OCI self-hosted: resolved missing Monetization module dependency (moved PlanRepositoryInterface to Shared, added NullPlanRepository for unlimited self-hosted mode)
+
+---
+
+## [v2.1.4] - 2026-03-16
+
+### Changed
+- Default port changed from 8100 to 80 for simpler access (`http://localhost`)
+
+---
+
+## [v2.1.3] - 2026-03-16
+
+### Fixed
+- Installer now prompts for admin email when run via `curl | sh` (reads from /dev/tty)
+- Uninstall confirmation prompt works correctly in piped mode
+
+---
+
+## [v2.1.2] - 2026-03-16
+
+### Fixed
+- Installer now always cleans stale Docker volumes before starting (fixes DB auth failure on reinstall)
+
+---
+
+## [v2.1.1] - 2026-03-16
+
+### Fixed
+- Reject-all button now properly deletes cookies on consent withdrawal
+- Installer script improvements for reliability on fresh systems
+
+---
+
+## [v2.1.0] - 2026-03-16
+
+### Added
+- **One-Line Installer** — `curl -sSL https://getconzent.com/install | sh` with auto-install of Docker, Git, and Docker Compose on all major Linux distros (Debian, Ubuntu, Raspbian, CentOS, Fedora, Alpine, Arch, Amazon Linux, SUSE)
+- **Installer animations** — Spinner progress indicators for long-running tasks
+- **`--config` flag** — View saved admin credentials anytime via `bash scripts/install.sh --config`
+- **`--uninstall` flag** — Clean removal of containers, volumes, and installation directory
+- **Auto-generated admin credentials** — Installer prompts for email and generates a secure random password, saved to `.conzent-credentials`
+- **LAN IP detection** — Success message shows both localhost and network URL for headless/Pi installs
+- **Stop impersonation** — New handler to end admin-as-user sessions
+- **`bin/oci setup` command** — CLI command for initial admin account creation
+
+### Changed
+- Docker Nginx config updated for production environments
+- Test site analytics and tracking page configs updated
+
+### Fixed
+- Consent banner save flow and script regeneration
+- New site creation redirect
+- Custom layouts table migration
+- Clarity and Amazon consent column migration
+- Installer Docker permission handling (sudo fallback for fresh installs)
+
+## [v2.0.0] - 2026-03-15
+
+First public release of Conzent OCI as a self-hosted, open-source Consent Management Platform.
+
+### Added
+- **Consent Management** — Full consent collection, logging, and audit trail with date-range filtering and export
+- **Cookie Detection** — Automatic cookie scanning with categorization (necessary, analytics, marketing, preferences)
+- **Customizable Banners** — Multiple layout types (popup, banner, box), 7 position options, light/dark themes, full CSS control
+- **IAB TCF v2.2 / v2.3** — Transparent Consent Framework support with self-registered CMP ID
+- **Google Consent Mode v2** — Native integration with Google consent signals
+- **Multi-Site Management** — Manage consent across unlimited websites from a single dashboard
+- **Multi-Language Support** — Full i18n for banner content, cookie descriptions, and policies
+- **Privacy & Cookie Policy Generator** — Built-in policy wizard auto-populated from detected cookies
+- **Consent Reporting** — Trend visualization, acceptance/rejection stats, pageview tracking
+- **Cookie Scanning** — On-demand and scheduled scans for cookies, scripts, and trackers
+- **Associated Domains** — Share consent state across related domains
+- **Compliance Checklists** — Guided setup for GDPR, GCM, CCPA, IAB/TCF
+- **Google Tag Manager Integration** — OAuth-based GTM wizard for container setup
+- **Google OAuth Sign-In** — Sign in with Google support
+- **Script Generation Pipeline** — Auto-generated, minified consent scripts with cache-busting and CDN support
+- **AI-Powered Translation** — Auto-translate banner content via OpenRouter
+- **Audit Logging** — Comprehensive audit trail for administrative actions
+- **Native Tracker Support** — Built-in support for Microsoft Clarity and Amazon tracking
+- **Module System** — Extensible architecture for custom integrations
+- **CLI Tools** — Health check, migration runner, cache clearing, queue worker, scheduler, script regeneration
+- **Redis Integration** — Caching, sessions, and background job queues
+- **Cloudflare Integration** — Edge cache purge on consent script regeneration
+
+### Fixed
+- GTM wizard connection detection (no longer falsely reports as connected)
+- Policy template rendering errors
+- Consent ID tracking in audit logs
+- Script blocking using clean element creation (bypasses monkey-patched `createElement`)
+- Reports page layout (full-width rendering)
+- Site creation redirect flow
+- JSON parsing in consent data handling

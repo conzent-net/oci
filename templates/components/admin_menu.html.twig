@@ -1,0 +1,111 @@
+{# ── Admin menu structure ──────────────────────────────────
+   Curated grouping of the admin tools, shared by the consumer
+   sidebar's "Admin" flyout and the dedicated /admin sidebar so
+   the two stay identical.
+
+   Groups (Classification, Billing, News) render as hover flyout
+   submenus: the group header links to its first child (so a click
+   still works without JS) and hovering reveals the children in a
+   panel that flies out to the right. Sub-flyouts are pure-CSS
+   (nested <li> children → no hover-gap issues).
+
+   `tree(active_page)` renders the <li> items; the caller supplies
+   the surrounding <ul class="menu-list">. #}
+
+{# `badges` maps a badge key to a count, e.g. { pending_agency_applications: 3 }.
+   Passed in explicitly rather than read from the context: Twig macros are
+   isolated, so `_context` inside one holds only the macro's own arguments —
+   template globals are NOT in it, and reading them there silently yields
+   null.
+
+   `modules` is the ModuleRegistry (the `modules` template global), passed the
+   same way. An item, or a child of a group, may name the module that serves
+   its route; it renders only when that module is loaded, and a group with no
+   child left is not shown. The open-source edition ships without the cloud
+   modules, so it shows only the screens core itself serves (Backup & Restore,
+   Audit Log); before, every other link here was a 404 there. #}
+{% macro tree(active_page, badges = {}, modules = null) %}
+    {% set items = [
+        { label: 'Dashboard',        icon: 'fas fa-gauge-high',    route: '/admin',        active: 'admin_dashboard', module: 'Admin' },
+        { label: 'Users',            icon: 'fas fa-users-gear',    route: '/admin/users',  active: 'admin_users', module: 'Admin' },
+        { label: 'Scan Servers',     icon: 'fas fa-server',        route: '/admin/servers', active: 'admin_servers', module: 'Admin' },
+        { label: 'Classification',   icon: 'fas fa-layer-group',   children: [
+            { label: 'Unclassified Cookies', icon: 'fas fa-robot',          route: '/admin/unclassified-cookies', active: 'admin_unclassified_cookies', module: 'Admin' },
+            { label: 'Cookie Requests',      icon: 'fas fa-inbox',          route: '/admin/cookie-requests',      active: 'admin_cookie_requests', module: 'Admin' },
+            { label: 'Cookie Database',      icon: 'fas fa-database',       route: '/admin/global-cookies',       active: 'admin_global_cookies', module: 'Admin' },
+            { label: 'Unclassified Beacons', icon: 'fas fa-robot',          route: '/admin/unclassified-beacons', active: 'admin_unclassified_beacons', module: 'Admin' },
+            { label: 'Beacon Requests',      icon: 'fas fa-satellite-dish', route: '/admin/beacon-requests',      active: 'admin_beacon_requests', module: 'Admin' },
+            { label: 'Beacon Database',      icon: 'fas fa-database',       route: '/admin/global-beacons',       active: 'admin_global_beacons', module: 'Admin' },
+            { label: 'Review Queue',         icon: 'fas fa-user-check',     route: '/admin/classification-review', active: 'admin_classification_review', module: 'Admin' },
+        ] },
+        { label: 'Billing',          icon: 'fas fa-credit-card',   children: [
+            { label: 'Billing', icon: 'fas fa-file-invoice-dollar', route: '/admin/billing', active: 'admin_billing', module: 'Billing' },
+            { label: 'Plans',   icon: 'fas fa-tags',                route: '/admin/plans',   active: 'admin_plans', module: 'Admin' },
+        ] },
+        { label: 'News',             icon: 'fas fa-newspaper',     children: [
+            { label: 'News',         icon: 'fas fa-newspaper', route: '/app/news',         active: 'news', module: 'Blog' },
+            { label: 'News Sources', icon: 'fas fa-rss',       route: '/app/news/sources', active: 'news_sources', module: 'Blog' },
+        ] },
+        { label: 'Partnership requests', icon: 'fas fa-handshake', route: '/admin/agencies/applications', active: 'admin_agencies', badge: 'pending_agency_applications', module: 'Agency' },
+        { label: 'Geniziz sync',     icon: 'fas fa-arrows-rotate', route: '/admin/geniziz',     active: 'admin_geniziz', module: 'Geniziz' },
+        { label: 'v1 migration',     icon: 'fas fa-truck-ramp-box', route: '/admin/legacy-migration', active: 'admin_legacy_migration', module: 'LegacyMigration' },
+        { label: 'Backup & Restore', icon: 'fas fa-database',      route: '/admin/backup',      active: 'admin_backup' },
+        { label: 'Audit Log',        icon: 'fas fa-shield-halved', route: '/admin/audit-log',   active: 'admin_audit_log' },
+    ] %}
+
+    {% for item in items %}
+        {# The children whose module is loaded; a child naming none always is. #}
+        {% set children = [] %}
+        {% for c in item.children|default([]) %}
+            {% if c.module is not defined or (modules is not null and modules.get(c.module) is not null) %}
+                {% set children = children|merge([c]) %}
+            {% endif %}
+        {% endfor %}
+        {% if item.module is defined and (modules is null or modules.get(item.module) is null) %}
+            {# The module this item belongs to is not loaded in this edition. #}
+        {% elseif item.children is defined and children is empty %}
+            {# None of this group's screens exists in this edition. #}
+        {% elseif item.children is defined %}
+            {% set group_active = false %}
+            {% for c in children %}
+                {% if active_page is defined and active_page == c.active %}{% set group_active = true %}{% endif %}
+            {% endfor %}
+            {% set first_child = children|first %}
+            <li class="oci-has-subflyout">
+                <a href="{{ first_child.route }}" class="{{ group_active ? 'is-active' : '' }}">
+                    <span class="menu-icon"><i class="{{ item.icon }}"></i></span>
+                    <span>{{ item.label }}</span>
+                    <span class="oci-flyout-caret"><i class="fas fa-angle-right"></i></span>
+                </a>
+                <ul class="oci-subflyout menu-list">
+                    <li><p class="oci-flyout-label">{{ item.label }}</p></li>
+                    {% for c in children %}
+                    <li>
+                        <a href="{{ c.route }}" class="{{ active_page is defined and active_page == c.active ? 'is-active' : '' }}">
+                            <span class="menu-icon"><i class="{{ c.icon }}"></i></span>
+                            <span>{{ c.label }}</span>
+                        </a>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </li>
+        {% else %}
+            <li>
+                <a href="{{ item.route }}" class="{{ active_page is defined and active_page == item.active ? 'is-active' : '' }}">
+                    <span class="menu-icon"><i class="{{ item.icon }}"></i></span>
+                    <span>{{ item.label }}</span>
+                    {# Optional count badge. item.badge names a Twig global and
+                       renders only above zero, so an empty queue shows nothing
+                       rather than a standing "0" that people learn to ignore. #}
+                    {% if item.badge is defined and (badges[item.badge]|default(0)) > 0 %}
+                        <span class="tag is-danger is-rounded ml-2">{{ badges[item.badge] }}</span>
+                    {% endif %}
+                </a>
+            </li>
+        {% endif %}
+    {% endfor %}
+{% endmacro %}
+
+{# The address an "Admin" link leads to: the Admin module's dashboard where
+   that module is loaded, otherwise the first screen core serves itself. #}
+{% macro home(modules = null) %}{{ modules is not null and modules.get('Admin') is not null ? '/admin' : '/admin/backup' }}{% endmacro %}

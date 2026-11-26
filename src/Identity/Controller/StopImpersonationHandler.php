@@ -1,0 +1,76 @@
+<?php
+
+declare(strict_types=1);
+
+namespace OCI\Identity\Controller;
+
+use OCI\Http\Handler\RequestHandlerInterface;
+use OCI\Http\Response\ApiResponse;
+use OCI\Identity\Service\UserService;
+use OCI\Module\ModuleRegistry;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
+
+/**
+ * POST /app/stop-impersonation — End impersonation session.
+ *
+ * Works for both admin impersonation and override-password logins.
+ * Uses 'web' middleware so non-admin impersonated users can stop.
+ */
+final class StopImpersonationHandler implements RequestHandlerInterface
+{
+    public function __construct(
+        private readonly UserService $userService,
+        private readonly ModuleRegistry $modules,
+    ) {}
+
+    /**
+     * Where a visitor goes when impersonation ends. The last resort used to
+     * be /admin/users, which the open-source edition does not have: the
+     * Users screen comes with the Admin module.
+     */
+    public function redirectAfter(bool $wasOverride, mixed $returnUrl, string $originalRole): string
+    {
+        if ($wasOverride) {
+            return '/logout';
+        }
+        if (\is_string($returnUrl) && $returnUrl !== '') {
+            return $returnUrl;
+        }
+        if ($originalRole === 'agency') {
+            return '/agency/customers';
+        }
+
+        return $this->modules->get('Admin') !== null ? '/admin/users' : '/';
+    }
+
+    public function handle(ServerRequestInterface $request): ResponseInterface
+    {
+        $user = $request->getAttribute('user');
+        if ($user === null) {
+            return ApiResponse::redirect('/login');
+        }
+
+        if (!isset($_SESSION['impersonating_from'])) {
+            return ApiResponse::error('Not impersonating.', 400);
+        }
+
+        $wasOverride = $_SESSION['impersonating_from'] === 0;
+        $originalRole = $_SESSION['impersonating_role'] ?? 'admin';
+
+        // Where they actually came from, captured when impersonation started
+        // and already validated as a same-site path. Preferred over the role,
+        // because an admin working from the agency screens is acting as an
+        // agency and should not be dropped into /admin on the way out.
+        $returnUrl = $_SESSION['impersonating_return_url'] ?? null;
+
+        $this->userService->stopImpersonation();
+
+        $redirect = $this->redirectAfter($wasOverride, $returnUrl, (string) $originalRole);
+
+        return ApiResponse::success([
+            'message' => 'Impersonation ended.',
+            'redirect' => $redirect,
+        ]);
+    }
+}

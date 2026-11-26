@@ -1,0 +1,53 @@
+{# Reusable code-entry component — six segmented OTP inputs + status row. #}
+{# Used by the modal on /register and the standalone /register/verify page. #}
+{# Requires container element with the data attributes documented in verifyController(). #}
+<style>
+    .otp-row { display: flex; gap: 0.5rem; justify-content: center; margin: 1.5rem 0 0.75rem; }
+    .otp-input {
+        width: 3rem; height: 3.5rem;
+        text-align: center;
+        font-size: 1.75rem; font-weight: 600;
+        border: 1.5px solid #e2e8f0;
+        border-radius: 10px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        background: #fff;
+        transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .otp-input:focus {
+        outline: none;
+        border-color: #2e9e5e;
+        box-shadow: 0 0 0 3px rgba(46,158,94,0.15);
+    }
+    .otp-input.is-error { border-color: #e53e3e; box-shadow: 0 0 0 3px rgba(229,62,62,0.12); }
+    .otp-msg { min-height: 1.25rem; text-align: center; font-size: 0.85rem; margin-bottom: 0.5rem; }
+    .otp-msg.is-error { color: #c53030; }
+    .otp-msg.is-success { color: #2e9e5e; }
+    .otp-status { text-align: center; font-size: 0.85rem; color: #64748b; margin-bottom: 0.25rem; }
+    .otp-actions { display: flex; gap: 0.75rem; justify-content: space-between; align-items: center; margin-top: 1rem; }
+    .otp-resend { background: none; border: none; color: #2e9e5e; font-size: 0.85rem; cursor: pointer; padding: 0.25rem 0.5rem; }
+    .otp-resend[disabled] { color: #94a3b8; cursor: not-allowed; }
+    [data-theme="dark"] .otp-input { background: #334155; border-color: #475569; color: #f1f5f9; }
+</style>
+
+{% if email is defined and email != '' %}
+<div class="otp-status">
+    A 6-digit code was sent to <strong data-otp-email>{{ email }}</strong>
+</div>
+{% endif %}
+
+<div class="otp-row" data-otp-row>
+    {% for i in 0..5 %}
+        <input type="text"
+               inputmode="numeric"
+               maxlength="1"
+               pattern="\d"
+               autocomplete="one-time-code"
+               class="otp-input"
+               data-otp-input
+               data-index="{{ i }}"
+               aria-label="Digit {{ i + 1 }}">
+    {% endfor %}
+</div>
+
+<p class="otp-msg" data-otp-msg></p>
+<p style="font-size:0.9rem;color:#475569;margin-bottom:0.5rem">Remember to check your spam folder</p>
